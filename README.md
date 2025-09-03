@@ -1,4 +1,4 @@
-# AccessAid — Project I-8
+# AccessAid - Project I-8
 **AI/ML Tool to Help Persons with Disabilities**  
 Team: **Code Innovators**
 
