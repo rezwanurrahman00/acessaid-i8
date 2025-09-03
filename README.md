@@ -3,10 +3,10 @@
 Team: **Code Innovators**
 
 ## Team Members
-- Gautam Aryal (@github_handle)
-- Allen Pandey (@github_handle)
-- Aasmi Joshi (@github_handle)
-- Sworup Bohara (@github_handle)
+- Gautam Aryal (@Aryalgautam1)
+- Allen Pandey (@Allenpandey1)
+- Aasmi Joshi (@aasjos)
+- Sworup Bohara (@sb2933)
 - Rezwanur Rahman (@rezwanurrahman00)
 
 ## Project Summary
