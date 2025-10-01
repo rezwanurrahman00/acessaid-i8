@@ -1,3 +1,4 @@
+import { TouchableOpacity, Text } from 'react-native';
 import { Image } from 'expo-image';
 import { Platform, StyleSheet } from 'react-native';
 
@@ -17,10 +18,36 @@ export default function HomeScreen() {
           style={styles.reactLogo}
         />
       }>
+      
+      {/* Title Section */}
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
+        <ThemedText type="title">AccessAid – Sprint 1 Demo 🚀</ThemedText>
       </ThemedView>
+      <ThemedView style={{ alignItems: 'center', marginBottom: 20 }}>
+        <ThemedText type="subtitle">by Code Innovators</ThemedText>
+      </ThemedView>
+
+      {/* Dummy TTS Button */}
+      <ThemedView style={{ marginTop: 20, alignItems: 'center' }}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => alert("TTS feature coming soon! 🔊")}
+        >
+          <Text style={styles.buttonText}>🔊 Tap for TTS</Text>
+        </TouchableOpacity>
+      </ThemedView>
+
+      {/* Dummy Reminders Button */}
+      <ThemedView style={{ marginTop: 15, alignItems: 'center' }}>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#32CD32' }]} // green
+          onPress={() => alert("Reminders feature coming soon! 📅")}
+        >
+          <Text style={styles.buttonText}>📅 Open Reminders</Text>
+        </TouchableOpacity>
+      </ThemedView>
+
+      {/* Default starter sections */}
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
         <ThemedText>
@@ -36,6 +63,7 @@ export default function HomeScreen() {
           to open developer tools.
         </ThemedText>
       </ThemedView>
+
       <ThemedView style={styles.stepContainer}>
         <Link href="/modal">
           <Link.Trigger>
@@ -64,6 +92,7 @@ export default function HomeScreen() {
           {`Tap the Explore tab to learn more about what's included in this starter app.`}
         </ThemedText>
       </ThemedView>
+
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
         <ThemedText>
@@ -80,13 +109,13 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   titleContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginTop: 20,
+    marginBottom: 5,
   },
   stepContainer: {
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   reactLogo: {
     height: 178,
@@ -94,5 +123,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     position: 'absolute',
+  },
+  button: {
+    backgroundColor: '#1E90FF',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
