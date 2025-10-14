@@ -1,12 +1,9 @@
-import { TouchableOpacity, Text, Alert, ScrollView, Switch, TextInput, Modal, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, ScrollView, Switch, Text, TouchableOpacity, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
 import * as Speech from 'expo-speech';
-import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
@@ -19,14 +16,28 @@ export default function HomeScreen() {
   const [customText, setCustomText] = useState('');
   const router = useRouter();
 
-  // TTS Function
+  // Dynamic UI palette based on high-contrast setting
+  const ui = {
+    bg: highContrast ? '#000000' : '#f5f5f5',
+    cardBg: highContrast ? '#000000' : '#FFFFFF',
+    text: highContrast ? '#FFFFFF' : '#333333',
+    subtext: highContrast ? '#E6E6E6' : '#666666',
+    divider: highContrast ? 'rgba(255,255,255,0.25)' : '#E0E0E0',
+    headerBg: highContrast ? '#000000' : '#4A90E2',
+    headerBorder: highContrast ? '#FFFFFF' : 'transparent',
+    accent: highContrast ? '#FFD700' : '#4A90E2',
+    accentMuted: highContrast ? '#E6C200' : '#81b0ff',
+    switchThumbTrue: highContrast ? '#000000' : '#f5dd4b',
+  };
+
+  const scale = (n: number) => (largeText ? Math.round(n * 1.25) : n);
+
   const speakText = async (text: string) => {
     if (isSpeaking) {
       Speech.stop();
       setIsSpeaking(false);
       return;
     }
-
     try {
       setIsSpeaking(true);
       
@@ -60,8 +71,8 @@ export default function HomeScreen() {
     }
   };
 
-  // Welcome message with TTS
-  const welcomeMessage = "Welcome to AccessAid! Your personal accessibility assistant. Tap the buttons below to explore features.";
+  const welcomeMessage =
+    'Welcome to AccessAid! Your personal accessibility assistant. Tap the buttons below to explore features.';
 
   // Handle custom TTS
   const handleCustomTTS = () => {
@@ -74,107 +85,128 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, highContrast && styles.highContrast]}>
+    <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
       {/* Header */}
-      <ThemedView style={[styles.header, highContrast && styles.highContrastHeader]}>
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.logo}
-        />
-        <ThemedText style={[styles.title, largeText && styles.largeText]}>
-          AccessAid
-        </ThemedText>
-        <ThemedText style={[styles.subtitle, largeText && styles.largeSubtext]}>
+      <ThemedView
+        style={[
+          styles.header,
+          { backgroundColor: ui.headerBg, borderColor: ui.headerBorder },
+          highContrast && styles.headerContrastBorder,
+        ]}
+        accessibilityRole="header"
+      >
+        <Image source={require('@/assets/images/partial-react-logo.png')} style={styles.logo} />
+        <ThemedText style={[styles.title, { color: '#FFFFFF', fontSize: scale(32) }]}>AccessAid</ThemedText>
+        <ThemedText style={[styles.subtitle, { color: '#E8F4FD', fontSize: scale(18) }]}>
           Your Accessibility Assistant
         </ThemedText>
-        <ThemedText style={[styles.teamText, largeText && styles.largeSubtext]}>
+        <ThemedText style={[styles.teamText, { color: '#B8D4F0', fontSize: scale(14) }]}>
           by Code Innovators
         </ThemedText>
       </ThemedView>
 
       {/* Accessibility Settings */}
-      <ThemedView style={[styles.settingsContainer, highContrast && styles.highContrastCard]}>
-        <ThemedText style={[styles.sectionTitle, largeText && styles.largeText]}>
+      <ThemedView
+        style={[
+          styles.card,
+          {
+            backgroundColor: ui.cardBg,
+          },
+          highContrast && { borderColor: '#FFFFFF', borderWidth: 2 },
+        ]}
+        accessibilityLabel="Accessibility Settings Card"
+      >
+        <ThemedText style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}>
           Accessibility Settings
         </ThemedText>
-        
-        <ThemedView style={styles.settingRow}>
-          <ThemedText style={[styles.settingLabel, largeText && styles.largeSubtext]}>
+
+        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
+          <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>
             High Contrast Mode
           </ThemedText>
           <Switch
             value={highContrast}
             onValueChange={setHighContrast}
-            trackColor={{ false: '#767577', true: '#81b0ff' }}
-            thumbColor={highContrast ? '#f5dd4b' : '#f4f3f4'}
+            trackColor={{ false: '#767577', true: ui.accentMuted }}
+            thumbColor={highContrast ? ui.switchThumbTrue : '#f4f3f4'}
+            accessibilityLabel="Toggle high contrast mode"
           />
-        </ThemedView>
+        </View>
 
-        <ThemedView style={styles.settingRow}>
-          <ThemedText style={[styles.settingLabel, largeText && styles.largeSubtext]}>
+        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
+          <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>
             Large Text
           </ThemedText>
           <Switch
             value={largeText}
             onValueChange={setLargeText}
-            trackColor={{ false: '#767577', true: '#81b0ff' }}
-            thumbColor={largeText ? '#f5dd4b' : '#f4f3f4'}
+            trackColor={{ false: '#767577', true: ui.accentMuted }}
+            thumbColor={largeText ? ui.switchThumbTrue : '#f4f3f4'}
+            accessibilityLabel="Toggle large text"
           />
-        </ThemedView>
+        </View>
 
-        <ThemedView style={styles.settingRow}>
-          <ThemedText style={[styles.settingLabel, largeText && styles.largeSubtext]}>
+        <View style={[styles.settingRow, { borderBottomColor: 'transparent' }]}>
+          <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>
             Speech Rate: {speechRate.toFixed(1)}x
           </ThemedText>
           <TouchableOpacity
-            style={styles.rateButton}
-            onPress={() => setSpeechRate(prev => prev === 2.0 ? 0.5 : prev + 0.5)}
+            style={[styles.rateButton, { backgroundColor: ui.accent }]}
+            onPress={() => setSpeechRate((prev) => (prev >= 2.0 ? 0.5 : Number((prev + 0.5).toFixed(1))))}
+            accessibilityRole="button"
+            accessibilityLabel="Adjust speech rate"
           >
             <Text style={styles.rateButtonText}>Adjust</Text>
           </TouchableOpacity>
-        </ThemedView>
+        </View>
       </ThemedView>
 
       {/* Main Features */}
-      <ThemedView style={[styles.featuresContainer, highContrast && styles.highContrastCard]}>
-        <ThemedText style={[styles.sectionTitle, largeText && styles.largeText]}>
-          Main Features
-        </ThemedText>
+      <ThemedView
+        style={[
+          styles.card,
+          {
+            backgroundColor: ui.cardBg,
+          },
+          highContrast && { borderColor: '#FFFFFF', borderWidth: 2 },
+        ]}
+      >
+        <ThemedText style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}>Main Features</ThemedText>
 
-        {/* TTS Feature */}
+        {/* TTS */}
         <TouchableOpacity
           style={[
             styles.featureButton,
-            isSpeaking && styles.speakingButton,
-            highContrast && styles.highContrastButton
+            { backgroundColor: isSpeaking ? '#FF6B6B' : '#4A90E2' },
+            highContrast && { borderColor: '#FFFFFF', borderWidth: 2 },
           ]}
-          onPress={() => setShowTTSModal(true)}
-          accessibilityLabel="Open text-to-speech input"
-          accessibilityHint="Double tap to open text input for custom speech"
+          onPress={() => speakText(welcomeMessage)}
+          accessibilityLabel={isSpeaking ? 'Stop speaking' : 'Start text to speech'}
         >
-          <Text style={[styles.featureButtonText, largeText && styles.largeButtonText]}>
-            🔊 Text-to-Speech
+          <Text style={[styles.featureButtonText, { fontSize: scale(18) }]}>
+            {isSpeaking ? '🔇 Stop Speaking' : '🔊 Text-to-Speech'}
           </Text>
-          <ThemedText style={[styles.featureDescription, largeText && styles.largeSubtext]}>
-            Tap to type and hear custom text
+          <ThemedText style={[styles.featureDescription, { color: ui.subtext, fontSize: scale(14) }]}>
+            {isSpeaking ? 'Tap to stop' : 'Tap to hear welcome message'}
           </ThemedText>
         </TouchableOpacity>
 
-        {/* Reminders Feature */}
+        {/* Reminders */}
         <TouchableOpacity
           style={[
             styles.featureButton,
-            styles.remindersButton,
-            highContrast && styles.highContrastButton
+            { backgroundColor: '#32CD32' },
+            highContrast && { borderColor: '#FFFFFF', borderWidth: 2 },
           ]}
-          onPress={() => speakText("Reminders feature coming soon! This will help you manage your daily tasks and appointments.")}
+          onPress={() =>
+            speakText(
+              'Reminders feature coming soon! This will help you manage your daily tasks and appointments.'
+            )
+          }
           accessibilityLabel="Reminders feature"
-          accessibilityHint="Double tap to learn about reminders"
         >
-          <Text style={[styles.featureButtonText, largeText && styles.largeButtonText]}>
-            📅 Smart Reminders
-          </Text>
-          <ThemedText style={[styles.featureDescription, largeText && styles.largeSubtext]}>
+          <Text style={[styles.featureButtonText, { fontSize: scale(18) }]}>📅 Smart Reminders</Text>
+          <ThemedText style={[styles.featureDescription, { color: ui.subtext, fontSize: scale(14) }]}>
             Intelligent task and appointment reminders
           </ThemedText>
         </TouchableOpacity>
@@ -183,58 +215,63 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={[
             styles.featureButton,
-            styles.navigationButton,
-            highContrast && styles.highContrastButton
+            { backgroundColor: '#FF8C00' },
+            highContrast && { borderColor: '#FFFFFF', borderWidth: 2 },
           ]}
-          onPress={() => speakText("Voice navigation helps you move through the app using voice commands. This feature is coming soon!")}
+          onPress={() =>
+            speakText('Voice navigation helps you move through the app using voice commands. This feature is coming soon!')
+          }
           accessibilityLabel="Voice navigation feature"
-          accessibilityHint="Double tap to learn about voice navigation"
         >
-          <Text style={[styles.featureButtonText, largeText && styles.largeButtonText]}>
-            🎤 Voice Navigation
-          </Text>
-          <ThemedText style={[styles.featureDescription, largeText && styles.largeSubtext]}>
+          <Text style={[styles.featureButtonText, { fontSize: scale(18) }]}>🎤 Voice Navigation</Text>
+          <ThemedText style={[styles.featureDescription, { color: ui.subtext, fontSize: scale(14) }]}>
             Navigate the app using voice commands
           </ThemedText>
         </TouchableOpacity>
       </ThemedView>
 
       {/* Quick Actions */}
-      <ThemedView style={[styles.quickActionsContainer, highContrast && styles.highContrastCard]}>
-        <ThemedText style={[styles.sectionTitle, largeText && styles.largeText]}>
-          Quick Actions
-        </ThemedText>
-        
-        <ThemedView style={styles.quickActionsRow}>
+      <ThemedView
+        style={[
+          styles.card,
+          {
+            backgroundColor: ui.cardBg,
+          },
+          highContrast && { borderColor: '#FFFFFF', borderWidth: 2 },
+        ]}
+      >
+        <ThemedText style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}>Quick Actions</ThemedText>
+
+        <View style={styles.quickActionsRow}>
           <TouchableOpacity
-            style={[styles.quickActionButton, styles.remindersQuickButton, highContrast && styles.highContrastButton]}
+            style={[styles.quickActionButton, { backgroundColor: '#32CD32' }, highContrast && { borderColor: '#fff', borderWidth: 2 }]}
             onPress={() => {
-              speakText("Opening reminders");
+              speakText('Opening reminders');
               router.push('/reminders');
             }}
+            accessibilityRole="button"
             accessibilityLabel="Open reminders"
-            accessibilityHint="Double tap to go to reminders screen"
           >
-            <Text style={[styles.quickActionText, largeText && styles.largeSubtext]}>📅 Reminders</Text>
+            <Text style={[styles.quickActionText, { fontSize: scale(16) }]}>📅 Reminders</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
-            style={[styles.quickActionButton, styles.settingsQuickButton, highContrast && styles.highContrastButton]}
+            style={[styles.quickActionButton, { backgroundColor: '#6C7B7F' }, highContrast && { borderColor: '#fff', borderWidth: 2 }]}
             onPress={() => {
-              speakText("Opening settings");
+              speakText('Opening settings');
               router.push('/settings');
             }}
+            accessibilityRole="button"
             accessibilityLabel="Open settings"
-            accessibilityHint="Double tap to go to settings screen"
           >
-            <Text style={[styles.quickActionText, largeText && styles.largeSubtext]}>⚙️ Settings</Text>
+            <Text style={[styles.quickActionText, { fontSize: scale(16) }]}>⚙️ Settings</Text>
           </TouchableOpacity>
-        </ThemedView>
+        </View>
       </ThemedView>
 
       {/* Footer */}
       <ThemedView style={styles.footer}>
-        <ThemedText style={[styles.footerText, largeText && styles.largeSubtext]}>
+        <ThemedText style={[styles.footerText, { color: ui.subtext, fontSize: scale(14) }]}>
           AccessAid - Making technology accessible for everyone
         </ThemedText>
       </ThemedView>
@@ -295,115 +332,47 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  highContrast: {
-    backgroundColor: '#000000',
-  },
+  container: { flex: 1 },
   header: {
     alignItems: 'center',
     paddingVertical: 30,
     paddingHorizontal: 20,
-    backgroundColor: '#4A90E2',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     marginBottom: 20,
   },
-  highContrastHeader: {
-    backgroundColor: '#000000',
-    borderColor: '#FFFFFF',
-    borderWidth: 2,
-  },
-  logo: {
-    height: 80,
-    width: 80,
-    marginBottom: 15,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 5,
-    textAlign: 'center',
-  },
-  largeText: {
-    fontSize: 40,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#E8F4FD',
-    marginBottom: 5,
-    textAlign: 'center',
-  },
-  largeSubtext: {
-    fontSize: 22,
-  },
-  teamText: {
-    fontSize: 14,
-    color: '#B8D4F0',
-    fontStyle: 'italic',
-  },
-  settingsContainer: {
-    margin: 20,
+  headerContrastBorder: { borderWidth: 2 },
+  logo: { height: 80, width: 80, marginBottom: 15 },
+  title: { fontWeight: 'bold', marginBottom: 5, textAlign: 'center' },
+  subtitle: { marginBottom: 5, textAlign: 'center' },
+  teamText: { fontStyle: 'italic' },
+
+  card: {
+    marginHorizontal: 20,
+    marginBottom: 20,
     padding: 20,
     borderRadius: 15,
-    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  highContrastCard: {
-    backgroundColor: '#000000',
-    borderColor: '#FFFFFF',
-    borderWidth: 2,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333333',
-  },
+
+  sectionTitle: { fontWeight: 'bold', marginBottom: 15 },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
-  settingLabel: {
-    fontSize: 16,
-    color: '#333333',
-    flex: 1,
-  },
-  rateButton: {
-    backgroundColor: '#4A90E2',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  rateButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  featuresContainer: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 15,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
+  settingLabel: { flex: 1 },
+
+  rateButton: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 8 },
+  rateButtonText: { color: '#000', fontWeight: 'bold', fontSize: 14 },
+
   featureButton: {
-    backgroundColor: '#4A90E2',
     padding: 20,
     borderRadius: 12,
     marginBottom: 15,
@@ -414,151 +383,20 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  speakingButton: {
-    backgroundColor: '#FF6B6B',
-  },
-  remindersButton: {
-    backgroundColor: '#32CD32',
-  },
-  navigationButton: {
-    backgroundColor: '#FF8C00',
-  },
-  highContrastButton: {
-    borderColor: '#FFFFFF',
-    borderWidth: 2,
-  },
-  featureButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  largeButtonText: {
-    fontSize: 22,
-  },
-  featureDescription: {
-    color: '#E8F4FD',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  quickActionsContainer: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 15,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  quickActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
+  featureButtonText: { color: '#FFFFFF', fontWeight: 'bold', marginBottom: 5 },
+  featureDescription: { textAlign: 'center' },
+
+  quickActionsRow: { flexDirection: 'row', justifyContent: 'space-around' },
   quickActionButton: {
-    backgroundColor: '#6C7B7F',
     paddingVertical: 15,
     paddingHorizontal: 25,
     borderRadius: 10,
     minWidth: 120,
     alignItems: 'center',
   },
-  remindersQuickButton: {
-    backgroundColor: '#32CD32',
-  },
-  settingsQuickButton: {
-    backgroundColor: '#6C7B7F',
-  },
-  quickActionText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  footer: {
-    padding: 20,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#666666',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 25,
-    width: '100%',
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333333',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    color: '#666666',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  textInput: {
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    padding: 15,
-    fontSize: 16,
-    backgroundColor: '#FFFFFF',
-    minHeight: 100,
-    marginBottom: 20,
-  },
-  largeTextInput: {
-    fontSize: 20,
-    minHeight: 120,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 15,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  cancelButton: {
-    backgroundColor: '#6C7B7F',
-  },
-  speakButton: {
-    backgroundColor: '#4A90E2',
-  },
-  modalButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  quickActionText: { color: '#FFFFFF', fontWeight: 'bold' },
+
+  footer: { padding: 20, alignItems: 'center', marginTop: 10 },
+  footerText: { textAlign: 'center', fontStyle: 'italic' },
 });
+
