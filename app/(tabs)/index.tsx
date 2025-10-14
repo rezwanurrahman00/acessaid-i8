@@ -1,4 +1,4 @@
-import { TouchableOpacity, Text, Alert, ScrollView, Switch } from 'react-native';
+import { TouchableOpacity, Text, Alert, ScrollView, Switch, TextInput, Modal, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Platform, StyleSheet } from 'react-native';
 import * as Speech from 'expo-speech';
@@ -15,6 +15,8 @@ export default function HomeScreen() {
   const [highContrast, setHighContrast] = useState(false);
   const [largeText, setLargeText] = useState(false);
   const [speechRate, setSpeechRate] = useState(1.0);
+  const [showTTSModal, setShowTTSModal] = useState(false);
+  const [customText, setCustomText] = useState('');
   const router = useRouter();
 
   // TTS Function
@@ -27,24 +29,49 @@ export default function HomeScreen() {
 
     try {
       setIsSpeaking(true);
+      
+      // Stop any existing speech first
+      await Speech.stop();
+      
+      // Simple TTS configuration for mobile compatibility
       await Speech.speak(text, {
         rate: speechRate,
         pitch: 1.0,
         volume: 1.0,
         language: 'en-US',
-        onDone: () => setIsSpeaking(false),
-        onStopped: () => setIsSpeaking(false),
-        onError: () => setIsSpeaking(false),
+        onDone: () => {
+          console.log('TTS completed');
+          setIsSpeaking(false);
+        },
+        onStopped: () => {
+          console.log('TTS stopped');
+          setIsSpeaking(false);
+        },
+        onError: (error) => {
+          console.error('TTS Error:', error);
+          setIsSpeaking(false);
+          Alert.alert('TTS Error', 'Unable to use text-to-speech. Please check your device volume and settings.');
+        },
       });
     } catch (error) {
       console.error('TTS Error:', error);
       setIsSpeaking(false);
-      Alert.alert('TTS Error', 'Unable to use text-to-speech. Please check your device settings.');
+      Alert.alert('TTS Error', 'Unable to use text-to-speech. Please check your device volume and settings.');
     }
   };
 
   // Welcome message with TTS
   const welcomeMessage = "Welcome to AccessAid! Your personal accessibility assistant. Tap the buttons below to explore features.";
+
+  // Handle custom TTS
+  const handleCustomTTS = () => {
+    if (!customText.trim()) {
+      Alert.alert('Error', 'Please enter some text to speak');
+      return;
+    }
+    speakText(customText);
+    setShowTTSModal(false);
+  };
 
   return (
     <ScrollView style={[styles.container, highContrast && styles.highContrast]}>
@@ -121,15 +148,15 @@ export default function HomeScreen() {
             isSpeaking && styles.speakingButton,
             highContrast && styles.highContrastButton
           ]}
-          onPress={() => speakText(welcomeMessage)}
-          accessibilityLabel={isSpeaking ? "Stop speaking" : "Start text to speech"}
-          accessibilityHint="Double tap to hear the welcome message"
+          onPress={() => setShowTTSModal(true)}
+          accessibilityLabel="Open text-to-speech input"
+          accessibilityHint="Double tap to open text input for custom speech"
         >
           <Text style={[styles.featureButtonText, largeText && styles.largeButtonText]}>
-            {isSpeaking ? "🔇 Stop Speaking" : "🔊 Text-to-Speech"}
+            🔊 Text-to-Speech
           </Text>
           <ThemedText style={[styles.featureDescription, largeText && styles.largeSubtext]}>
-            {isSpeaking ? "Tap to stop" : "Tap to hear welcome message"}
+            Tap to type and hear custom text
           </ThemedText>
         </TouchableOpacity>
 
@@ -211,6 +238,58 @@ export default function HomeScreen() {
           AccessAid - Making technology accessible for everyone
         </ThemedText>
       </ThemedView>
+
+      {/* TTS Modal */}
+      <Modal
+        visible={showTTSModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTTSModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <ThemedView style={[styles.modalContainer, highContrast && styles.highContrastCard]}>
+            <ThemedText style={[styles.modalTitle, largeText && styles.largeText]}>
+              Text-to-Speech
+            </ThemedText>
+            <ThemedText style={[styles.modalSubtitle, largeText && styles.largeSubtext]}>
+              Type the text you want to hear spoken
+            </ThemedText>
+            
+            <TextInput
+              style={[styles.textInput, largeText && styles.largeTextInput]}
+              placeholder="Enter text to speak..."
+              value={customText}
+              onChangeText={setCustomText}
+              multiline={true}
+              numberOfLines={4}
+              textAlignVertical="top"
+              accessibilityLabel="Text input for speech"
+              accessibilityHint="Type the text you want to hear spoken aloud"
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowTTSModal(false);
+                  setCustomText('');
+                }}
+                accessibilityLabel="Cancel text input"
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.speakButton]}
+                onPress={handleCustomTTS}
+                accessibilityLabel="Speak the entered text"
+              >
+                <Text style={styles.modalButtonText}>🔊 Speak</Text>
+              </TouchableOpacity>
+            </View>
+          </ThemedView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -406,5 +485,80 @@ const styles = StyleSheet.create({
     color: '#666666',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 25,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333333',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  textInput: {
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    padding: 15,
+    fontSize: 16,
+    backgroundColor: '#FFFFFF',
+    minHeight: 100,
+    marginBottom: 20,
+  },
+  largeTextInput: {
+    fontSize: 20,
+    minHeight: 120,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 15,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  cancelButton: {
+    backgroundColor: '#6C7B7F',
+  },
+  speakButton: {
+    backgroundColor: '#4A90E2',
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
