@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function HomeScreen() {
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -13,6 +14,7 @@ export default function HomeScreen() {
   const [largeText, setLargeText] = useState(false);
   const [speechRate, setSpeechRate] = useState(1.0);
   const router = useRouter();
+  const { user } = useAuth();
 
   // Dynamic UI palette based on high-contrast setting
   const ui = {
@@ -54,8 +56,9 @@ export default function HomeScreen() {
     }
   };
 
-  const welcomeMessage =
-    'Welcome to AccessAid! Your personal accessibility assistant. Tap the buttons below to explore features.';
+  const welcomeMessage = user 
+    ? `Welcome back, ${user.name}! AccessAid is ready to help you. Tap the buttons below to explore features.`
+    : 'Welcome to AccessAid! Your personal accessibility assistant. Tap the buttons below to explore features.';
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
