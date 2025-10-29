@@ -12,6 +12,8 @@ export default function HomeScreen() {
   const [highContrast, setHighContrast] = useState(false);
   const [largeText, setLargeText] = useState(false);
   const [speechRate, setSpeechRate] = useState(1.0);
+  const [showTTSModal, setShowTTSModal] = useState(false);
+  const [customText, setCustomText] = useState('');
   const router = useRouter();
 
   // Dynamic UI palette based on high-contrast setting
@@ -38,24 +40,49 @@ export default function HomeScreen() {
     }
     try {
       setIsSpeaking(true);
+      
+      // Stop any existing speech first
+      await Speech.stop();
+      
+      // Simple TTS configuration for mobile compatibility
       await Speech.speak(text, {
         rate: speechRate,
         pitch: 1.0,
         volume: 1.0,
         language: 'en-US',
-        onDone: () => setIsSpeaking(false),
-        onStopped: () => setIsSpeaking(false),
-        onError: () => setIsSpeaking(false),
+        onDone: () => {
+          console.log('TTS completed');
+          setIsSpeaking(false);
+        },
+        onStopped: () => {
+          console.log('TTS stopped');
+          setIsSpeaking(false);
+        },
+        onError: (error) => {
+          console.error('TTS Error:', error);
+          setIsSpeaking(false);
+          Alert.alert('TTS Error', 'Unable to use text-to-speech. Please check your device volume and settings.');
+        },
       });
     } catch (error) {
       console.error('TTS Error:', error);
       setIsSpeaking(false);
-      Alert.alert('TTS Error', 'Unable to use text-to-speech. Please check your device settings.');
+      Alert.alert('TTS Error', 'Unable to use text-to-speech. Please check your device volume and settings.');
     }
   };
 
   const welcomeMessage =
     'Welcome to AccessAid! Your personal accessibility assistant. Tap the buttons below to explore features.';
+
+  // Handle custom TTS
+  const handleCustomTTS = () => {
+    if (!customText.trim()) {
+      Alert.alert('Error', 'Please enter some text to speak');
+      return;
+    }
+    speakText(customText);
+    setShowTTSModal(false);
+  };
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
@@ -248,6 +275,58 @@ export default function HomeScreen() {
           AccessAid - Making technology accessible for everyone
         </ThemedText>
       </ThemedView>
+
+      {/* TTS Modal */}
+      <Modal
+        visible={showTTSModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTTSModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <ThemedView style={[styles.modalContainer, highContrast && styles.highContrastCard]}>
+            <ThemedText style={[styles.modalTitle, largeText && styles.largeText]}>
+              Text-to-Speech
+            </ThemedText>
+            <ThemedText style={[styles.modalSubtitle, largeText && styles.largeSubtext]}>
+              Type the text you want to hear spoken
+            </ThemedText>
+            
+            <TextInput
+              style={[styles.textInput, largeText && styles.largeTextInput]}
+              placeholder="Enter text to speak..."
+              value={customText}
+              onChangeText={setCustomText}
+              multiline={true}
+              numberOfLines={4}
+              textAlignVertical="top"
+              accessibilityLabel="Text input for speech"
+              accessibilityHint="Type the text you want to hear spoken aloud"
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowTTSModal(false);
+                  setCustomText('');
+                }}
+                accessibilityLabel="Cancel text input"
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.speakButton]}
+                onPress={handleCustomTTS}
+                accessibilityLabel="Speak the entered text"
+              >
+                <Text style={styles.modalButtonText}>🔊 Speak</Text>
+              </TouchableOpacity>
+            </View>
+          </ThemedView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
