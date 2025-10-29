@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, ScrollView, Switch, Text, TouchableOpacity, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, Switch, Text, TouchableOpacity, StyleSheet, View, TextInput, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import * as Speech from 'expo-speech';
 import { useRouter } from 'expo-router';
