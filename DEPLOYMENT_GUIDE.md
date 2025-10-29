@@ -45,7 +45,7 @@ Visit these URLs in your browser:
 
 ## 🔧 **Deployment Options**
 
-### **1. Web Deployment (Easiest)**
+### ** Web Deployment (Easiest)**
 
 **Frontend (React Native Web):**
 - Your app already works in web browsers
@@ -57,7 +57,7 @@ Visit these URLs in your browser:
 - Update API_BASE_URL in `services/api.ts`
 - Add environment variables for database
 
-### **2. Mobile App Deployment**
+### ** Mobile App Deployment**
 
 **Development Build:**
 ```bash
@@ -73,13 +73,7 @@ eas build --platform android
 eas build --platform ios
 ```
 
-### **3. Backend Deployment**
 
-**Heroku Deployment:**
-```bash
-# Install Heroku CLI
-# Create Procfile
-echo "web: uvicorn main:app --host 0.0.0.0 --port \$PORT" > Procfile
 
 # Deploy
 git add .

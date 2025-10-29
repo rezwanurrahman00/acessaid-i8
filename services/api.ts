@@ -3,7 +3,7 @@
  * Handles communication with the FastAPI backend
  */
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'http://192.168.0.220:8000/api';
 
 // Types
 export interface User {
@@ -186,7 +186,7 @@ class ApiService {
 
   // Health check
   async healthCheck(): Promise<{ message: string; status: string }> {
-    return this.fetchWithErrorHandling<{ message: string; status: string }>('/');
+    return this.fetchWithErrorHandling<{ message: string; status: string }>('/health');
   }
 }
 
