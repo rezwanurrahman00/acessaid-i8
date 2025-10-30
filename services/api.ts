@@ -1,11 +1,60 @@
 /**
  * API service for AccessAid app
  * Handles communication with the FastAPI backend
+ * ✅ Auto-detects best backend URL (local, LAN, or Expo tunnel)
+ * ✅ Includes timeout & retry for stability
  */
 
-const API_BASE_URL = 'http://192.168.0.220:8000/api';
+const getBaseUrl = () => {
+  // Try auto-detection based on environment
+  if (__DEV__) {
+    // Check if running via Expo tunnel (more stable for teams)
+    const expoUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (expoUrl) return `${expoUrl}/api`;
 
-// Types
+    // Fallback to LAN or local dev
+    const lanIp = "http://192.168.0.220:8000/api"; // your home setup
+    const localhost = "http://localhost:8000/api";
+    return lanIp || localhost;
+  } else {
+    // Production fallback (e.g., deployed FastAPI server)
+    return "https://accessaid-backend.onrender.com/api";
+  }
+};
+
+const API_BASE_URL = getBaseUrl();
+
+// Helper function: timeout wrapper for fetch
+const fetchWithTimeout = (url: string, options: RequestInit = {}, timeout = 10000) => {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Request timed out")), timeout)
+    ),
+  ]);
+};
+
+// Helper function: retry wrapper
+async function fetchWithRetry<T>(
+  url: string,
+  options: RequestInit = {},
+  retries = 3
+): Promise<T> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetchWithTimeout(url, options);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await (response as Response).json();
+    } catch (err) {
+      console.warn(`Fetch attempt ${attempt} failed:`, err);
+      if (attempt === retries) throw err;
+      await new Promise((res) => setTimeout(res, 500 * attempt)); // exponential backoff
+    }
+  }
+  throw new Error("Max retries reached");
+}
+
+// -------------------- Types --------------------
 export interface User {
   user_id: number;
   email: string;
@@ -53,7 +102,7 @@ export interface UserSetting {
   updated_at: string;
 }
 
-// API Service Class
+// -------------------- API Service --------------------
 class ApiService {
   private baseUrl: string;
 
@@ -61,43 +110,34 @@ class ApiService {
     this.baseUrl = baseUrl;
   }
 
-  // Generic fetch method with error handling
-  private async fetchWithErrorHandling<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    console.log("🔗 API Request:", url);
+
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+      const result = await fetchWithRetry<T>(url, {
+        headers: { "Content-Type": "application/json", ...options.headers },
         ...options,
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
+      return result;
     } catch (error) {
-      console.error('API Error:', error);
+      console.error("🚨 API Error:", error);
       throw error;
     }
   }
 
-  // User endpoints
+  // ---------- User ----------
   async getUsers(): Promise<User[]> {
-    return this.fetchWithErrorHandling<User[]>('/users');
+    return this.request<User[]>("/users");
   }
 
   async getUser(userId: number): Promise<User> {
-    return this.fetchWithErrorHandling<User>(`/users/${userId}`);
+    return this.request<User>(`/users/${userId}`);
   }
 
-  // Reminder endpoints
+  // ---------- Reminders ----------
   async getUserReminders(userId: number): Promise<Reminder[]> {
-    return this.fetchWithErrorHandling<Reminder[]>(`/users/${userId}/reminders`);
+    return this.request<Reminder[]>(`/users/${userId}/reminders`);
   }
 
   async createReminder(
@@ -110,8 +150,8 @@ class ApiService {
       priority?: string;
     }
   ): Promise<Reminder> {
-    return this.fetchWithErrorHandling<Reminder>(`/users/${userId}/reminders`, {
-      method: 'POST',
+    return this.request<Reminder>(`/users/${userId}/reminders`, {
+      method: "POST",
       body: JSON.stringify(reminderData),
     });
   }
@@ -125,19 +165,19 @@ class ApiService {
       is_completed?: boolean;
     }
   ): Promise<Reminder> {
-    return this.fetchWithErrorHandling<Reminder>(`/reminders/${reminderId}`, {
-      method: 'PUT',
+    return this.request<Reminder>(`/reminders/${reminderId}`, {
+      method: "PUT",
       body: JSON.stringify(updateData),
     });
   }
 
   async deleteReminder(reminderId: number): Promise<{ message: string }> {
-    return this.fetchWithErrorHandling<{ message: string }>(`/reminders/${reminderId}`, {
-      method: 'DELETE',
+    return this.request<{ message: string }>(`/reminders/${reminderId}`, {
+      method: "DELETE",
     });
   }
 
-  // TTS History endpoints
+  // ---------- TTS ----------
   async logTTSUsage(
     userId: number,
     ttsData: {
@@ -148,19 +188,19 @@ class ApiService {
       context?: string;
     }
   ): Promise<{ message: string }> {
-    return this.fetchWithErrorHandling<{ message: string }>(`/users/${userId}/tts-history`, {
-      method: 'POST',
+    return this.request<{ message: string }>(`/users/${userId}/tts-history`, {
+      method: "POST",
       body: JSON.stringify(ttsData),
     });
   }
 
-  async getTTSHistory(userId: number, limit: number = 10): Promise<TTSHistory[]> {
-    return this.fetchWithErrorHandling<TTSHistory[]>(`/users/${userId}/tts-history?limit=${limit}`);
+  async getTTSHistory(userId: number, limit = 10): Promise<TTSHistory[]> {
+    return this.request<TTSHistory[]>(`/users/${userId}/tts-history?limit=${limit}`);
   }
 
-  // User Settings endpoints
+  // ---------- Settings ----------
   async getUserSettings(userId: number): Promise<UserSetting[]> {
-    return this.fetchWithErrorHandling<UserSetting[]>(`/users/${userId}/settings`);
+    return this.request<UserSetting[]>(`/users/${userId}/settings`);
   }
 
   async updateUserSetting(
@@ -168,30 +208,22 @@ class ApiService {
     settingName: string,
     settingValue: string
   ): Promise<{ message: string }> {
-    return this.fetchWithErrorHandling<{ message: string }>(`/users/${userId}/settings`, {
-      method: 'POST',
-      body: JSON.stringify({
-        setting_name: settingName,
-        setting_value: settingValue,
-      }),
+    return this.request<{ message: string }>(`/users/${userId}/settings`, {
+      method: "POST",
+      body: JSON.stringify({ setting_name: settingName, setting_value: settingValue }),
     });
   }
 
-  // Development endpoints
+  // ---------- Utility ----------
   async seedDatabase(): Promise<{ message: string }> {
-    return this.fetchWithErrorHandling<{ message: string }>('/seed-data', {
-      method: 'POST',
-    });
+    return this.request<{ message: string }>("/seed-data", { method: "POST" });
   }
 
-  // Health check
   async healthCheck(): Promise<{ message: string; status: string }> {
-    return this.fetchWithErrorHandling<{ message: string; status: string }>('/health');
+    return this.request<{ message: string; status: string }>("/health");
   }
 }
 
-// Create and export a singleton instance
 export const apiService = new ApiService();
-
-// Export the class for testing
 export default ApiService;
+
