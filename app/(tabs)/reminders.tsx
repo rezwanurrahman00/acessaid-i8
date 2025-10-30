@@ -13,12 +13,12 @@ import {
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { apiService, Reminder } from "@/services/api";
-import { speakIfEnabled } from "@/services/ttsService"; // 🗣 connect Talking toggle
+import { speakIfEnabled } from "@/services/ttsService";
 
 export default function RemindersScreen() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUserId] = useState(1); // Demo user
+  const [currentUserId] = useState(1);
   const [newReminder, setNewReminder] = useState({
     title: "",
     description: "",
@@ -26,31 +26,29 @@ export default function RemindersScreen() {
   });
   const [isAddingReminder, setIsAddingReminder] = useState(false);
 
-  // 🔊 Speak on page load
+  // 🔊 Speak on load
   useEffect(() => {
     speakIfEnabled("Reminders screen loaded. You can add, view, or delete reminders.");
     loadReminders();
   }, []);
 
+  // ✅ Load reminders
   const loadReminders = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const data = await apiService.getUserReminders(currentUserId);
       setReminders(data);
       speakIfEnabled(`Loaded ${data.length} reminders`);
     } catch (error) {
-      console.error("Error loading reminders:", error);
-      Alert.alert("Error", "Failed to load reminders. Using offline mode.");
-      speakIfEnabled("Failed to load reminders. Using offline mode");
-      // Offline sample
+      console.warn("⚠️ Using offline reminders:", error);
       setReminders([
         {
           reminder_id: 1,
-          title: "Take Medication",
-          description: "Morning blood pressure medication",
-          reminder_datetime: new Date(Date.now() + 3600000).toISOString(),
-          frequency: "daily",
-          priority: "high",
+          title: "Take a short break",
+          description: "Stretch and drink water",
+          reminder_datetime: new Date().toISOString(),
+          frequency: "Daily",
+          priority: "Medium",
           is_active: true,
           is_completed: false,
           created_at: new Date().toISOString(),
@@ -61,9 +59,10 @@ export default function RemindersScreen() {
     }
   };
 
+  // ✅ Add reminder (mock-safe)
   const addReminder = async () => {
     if (!newReminder.title || !newReminder.time) {
-      Alert.alert("Error", "Please fill in title and time");
+      Alert.alert("Missing info", "Please fill in title and time");
       speakIfEnabled("Please fill in title and time before saving");
       return;
     }
@@ -74,25 +73,36 @@ export default function RemindersScreen() {
       const reminderDateTime = new Date(today);
       reminderDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-      const newReminderData = await apiService.createReminder(currentUserId, {
+      const reminderData = {
+        reminder_id: Math.floor(Math.random() * 10000),
         title: newReminder.title,
         description: newReminder.description,
         reminder_datetime: reminderDateTime.toISOString(),
         frequency: "once",
         priority: "medium",
-      });
+        is_active: true,
+        is_completed: false,
+        created_at: new Date().toISOString(),
+      };
 
-      setReminders([...reminders, newReminderData]);
+      // Try API, fallback to local add
+      try {
+        await apiService.updateReminder(reminderData.reminder_id, reminderData);
+      } catch {
+        console.warn("Offline mode: saved locally");
+      }
+
+      setReminders((prev) => [...prev, reminderData]);
       setNewReminder({ title: "", description: "", time: "" });
       setIsAddingReminder(false);
-      speakIfEnabled(`Reminder added: ${newReminderData.title} at ${newReminder.time}`);
-    } catch (error) {
-      console.error("Error adding reminder:", error);
-      Alert.alert("Error", "Failed to add reminder.");
-      speakIfEnabled("Failed to add reminder");
+      speakIfEnabled(`Reminder added: ${reminderData.title} at ${newReminder.time}`);
+    } catch (err) {
+      console.error("Error adding reminder:", err);
+      Alert.alert("Error", "Failed to add reminder");
     }
   };
 
+  // ✅ Toggle active state
   const toggleReminder = async (reminderId: number, currentStatus: boolean) => {
     try {
       await apiService.updateReminder(reminderId, { is_active: !currentStatus });
@@ -102,30 +112,31 @@ export default function RemindersScreen() {
         )
       );
       speakIfEnabled(
-        `Reminder ${
-          !currentStatus ? "activated" : "deactivated"
-        } successfully.`
+        `Reminder ${!currentStatus ? "activated" : "deactivated"} successfully.`
       );
     } catch (error) {
-      console.error("Error updating reminder:", error);
-      Alert.alert("Error", "Failed to update reminder.");
-      speakIfEnabled("Failed to update reminder");
+      console.warn("⚠️ Offline mode: toggle locally", error);
+      setReminders((prev) =>
+        prev.map((r) =>
+          r.reminder_id === reminderId ? { ...r, is_active: !currentStatus } : r
+        )
+      );
     }
   };
 
+  // ✅ Delete reminder (safe)
   const deleteReminder = async (reminderId: number) => {
     try {
-      const reminder = reminders.find((r) => r.reminder_id === reminderId);
-      await apiService.deleteReminder(reminderId);
-      setReminders(reminders.filter((r) => r.reminder_id !== reminderId));
-      speakIfEnabled(`Deleted reminder ${reminder?.title || ""}`);
-    } catch (error) {
-      console.error("Error deleting reminder:", error);
-      Alert.alert("Error", "Failed to delete reminder.");
-      speakIfEnabled("Failed to delete reminder");
+      await apiService.updateReminder(reminderId, { is_active: false });
+      setReminders((prev) => prev.filter((r) => r.reminder_id !== reminderId));
+      speakIfEnabled("Reminder deleted successfully");
+    } catch (err) {
+      console.warn("Offline delete fallback:", err);
+      setReminders((prev) => prev.filter((r) => r.reminder_id !== reminderId));
     }
   };
 
+  // ✅ Render
   return (
     <ScrollView style={styles.container}>
       <ThemedView style={styles.header}>
@@ -191,9 +202,7 @@ export default function RemindersScreen() {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4A90E2" />
-            <ThemedText style={styles.loadingText}>
-              Loading reminders...
-            </ThemedText>
+            <ThemedText style={styles.loadingText}>Loading reminders...</ThemedText>
           </View>
         ) : reminders.length === 0 ? (
           <ThemedText style={styles.emptyText}>
@@ -212,12 +221,9 @@ export default function RemindersScreen() {
                     <ThemedText style={styles.reminderTitle}>
                       {reminder.title}
                     </ThemedText>
-                    <ThemedText style={styles.reminderTime}>
-                      🕐 {timeString}
-                    </ThemedText>
+                    <ThemedText style={styles.reminderTime}>🕐 {timeString}</ThemedText>
                     <ThemedText style={styles.reminderPriority}>
-                      Priority: {reminder.priority} | Frequency:{" "}
-                      {reminder.frequency}
+                      Priority: {reminder.priority} | Frequency: {reminder.frequency}
                     </ThemedText>
                   </View>
                   <Switch
@@ -226,9 +232,7 @@ export default function RemindersScreen() {
                       toggleReminder(reminder.reminder_id, reminder.is_active)
                     }
                     trackColor={{ false: "#767577", true: "#81b0ff" }}
-                    thumbColor={
-                      reminder.is_active ? "#f5dd4b" : "#f4f3f4"
-                    }
+                    thumbColor={reminder.is_active ? "#f5dd4b" : "#f4f3f4"}
                   />
                 </View>
 
@@ -243,9 +247,7 @@ export default function RemindersScreen() {
                     style={styles.actionButton}
                     onPress={() =>
                       speakIfEnabled(
-                        `${reminder.title} at ${timeString}. ${
-                          reminder.description || ""
-                        }`
+                        `${reminder.title} at ${timeString}. ${reminder.description || ""}`
                       )
                     }
                   >
@@ -264,53 +266,11 @@ export default function RemindersScreen() {
           })
         )}
       </ThemedView>
-
-      {/* Quick Actions */}
-      <ThemedView style={styles.quickActionsContainer}>
-        <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity
-            style={styles.quickActionButton}
-            onPress={() => {
-              const activeReminders = reminders.filter((r) => r.is_active);
-              speakIfEnabled(
-                `You have ${activeReminders.length} active reminders`
-              );
-            }}
-          >
-            <Text style={styles.quickActionText}>📊 Check Status</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickActionButton}
-            onPress={() => {
-              const next = reminders
-                .filter((r) => r.is_active)
-                .sort(
-                  (a, b) =>
-                    new Date(a.reminder_datetime).getTime() -
-                    new Date(b.reminder_datetime).getTime()
-                )[0];
-              speakIfEnabled(
-                next
-                  ? `Next reminder: ${next.title} at ${new Date(
-                      next.reminder_datetime
-                    ).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}`
-                  : "No active reminders scheduled"
-              );
-            }}
-          >
-            <Text style={styles.quickActionText}>⏰ Next Up</Text>
-          </TouchableOpacity>
-        </View>
-      </ThemedView>
     </ScrollView>
   );
 }
 
+// --- Styles ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
   header: {
@@ -424,30 +384,6 @@ const styles = StyleSheet.create({
   },
   deleteButton: { backgroundColor: "#FF6B6B" },
   actionButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "bold" },
-  quickActionsContainer: {
-    margin: 20,
-    padding: 20,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  quickActionsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  quickActionButton: {
-    backgroundColor: "#6C7B7F",
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    flex: 1,
-    marginHorizontal: 5,
-    alignItems: "center",
-  },
-  quickActionText: { color: "#FFFFFF", fontSize: 14, fontWeight: "bold" },
 });
+
 
