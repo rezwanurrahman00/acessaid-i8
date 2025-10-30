@@ -1,11 +1,11 @@
 /**
  * API service for AccessAid app
- * Auto-fallback to mock data if backend is unreachable
+ * Fully compatible with online + offline (mock fallback) modes
  */
 
-const API_BASE_URL = 'http://192.168.0.220:8000/api'; // kept in case backend works
+const API_BASE_URL = 'http://192.168.0.220:8000/api'; // backend optional
 
-// Types
+// --- Types ---
 export interface User {
   user_id: number;
   email: string;
@@ -53,7 +53,7 @@ export interface UserSetting {
   updated_at: string;
 }
 
-// --- Mock fallback data ---
+// --- Mock Fallback Data ---
 const mockUser: User = {
   user_id: 1,
   email: "rezwanu.rahman@my.unt.edu",
@@ -106,20 +106,19 @@ const mockSettings: UserSetting[] = [
 async function tryFetch<T>(url: string, options: RequestInit = {}, fallback: T): Promise<T> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
+    const timeout = setTimeout(() => controller.abort(), 3000);
     const response = await fetch(url, { ...options, signal: controller.signal });
 
     clearTimeout(timeout);
-
-    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (err) {
-    console.warn("⚠️ Network unreachable, using mock data:", url);
+    console.warn("⚠️ Using mock data for:", url);
     return fallback;
   }
 }
 
-// --- Main API Service ---
+// --- Main Service Class ---
 class ApiService {
   private baseUrl: string;
 
@@ -127,34 +126,78 @@ class ApiService {
     this.baseUrl = baseUrl;
   }
 
-  async getUser(userId: number): Promise<User> {
-    return tryFetch(`${this.baseUrl}/users/${userId}`, {}, mockUser);
-  }
-
+  // --- USERS ---
   async getUsers(): Promise<User[]> {
     return tryFetch(`${this.baseUrl}/users`, {}, [mockUser]);
   }
 
+  async getUser(userId: number): Promise<User> {
+    return tryFetch(`${this.baseUrl}/users/${userId}`, {}, mockUser);
+  }
+
+  // --- REMINDERS ---
   async getUserReminders(userId: number): Promise<Reminder[]> {
     return tryFetch(`${this.baseUrl}/users/${userId}/reminders`, {}, mockReminders);
   }
 
+  async updateReminder(
+    reminderId: number,
+    updateData: Partial<Reminder>
+  ): Promise<{ message: string }> {
+    console.log("🟢 updateReminder called:", reminderId, updateData);
+    return tryFetch(
+      `${this.baseUrl}/reminders/${reminderId}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      },
+      { message: "Reminder updated locally (offline mode)" }
+    );
+  }
+
+  // --- SETTINGS ---
   async getUserSettings(userId: number): Promise<UserSetting[]> {
     return tryFetch(`${this.baseUrl}/users/${userId}/settings`, {}, mockSettings);
   }
 
   async updateUserSetting(userId: number, settingName: string, settingValue: string) {
+    console.log("🟢 updateUserSetting called:", settingName, settingValue);
     return tryFetch(
       `${this.baseUrl}/users/${userId}/settings`,
       {
-        method: 'POST',
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ setting_name: settingName, setting_value: settingValue }),
-        headers: { 'Content-Type': 'application/json' },
       },
       { message: "Saved locally (offline mode)" }
     );
   }
 
+  // --- TTS LOGGING ---
+  async logTTSUsage(
+    userId: number,
+    ttsData: {
+      content: string;
+      voice_settings?: any;
+      speech_rate?: number;
+      volume?: number;
+      context?: string;
+    }
+  ): Promise<{ message: string }> {
+    console.log("🟢 logTTSUsage called:", userId, ttsData);
+    return tryFetch(
+      `${this.baseUrl}/users/${userId}/tts-history`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ttsData),
+      },
+      { message: "TTS logged locally (offline mode)" }
+    );
+  }
+
+  // --- HEALTH CHECK ---
   async healthCheck() {
     return tryFetch(`${this.baseUrl}/health`, {}, { message: "Offline Mode", status: "ok" });
   }
@@ -163,5 +206,6 @@ class ApiService {
 // --- Export Singleton ---
 export const apiService = new ApiService();
 export default ApiService;
+
 
 
