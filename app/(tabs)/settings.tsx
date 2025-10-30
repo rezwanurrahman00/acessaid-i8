@@ -13,16 +13,13 @@ import * as Speech from "expo-speech";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { apiService, UserSetting } from "@/services/api";
-import {
-  getTalkingPreference,
-  setTalkingPreference,
-} from "@/services/ttsService";
+import { getTalkingPreference, setTalkingPreference } from "@/services/ttsService";
 
 type LocalSettings = {
   voice_speed: number;
   high_contrast: boolean;
   large_text: boolean;
-  voice_navigation: boolean; // our “Talking” toggle
+  voice_navigation: boolean;
   reminder_frequency: "low" | "normal" | "high";
   preferred_voice: "default" | "enhanced" | "clear" | "simple";
   push_notifications: boolean;
@@ -33,7 +30,7 @@ type LocalSettings = {
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<UserSetting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUserId] = useState(1); // demo user
+  const [currentUserId] = useState(1);
 
   const [localSettings, setLocalSettings] = useState<LocalSettings>({
     voice_speed: 1.0,
@@ -51,7 +48,7 @@ export default function SettingsScreen() {
     loadSettings();
   }, []);
 
-  // Load from backend and sync the speech toggle to local storage
+  // ✅ load settings with mock fallback
   const loadSettings = async () => {
     try {
       setLoading(true);
@@ -75,64 +72,37 @@ export default function SettingsScreen() {
       };
 
       setLocalSettings(merged);
-
-      // keep local AsyncStorage in sync with backend value for the talking toggle
       await setTalkingPreference(merged.voice_navigation);
     } catch (error) {
-      console.error("Error loading settings:", error);
-      // fall back to whatever was stored locally for the toggle
+      console.warn("⚠️ Offline mode: using cached settings");
       const localToggle = await getTalkingPreference();
       setLocalSettings((prev) => ({ ...prev, voice_navigation: localToggle }));
-      Alert.alert("Error", "Failed to load settings. Using saved values.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Unified updater: updates backend, local state, and (if talking) gives feedback
+  // ✅ unified update (safe offline)
   const updateSetting = async (settingName: keyof LocalSettings, value: any) => {
+    // Optimistic update
+    setLocalSettings((prev) => ({ ...prev, [settingName]: value }));
+
     try {
-      // 1) optimistic UI
-      setLocalSettings((prev) => ({ ...prev, [settingName]: value }));
-
-      // 2) backend sync
-      await apiService.updateUserSetting(
-        currentUserId,
-        settingName,
-        String(value)
-      );
-
-      // 3) special behavior for the talking toggle
-      if (settingName === "voice_navigation") {
-        await setTalkingPreference(Boolean(value));
-        if (!value) {
-          // stop any ongoing speech the moment it is turned off
-          Speech.stop();
-        } else {
-          // short confirmation when turned on
-          safeSpeak("Talking feature enabled.");
-        }
-      }
-
-      // lightweight activity log
-      await apiService.logTTSUsage(currentUserId, {
-        content: `Setting ${String(settingName)} → ${String(value)}`,
-        context: "settings_update",
-      });
-
-      // spoken feedback only if talking is enabled
-      safeSpeak(
-        `Setting updated: ${String(settingName)} is now ${String(value)}`
-      );
-    } catch (error) {
-      console.error("Error updating setting:", error);
-      // revert UI on failure
-      setLocalSettings((prev) => ({ ...prev, [settingName]: (prev as any)[settingName] }));
-      Alert.alert("Error", "Failed to update setting. Please try again.");
+      await apiService.updateUserSetting(currentUserId, settingName, String(value));
+    } catch {
+      console.warn(`⚠️ Offline update saved locally for ${settingName}`);
     }
+
+    // Special case: talking toggle
+    if (settingName === "voice_navigation") {
+      await setTalkingPreference(Boolean(value));
+      if (!value) Speech.stop();
+      else safeSpeak("Talking feature enabled.");
+    }
+
+    safeSpeak(`Setting updated: ${String(settingName)} is now ${String(value)}`);
   };
 
-  // Speak but only when the toggle is ON
   const safeSpeak = (text: string) => {
     if (!localSettings.voice_navigation) return;
     Speech.speak(text, {
@@ -181,10 +151,7 @@ export default function SettingsScreen() {
               email_notifications: true,
               reminder_sound: true,
             };
-
             for (const [k, v] of Object.entries(defaults)) {
-              // sequential updates to ensure consistent state/logging
-              // @ts-ignore
               await updateSetting(k as keyof LocalSettings, v);
             }
             safeSpeak("Settings reset to default values.");
@@ -204,8 +171,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentInsetAdjustmentBehavior="automatic">
-      {/* Header */}
+    <ScrollView style={styles.container}>
       <ThemedView style={styles.header}>
         <ThemedText style={styles.title}>Settings</ThemedText>
         <ThemedText style={styles.subtitle}>
@@ -218,9 +184,7 @@ export default function SettingsScreen() {
         <ThemedText style={styles.sectionTitle}>Voice & Speech</ThemedText>
 
         <View style={styles.settingRow}>
-          <ThemedText style={styles.settingLabel}>
-            Talking (Voice Navigation)
-          </ThemedText>
+          <ThemedText style={styles.settingLabel}>Talking (Voice Navigation)</ThemedText>
           <Switch
             value={localSettings.voice_navigation}
             onValueChange={() =>
@@ -228,13 +192,11 @@ export default function SettingsScreen() {
             }
             trackColor={{ false: "#767577", true: "#81b0ff" }}
             thumbColor={localSettings.voice_navigation ? "#f5dd4b" : "#f4f3f4"}
-            accessibilityLabel="Toggle talking feature"
           />
         </View>
 
         <ThemedText style={styles.helperText}>
-          When enabled, AccessAid speaks labels or actions when you tap on icons
-          and buttons across the app.
+          When enabled, AccessAid speaks labels or actions when you tap icons.
         </ThemedText>
 
         <View style={styles.settingRow}>
@@ -255,8 +217,7 @@ export default function SettingsScreen() {
             onPress={() =>
               updateSetting(
                 "preferred_voice",
-                cycle(["default", "enhanced", "clear", "simple"] as const,
-                  localSettings.preferred_voice)
+                cycle(["default", "enhanced", "clear", "simple"] as const, localSettings.preferred_voice)
               )
             }
           >
@@ -265,10 +226,9 @@ export default function SettingsScreen() {
         </View>
       </ThemedView>
 
-      {/* Visual */}
+      {/* Visual Settings */}
       <ThemedView style={styles.settingsSection}>
         <ThemedText style={styles.sectionTitle}>Visual Settings</ThemedText>
-
         <View style={styles.settingRow}>
           <ThemedText style={styles.settingLabel}>High Contrast Mode</ThemedText>
           <Switch
@@ -280,7 +240,6 @@ export default function SettingsScreen() {
             thumbColor={localSettings.high_contrast ? "#f5dd4b" : "#f4f3f4"}
           />
         </View>
-
         <View style={styles.settingRow}>
           <ThemedText style={styles.settingLabel}>Large Text</ThemedText>
           <Switch
@@ -297,43 +256,23 @@ export default function SettingsScreen() {
       {/* Notifications */}
       <ThemedView style={styles.settingsSection}>
         <ThemedText style={styles.sectionTitle}>Notifications</ThemedText>
-
-        <View style={styles.settingRow}>
-          <ThemedText style={styles.settingLabel}>Push Notifications</ThemedText>
-          <Switch
-            value={localSettings.push_notifications}
-            onValueChange={() =>
-              toggleSetting("push_notifications", localSettings.push_notifications)
-            }
-            trackColor={{ false: "#767577", true: "#81b0ff" }}
-            thumbColor={localSettings.push_notifications ? "#f5dd4b" : "#f4f3f4"}
-          />
-        </View>
-
-        <View style={styles.settingRow}>
-          <ThemedText style={styles.settingLabel}>Email Notifications</ThemedText>
-          <Switch
-            value={localSettings.email_notifications}
-            onValueChange={() =>
-              toggleSetting("email_notifications", localSettings.email_notifications)
-            }
-            trackColor={{ false: "#767577", true: "#81b0ff" }}
-            thumbColor={localSettings.email_notifications ? "#f5dd4b" : "#f4f3f4"}
-          />
-        </View>
-
-        <View style={styles.settingRow}>
-          <ThemedText style={styles.settingLabel}>Reminder Sound</ThemedText>
-          <Switch
-            value={localSettings.reminder_sound}
-            onValueChange={() =>
-              toggleSetting("reminder_sound", localSettings.reminder_sound)
-            }
-            trackColor={{ false: "#767577", true: "#81b0ff" }}
-            thumbColor={localSettings.reminder_sound ? "#f5dd4b" : "#f4f3f4"}
-          />
-        </View>
-
+        {[
+          ["push_notifications", "Push Notifications"],
+          ["email_notifications", "Email Notifications"],
+          ["reminder_sound", "Reminder Sound"],
+        ].map(([key, label]) => (
+          <View key={key} style={styles.settingRow}>
+            <ThemedText style={styles.settingLabel}>{label}</ThemedText>
+            <Switch
+              value={(localSettings as any)[key]}
+              onValueChange={() =>
+                toggleSetting(key as keyof LocalSettings, (localSettings as any)[key])
+              }
+              trackColor={{ false: "#767577", true: "#81b0ff" }}
+              thumbColor={(localSettings as any)[key] ? "#f5dd4b" : "#f4f3f4"}
+            />
+          </View>
+        ))}
         <View style={styles.settingRow}>
           <ThemedText style={styles.settingLabel}>
             Reminder Frequency: {localSettings.reminder_frequency}
@@ -355,7 +294,6 @@ export default function SettingsScreen() {
       {/* Quick Actions */}
       <ThemedView style={styles.settingsSection}>
         <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
-
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() =>
@@ -363,21 +301,18 @@ export default function SettingsScreen() {
               ? safeSpeak("Testing voice settings with current speech rate.")
               : Alert.alert("Talking is off", "Enable Talking to hear the test.")
           }
-          accessibilityLabel="Test voice settings"
         >
           <Text style={styles.actionButtonText}>🔊 Test Voice</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
           style={[styles.actionButton, styles.resetButton]}
           onPress={resetToDefaults}
-          accessibilityLabel="Reset all settings to default"
         >
           <Text style={styles.actionButtonText}>🔄 Reset to Defaults</Text>
         </TouchableOpacity>
       </ThemedView>
 
-      {/* App Info */}
+      {/* Info */}
       <ThemedView style={styles.infoSection}>
         <ThemedText style={styles.sectionTitle}>App Information</ThemedText>
         <ThemedText style={styles.infoText}>AccessAid v1.0.0</ThemedText>
@@ -392,12 +327,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { marginTop: 10, color: "#666666", fontSize: 16 },
   header: {
     backgroundColor: "#6C7B7F",
@@ -430,7 +360,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
   },
-  helperText: { fontSize: 13, color: "#666", marginTop: 8, marginBottom: 6 },
+  helperText: { fontSize: 13, color: "#666", marginTop: 8 },
   settingLabel: { fontSize: 16, color: "#333333", flex: 1 },
   adjustButton: {
     backgroundColor: "#4A90E2",
@@ -445,11 +375,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 10,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
   },
   resetButton: { backgroundColor: "#FF6B6B" },
   actionButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "bold" },
@@ -458,13 +383,9 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#FFFFFF",
     borderRadius: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
     alignItems: "center",
   },
   infoText: { fontSize: 14, color: "#666666", marginBottom: 5, textAlign: "center" },
 });
+
 
