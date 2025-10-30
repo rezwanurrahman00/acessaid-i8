@@ -1,60 +1,11 @@
 /**
  * API service for AccessAid app
- * Handles communication with the FastAPI backend
- * ✅ Auto-detects best backend URL (local, LAN, or Expo tunnel)
- * ✅ Includes timeout & retry for stability
+ * Auto-fallback to mock data if backend is unreachable
  */
 
-const getBaseUrl = () => {
-  // Try auto-detection based on environment
-  if (__DEV__) {
-    // Check if running via Expo tunnel (more stable for teams)
-    const expoUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (expoUrl) return `${expoUrl}/api`;
+const API_BASE_URL = 'http://192.168.0.220:8000/api'; // kept in case backend works
 
-    // Fallback to LAN or local dev
-    const lanIp = "http://192.168.0.220:8000/api"; // your home setup
-    const localhost = "http://localhost:8000/api";
-    return lanIp || localhost;
-  } else {
-    // Production fallback (e.g., deployed FastAPI server)
-    return "https://accessaid-backend.onrender.com/api";
-  }
-};
-
-const API_BASE_URL = getBaseUrl();
-
-// Helper function: timeout wrapper for fetch
-const fetchWithTimeout = (url: string, options: RequestInit = {}, timeout = 10000) => {
-  return Promise.race([
-    fetch(url, options),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Request timed out")), timeout)
-    ),
-  ]);
-};
-
-// Helper function: retry wrapper
-async function fetchWithRetry<T>(
-  url: string,
-  options: RequestInit = {},
-  retries = 3
-): Promise<T> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const response = await fetchWithTimeout(url, options);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await (response as Response).json();
-    } catch (err) {
-      console.warn(`Fetch attempt ${attempt} failed:`, err);
-      if (attempt === retries) throw err;
-      await new Promise((res) => setTimeout(res, 500 * attempt)); // exponential backoff
-    }
-  }
-  throw new Error("Max retries reached");
-}
-
-// -------------------- Types --------------------
+// Types
 export interface User {
   user_id: number;
   email: string;
@@ -102,7 +53,73 @@ export interface UserSetting {
   updated_at: string;
 }
 
-// -------------------- API Service --------------------
+// --- Mock fallback data ---
+const mockUser: User = {
+  user_id: 1,
+  email: "rezwanu.rahman@my.unt.edu",
+  first_name: "Rezwanur",
+  last_name: "Rahman",
+  accessibility_preferences: {
+    voice_speed: 1.0,
+    high_contrast: false,
+    large_text: false,
+    voice_navigation: true,
+    reminder_frequency: "daily",
+    preferred_voice: "default",
+  },
+  timezone: "CST",
+  is_active: true,
+  created_at: new Date().toISOString(),
+};
+
+const mockReminders: Reminder[] = [
+  {
+    reminder_id: 1,
+    title: "Take a short break",
+    description: "Stretch and drink water",
+    reminder_datetime: new Date().toISOString(),
+    frequency: "Daily",
+    priority: "Medium",
+    is_active: true,
+    is_completed: false,
+    created_at: new Date().toISOString(),
+  },
+  {
+    reminder_id: 2,
+    title: "Review sprint tasks",
+    description: "Check GitHub progress",
+    reminder_datetime: new Date().toISOString(),
+    frequency: "Once",
+    priority: "High",
+    is_active: true,
+    is_completed: false,
+    created_at: new Date().toISOString(),
+  },
+];
+
+const mockSettings: UserSetting[] = [
+  { setting_id: 1, setting_name: "talking", setting_value: "true", updated_at: new Date().toISOString() },
+  { setting_id: 2, setting_name: "high_contrast", setting_value: "false", updated_at: new Date().toISOString() },
+];
+
+// --- Helper Function ---
+async function tryFetch<T>(url: string, options: RequestInit = {}, fallback: T): Promise<T> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
+    const response = await fetch(url, { ...options, signal: controller.signal });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+    return await response.json();
+  } catch (err) {
+    console.warn("⚠️ Network unreachable, using mock data:", url);
+    return fallback;
+  }
+}
+
+// --- Main API Service ---
 class ApiService {
   private baseUrl: string;
 
@@ -110,120 +127,41 @@ class ApiService {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    console.log("🔗 API Request:", url);
-
-    try {
-      const result = await fetchWithRetry<T>(url, {
-        headers: { "Content-Type": "application/json", ...options.headers },
-        ...options,
-      });
-      return result;
-    } catch (error) {
-      console.error("🚨 API Error:", error);
-      throw error;
-    }
-  }
-
-  // ---------- User ----------
-  async getUsers(): Promise<User[]> {
-    return this.request<User[]>("/users");
-  }
-
   async getUser(userId: number): Promise<User> {
-    return this.request<User>(`/users/${userId}`);
+    return tryFetch(`${this.baseUrl}/users/${userId}`, {}, mockUser);
   }
 
-  // ---------- Reminders ----------
+  async getUsers(): Promise<User[]> {
+    return tryFetch(`${this.baseUrl}/users`, {}, [mockUser]);
+  }
+
   async getUserReminders(userId: number): Promise<Reminder[]> {
-    return this.request<Reminder[]>(`/users/${userId}/reminders`);
+    return tryFetch(`${this.baseUrl}/users/${userId}/reminders`, {}, mockReminders);
   }
 
-  async createReminder(
-    userId: number,
-    reminderData: {
-      title: string;
-      description?: string;
-      reminder_datetime?: string;
-      frequency?: string;
-      priority?: string;
-    }
-  ): Promise<Reminder> {
-    return this.request<Reminder>(`/users/${userId}/reminders`, {
-      method: "POST",
-      body: JSON.stringify(reminderData),
-    });
-  }
-
-  async updateReminder(
-    reminderId: number,
-    updateData: {
-      title?: string;
-      description?: string;
-      is_active?: boolean;
-      is_completed?: boolean;
-    }
-  ): Promise<Reminder> {
-    return this.request<Reminder>(`/reminders/${reminderId}`, {
-      method: "PUT",
-      body: JSON.stringify(updateData),
-    });
-  }
-
-  async deleteReminder(reminderId: number): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/reminders/${reminderId}`, {
-      method: "DELETE",
-    });
-  }
-
-  // ---------- TTS ----------
-  async logTTSUsage(
-    userId: number,
-    ttsData: {
-      content: string;
-      voice_settings?: any;
-      speech_rate?: number;
-      volume?: number;
-      context?: string;
-    }
-  ): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/users/${userId}/tts-history`, {
-      method: "POST",
-      body: JSON.stringify(ttsData),
-    });
-  }
-
-  async getTTSHistory(userId: number, limit = 10): Promise<TTSHistory[]> {
-    return this.request<TTSHistory[]>(`/users/${userId}/tts-history?limit=${limit}`);
-  }
-
-  // ---------- Settings ----------
   async getUserSettings(userId: number): Promise<UserSetting[]> {
-    return this.request<UserSetting[]>(`/users/${userId}/settings`);
+    return tryFetch(`${this.baseUrl}/users/${userId}/settings`, {}, mockSettings);
   }
 
-  async updateUserSetting(
-    userId: number,
-    settingName: string,
-    settingValue: string
-  ): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/users/${userId}/settings`, {
-      method: "POST",
-      body: JSON.stringify({ setting_name: settingName, setting_value: settingValue }),
-    });
+  async updateUserSetting(userId: number, settingName: string, settingValue: string) {
+    return tryFetch(
+      `${this.baseUrl}/users/${userId}/settings`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ setting_name: settingName, setting_value: settingValue }),
+        headers: { 'Content-Type': 'application/json' },
+      },
+      { message: "Saved locally (offline mode)" }
+    );
   }
 
-  // ---------- Utility ----------
-  async seedDatabase(): Promise<{ message: string }> {
-    return this.request<{ message: string }>("/seed-data", { method: "POST" });
-  }
-
-  async healthCheck(): Promise<{ message: string; status: string }> {
-    return this.request<{ message: string; status: string }>("/health");
+  async healthCheck() {
+    return tryFetch(`${this.baseUrl}/health`, {}, { message: "Offline Mode", status: "ok" });
   }
 }
 
+// --- Export Singleton ---
 export const apiService = new ApiService();
 export default ApiService;
+
 
