@@ -13,7 +13,12 @@ import * as Speech from "expo-speech";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { apiService, UserSetting } from "@/services/api";
-import { getTalkingPreference, setTalkingPreference } from "@/services/ttsService";
+import {
+  getTalkingPreference,
+  setTalkingPreference,
+  speakIfEnabled,
+  stopSpeech,
+} from "@/services/ttsService";
 
 type LocalSettings = {
   voice_speed: number;
@@ -48,7 +53,6 @@ export default function SettingsScreen() {
     loadSettings();
   }, []);
 
-  // ✅ load settings with mock fallback
   const loadSettings = async () => {
     try {
       setLoading(true);
@@ -82,9 +86,7 @@ export default function SettingsScreen() {
     }
   };
 
-  // ✅ unified update (safe offline)
   const updateSetting = async (settingName: keyof LocalSettings, value: any) => {
-    // Optimistic update
     setLocalSettings((prev) => ({ ...prev, [settingName]: value }));
 
     try {
@@ -93,24 +95,15 @@ export default function SettingsScreen() {
       console.warn(`⚠️ Offline update saved locally for ${settingName}`);
     }
 
-    // Special case: talking toggle
     if (settingName === "voice_navigation") {
       await setTalkingPreference(Boolean(value));
-      if (!value) Speech.stop();
-      else safeSpeak("Talking feature enabled.");
+      if (!value) await stopSpeech();
+      else await speakIfEnabled("Talking feature enabled.");
     }
 
-    safeSpeak(`Setting updated: ${String(settingName)} is now ${String(value)}`);
-  };
-
-  const safeSpeak = (text: string) => {
-    if (!localSettings.voice_navigation) return;
-    Speech.speak(text, {
-      rate: localSettings.voice_speed,
-      pitch: 1.0,
-      volume: 1.0,
-      language: "en-US",
-    });
+    await speakIfEnabled(
+      `Setting updated: ${String(settingName)} is now ${String(value)}`
+    );
   };
 
   const adjustVoiceSpeed = () => {
@@ -131,34 +124,30 @@ export default function SettingsScreen() {
   };
 
   const resetToDefaults = () => {
-    Alert.alert(
-      "Reset Settings",
-      "Reset all settings to default values?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: async () => {
-            const defaults: LocalSettings = {
-              voice_speed: 1.0,
-              high_contrast: false,
-              large_text: false,
-              voice_navigation: true,
-              reminder_frequency: "normal",
-              preferred_voice: "default",
-              push_notifications: true,
-              email_notifications: true,
-              reminder_sound: true,
-            };
-            for (const [k, v] of Object.entries(defaults)) {
-              await updateSetting(k as keyof LocalSettings, v);
-            }
-            safeSpeak("Settings reset to default values.");
-          },
+    Alert.alert("Reset Settings", "Reset all settings to default values?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Reset",
+        style: "destructive",
+        onPress: async () => {
+          const defaults: LocalSettings = {
+            voice_speed: 1.0,
+            high_contrast: false,
+            large_text: false,
+            voice_navigation: true,
+            reminder_frequency: "normal",
+            preferred_voice: "default",
+            push_notifications: true,
+            email_notifications: true,
+            reminder_sound: true,
+          };
+          for (const [k, v] of Object.entries(defaults)) {
+            await updateSetting(k as keyof LocalSettings, v);
+          }
+          await speakIfEnabled("Settings reset to default values.");
         },
-      ]
-    );
+      },
+    ]);
   };
 
   if (loading) {
@@ -217,7 +206,10 @@ export default function SettingsScreen() {
             onPress={() =>
               updateSetting(
                 "preferred_voice",
-                cycle(["default", "enhanced", "clear", "simple"] as const, localSettings.preferred_voice)
+                cycle(
+                  ["default", "enhanced", "clear", "simple"] as const,
+                  localSettings.preferred_voice
+                )
               )
             }
           >
@@ -298,7 +290,7 @@ export default function SettingsScreen() {
           style={styles.actionButton}
           onPress={() =>
             localSettings.voice_navigation
-              ? safeSpeak("Testing voice settings with current speech rate.")
+              ? speakIfEnabled("Testing voice settings with current speech rate.")
               : Alert.alert("Talking is off", "Enable Talking to hear the test.")
           }
         >
@@ -387,5 +379,6 @@ const styles = StyleSheet.create({
   },
   infoText: { fontSize: 14, color: "#666666", marginBottom: 5, textAlign: "center" },
 });
+
 
 
