@@ -9,7 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
  * and safely handles rapid speech calls.
  */
 
-// Local cache to avoid repeated AsyncStorage reads
+// Local cache to reduce AsyncStorage reads
 let cachedTalkEnabled: boolean | null = null;
 
 /**
@@ -19,15 +19,14 @@ let cachedTalkEnabled: boolean | null = null;
 export const speakIfEnabled = async (text: string) => {
   try {
     const talkEnabled =
-      cachedTalkEnabled ?? (await AsyncStorage.getItem("talkEnabled")) === "true";
+      cachedTalkEnabled ??
+      ((await AsyncStorage.getItem("talkEnabled")) === "true");
 
     if (!talkEnabled) return;
 
-    // Stop any overlapping speech before starting new one
-    if (Speech.isSpeakingAsync) {
-      const currentlySpeaking = await Speech.isSpeakingAsync();
-      if (currentlySpeaking) await Speech.stop();
-    }
+    // Stop any overlapping speech
+    const currentlySpeaking = await Speech.isSpeakingAsync();
+    if (currentlySpeaking) await Speech.stop();
 
     await Speech.speak(text, {
       language: "en-US",
@@ -43,4 +42,41 @@ export const speakIfEnabled = async (text: string) => {
 /**
  * Stores the user’s text-to-speech preference in AsyncStorage.
  */
+export const setTalkingPreference = async (enabled: boolean) => {
+  try {
+    cachedTalkEnabled = enabled;
+    await AsyncStorage.setItem("talkEnabled", enabled ? "true" : "false");
+    console.log("🟢 Talking preference saved:", enabled);
+  } catch (error) {
+    console.error("Error saving talking preference:", error);
+  }
+};
+
+/**
+ * Retrieves the stored TTS preference.
+ */
+export const getTalkingPreference = async (): Promise<boolean> => {
+  try {
+    if (cachedTalkEnabled !== null) return cachedTalkEnabled;
+    const value = await AsyncStorage.getItem("talkEnabled");
+    cachedTalkEnabled = value === "true";
+    return cachedTalkEnabled;
+  } catch (error) {
+    console.error("Error reading talking preference:", error);
+    return false;
+  }
+};
+
+/**
+ * Immediately stops any ongoing speech.
+ */
+export const stopSpeech = async () => {
+  try {
+    const currentlySpeaking = await Speech.isSpeakingAsync();
+    if (currentlySpeaking) await Speech.stop();
+  } catch (error) {
+    console.error("Error stopping speech:", error);
+  }
+};
+
 
