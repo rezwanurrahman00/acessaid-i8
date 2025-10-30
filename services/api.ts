@@ -174,7 +174,7 @@ class ApiService {
     );
   }
 
-  // --- TTS LOGGING ---
+  // --- TTS LOGGING (Always Available) ---
   async logTTSUsage(
     userId: number,
     ttsData: {
@@ -185,16 +185,22 @@ class ApiService {
       context?: string;
     }
   ): Promise<{ message: string }> {
-    console.log("🟢 logTTSUsage called:", userId, ttsData);
-    return tryFetch(
-      `${this.baseUrl}/users/${userId}/tts-history`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(ttsData),
-      },
-      { message: "TTS logged locally (offline mode)" }
-    );
+    try {
+      console.log("🟢 logTTSUsage called:", userId, ttsData);
+      return await tryFetch(
+        `${this.baseUrl}/users/${userId}/tts-history`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(ttsData),
+        },
+        { message: "TTS logged locally (offline mode)" }
+      );
+    } catch (error) {
+      console.warn("⚠️ logTTSUsage failed, using offline log");
+      console.log("📝 Offline log:", ttsData);
+      return { message: "Offline mock log saved" };
+    }
   }
 
   // --- HEALTH CHECK ---
@@ -206,6 +212,7 @@ class ApiService {
 // --- Export Singleton ---
 export const apiService = new ApiService();
 export default ApiService;
+
 
 
 
