@@ -41,5 +41,6 @@ export const speakIfEnabled = async (text: string) => {
 };
 
 /**
- * Stores the user*
+ * Stores the user’s text-to-speech preference in AsyncStorage.
+ */
 
