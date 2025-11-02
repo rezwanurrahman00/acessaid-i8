@@ -1,0 +1,71 @@
+{
+  "expo": {
+    "name": "AccessAid",
+    "slug": "AccessAid",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E3F2FD"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "AccessAid needs camera access to read text from images for accessibility purposes.",
+        "NSMicrophoneUsageDescription": "AccessAid needs microphone access for voice commands and speech recognition.",
+        "NSSpeechRecognitionUsageDescription": "AccessAid uses speech recognition to process voice commands for accessibility."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#E3F2FD"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.ACCESSIBILITY_SERVICE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow AccessAid to access your camera to read text from images for accessibility purposes."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow AccessAid to access your microphone for voice commands and speech recognition."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#4A90E2",
+          "sounds": ["./assets/notification.wav"]
+        }
+      ],
+      [
+        "expo-brightness",
+        {
+          "brightnessPermission": "Allow AccessAid to control screen brightness for accessibility preferences."
+        }
+      ]
+    ]
+  }
+}
