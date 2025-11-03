@@ -59,12 +59,13 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
 - Capstone 1: MVP for a focused use case with accessible UI
 - Capstone 2: Feature expansion, UX polish, scalable cloud services
 
-### Tech (provisional)
-- Frontend: React Native (Expo)
-- Backend: FastAPI (Python) or Node/Express
-- Database: PostgreSQL
-- Cloud/Deploy: Heroku/AWS
-- AI/ML: Python (scikit-learn / lightweight on-device models)
+### Tech Stack
+- **Frontend**: React Native (Expo) with TypeScript
+- **Backend**: FastAPI (Python)
+- **Database**: SQLite (with SQLAlchemy ORM)
+- **State Management**: React Context API
+- **Storage**: AsyncStorage for local persistence
+- **Navigation**: Expo Router with Stack and Tab navigation
 
 ### Repo Conventions
 - Branches: `main` (protected), `dev`, feature branches `feat/<name>`
@@ -72,25 +73,91 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
 - Issues: tagged with `feature`, `bug`, `priority`
 - Commits: Conventional Commits (e.g., `feat(ui): add accessibility toggle`)
 
-### Sprint 0 Checklist
-- Define target disability group
-- Competitive scan (existing tools)
-- Select MVP features (2–3)
-- Wireframes & accessibility spec (WCAG 2.2)
-- Architecture diagram & tech stack decision
-- Repo + CI boilerplate
-- Trello board and working agreements
+---
 
-Notes:
-- Reference commit: `af9a74f87a4f88ee62df68d11992d348ef38c3e3`
+## 📅 Sprint Overview
+
+### Sprint 0: Planning & Setup
+- ✅ Define target disability group
+- ✅ Competitive scan (existing tools)
+- ✅ Select MVP features (2–3)
+- ✅ Wireframes & accessibility spec (WCAG 2.2)
+- ✅ Architecture diagram & tech stack decision
+- ✅ Repo + CI boilerplate
+- ✅ Trello board and working agreements
+
+### Sprint 1: Basic App Setup ✅
+
+**Goal**: Establish the foundation and basic structure of the application.
+
+**Completed**:
+- ✅ Project initialization with Expo and React Native
+- ✅ TypeScript configuration and setup
+- ✅ Basic folder structure and file organization
+- ✅ Navigation setup (Expo Router with Stack and Tab navigation)
+- ✅ Basic UI components and styling foundation
+- ✅ Environment configuration
+- ✅ Development environment setup
+
+### Sprint 2: Core Features Implementation ✅
+
+**Goal**: Implement core functionality and accessibility features.
+
+**Completed**:
+
+#### 🔐 Authentication & User Management
+- Sign In/Sign Up with email and password authentication
+- User profiles with photo picker and editable preferences
+- Per-user data isolation with AsyncStorage persistence
+- Secure logout functionality
+
+#### 🎤 Voice Features
+- Full voice command system with keyword recognition
+- Text-to-Speech (TTS) with adjustable speed (0.5x-2.0x)
+- Voice input for text entry
+- Voice feedback for all actions
+- Centralized voice command manager
+
+#### 📱 Core Features
+- Home screen with TTS input and camera OCR reader
+- Camera OCR integration for text extraction from images
+- Complete reminder system with CRUD operations
+- Settings screen for app configuration
+- Profile screen for user information management
+
+#### ⚙️ Accessibility Features
+- Live screen brightness control (0-100%)
+- Dynamic text zoom (80%-180%)
+- Adjustable voice speed for TTS
+- Dark mode toggle
+- Haptic feedback for interactions
+- Full screen reader support with accessibility labels
+
+#### 🎨 UI/UX Improvements
+- Modern design with gradient backgrounds and animations
+- Reusable UI components (ModernButton, ModernCard, etc.)
+- Responsive layout for different screen sizes
+- High contrast styling for accessibility
+
+#### 🔧 Backend & API
+- FastAPI backend with RESTful API endpoints
+- SQLite database with SQLAlchemy ORM
+- Complete database models (User, Reminder, Task, Notification, TTSHistory, UserSettings)
+- Full CRUD operations for all entities
+- API health check endpoint
+
+#### 📂 Code Organization
+- TypeScript throughout for type safety
+- Context API for state management (AppContext, AuthContext)
+- Organized component and screen architecture
+- Service layer abstractions
+- Comprehensive error handling
 
 ---
 
-## Current App Highlights
-- Sign In / Sign Up with per-user persisted data
-- Profile with photo picker and saved preferences
-- Voice commands with debounce/cooldown and TTS feedback
-- Per-user data isolation and modern UI with subtle background logo
+## 📋 Current Status
+
+The app is now functional with all Sprint 2 features implemented. The foundation established in Sprint 1 has been expanded with core accessibility features, authentication, voice commands, and a complete backend API.
 
 ## Scripts
 - `npm start` – Start the Expo dev server
