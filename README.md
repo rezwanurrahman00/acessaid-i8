@@ -1,6 +1,15 @@
-# AccessAid
+# AccessAid ♿
 
-Modern Expo (React Native) app focused on assistive technology and accessibility.
+AccessAid is a comprehensive React Native application designed to enhance daily accessibility for persons with disabilities. Built with modern accessibility standards (WCAG 2.2 AA compliance), the app features voice control, camera OCR, smart reminders, and adaptive UI components.
+
+## ✨ Key Features
+
+🎤 **Voice Control** - Basic voice command framework (Speech recognition coming soon)  
+📸 **Camera OCR** - Camera integration ready (OCR API configuration required)  
+⏰ **Smart Reminders** - Fully working CRUD system with notifications  
+♿ **Accessibility First** - Complete dynamic text scaling, brightness control, and screen reader support  
+🎨 **Adaptive UI** - Full dark mode, high contrast, and customizable interface elements  
+🔐 **Secure Authentication** - Working email/PIN authentication with local data storage
 
 ## Welcome to your Expo app 👋
 
