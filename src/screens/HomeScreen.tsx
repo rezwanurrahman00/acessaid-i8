@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,16 @@ import {
   Dimensions,
   ScrollView,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import Constants from 'expo-constants';
+import * as FileSystemLegacy from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../contexts/AppContext';
 import { AccessAidLogo } from '../components/AccessAidLogo';
@@ -20,16 +25,7 @@ import { BackgroundLogo } from '../components/BackgroundLogo';
 import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
 import { voiceManager } from '../utils/voiceCommandManager';
-let ImagePicker: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  ImagePicker = require('expo-image-picker');
-} catch {}
-let ImageManipulator: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  ImageManipulator = require('expo-image-manipulator');
-} catch {}
+import { AppTheme, getThemeConfig } from '../../constants/theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallScreen = screenWidth < 375;
@@ -39,8 +35,16 @@ const HomeScreen = () => {
   const { state } = useApp();
   const [ttsText, setTtsText] = useState('');
   const [isListening, setIsListening] = useState(false);
-  // Camera feature removed
   const [fadeAnim] = useState(new Animated.Value(0));
+  
+  // AI Reader state
+  const [aiReaderText, setAiReaderText] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const gradientColors = theme.gradient;
+  const placeholderColor = theme.placeholder;
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -83,7 +87,7 @@ const HomeScreen = () => {
     voiceManager.addCommand({
       keywords: ['help', 'commands', 'what can I say'],
       action: () => {
-        speakText('You can say: Read text, Open camera, Go to reminders, Go to profile, or Help');
+        speakText('You can say: Read text, Go to reminders, Go to profile, or Help');
       },
       description: 'Show available voice commands',
       category: 'general'
@@ -113,12 +117,11 @@ const HomeScreen = () => {
 
     // Announce screen change
     voiceManager.announceScreenChange('home');
-    speakText(`Welcome back, ${state.user?.name || 'User'}! You can use text-to-speech or camera reader. Say "help" for voice commands.`);
+    speakText(`Welcome back, ${state.user?.name || 'User'}! You can use text-to-speech. Say "help" for voice commands.`);
 
     return () => {
       // Clean up voice commands when component unmounts
       voiceManager.removeCommand(['read text', 'speak text', 'read aloud']);
-      // Camera commands removed
       voiceManager.removeCommand(['go to profile', 'profile', 'settings']);
       voiceManager.removeCommand(['go to reminders', 'reminders', 'show reminders']);
       voiceManager.removeCommand(['help', 'commands', 'what can I say']);
@@ -152,149 +155,369 @@ const HomeScreen = () => {
     voiceManager.startListening();
   };
 
-  const handleCameraFeature = async () => {
-    try {
-      if (!ImagePicker) {
-        Alert.alert('Unavailable', 'Camera is unavailable in this environment.');
-        return;
-      }
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (perm.status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow camera access to capture text.');
-        return;
-      }
-      const res = await ImagePicker.launchCameraAsync({ base64: !ImageManipulator, quality: 1.0 });
-      if (res.canceled) return;
-      const uri = res.assets?.[0]?.uri;
-      let b64: string | undefined = res.assets?.[0]?.base64;
-      if (!b64) {
-        if (!uri) {
-          Alert.alert('No image', 'Could not read the captured image.');
-          return;
-        }
-        if (ImageManipulator) {
-          // Preprocess: resize for better OCR, generate base64
-          let processed = await ImageManipulator.manipulateAsync(
-            uri,
-            [{ resize: { width: 1600 } }],
-            { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-          );
-          b64 = processed.base64;
-        }
-      }
-      if (!b64) {
-        Alert.alert('Processing failed', 'Could not process the captured image.');
-        return;
-      }
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      let text = await recognizeText(b64);
-      // If no text, try rotated variants to handle orientation
-      if (!text && ImageManipulator && uri) {
-        try {
-          const rot90 = await ImageManipulator.manipulateAsync(uri, [{ rotate: 90 }, { resize: { width: 1600 } }], { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true });
-          text = await recognizeText(rot90.base64 || '');
-        } catch {}
-      }
-      if (!text && ImageManipulator && uri) {
-        try {
-          const rot270 = await ImageManipulator.manipulateAsync(uri, [{ rotate: 270 }, { resize: { width: 1600 } }], { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true });
-          text = await recognizeText(rot270.base64 || '');
-        } catch {}
-      }
-      const description = await describeImage(b64);
+  /**
+   * Extract text from image or file using OCR.Space API
+   */
+  const extractTextWithOCRSpace = async (base64: string, mimeType: string = 'image/jpeg'): Promise<string> => {
+    const ocrSpaceKey =
+      Constants.expoConfig?.extra?.OCR_SPACE_API_KEY ||
+      Constants.manifest?.extra?.OCR_SPACE_API_KEY ||
+      '';
 
-      let combined = '';
-      if (description) {
-        combined += `Description: ${description}`;
-      }
-      if (text) {
-        combined += (combined ? '\n' : '') + `Text: ${text}`;
-      }
-
-      if (combined) {
-        setTtsText(combined);
-        speakText(combined);
-      } else {
-        speakText('Nothing recognized. Please try again with better lighting and framing.');
-        Alert.alert('Nothing recognized', 'Try again with better lighting and framing.');
-      }
-    } catch (e) {
-      Alert.alert('Error', 'Failed to capture or read text.');
-    }
-  };
-
-  const recognizeText = async (base64: string): Promise<string> => {
-    const apiKey = (Constants as any).expoConfig?.extra?.OCR_API_KEY || (Constants as any).manifest?.extra?.OCR_API_KEY;
-    const customUrl = (Constants as any).expoConfig?.extra?.OCR_API_URL || (Constants as any).manifest?.extra?.OCR_API_URL;
-    const customKey = (Constants as any).expoConfig?.extra?.OCR_API_KEY2 || (Constants as any).manifest?.extra?.OCR_API_KEY2;
-
-    // Try providers in order
-    // 1) OCR.space
-    if (apiKey) {
-      try {
-        const form = new FormData();
-        form.append('base64Image', `data:image/jpeg;base64,${base64}` as any);
-        form.append('language', 'eng');
-        form.append('isOverlayRequired', 'false');
-        form.append('detectOrientation', 'true');
-        form.append('scale', 'true');
-        form.append('OCREngine', '2');
-        const resp = await fetch('https://api.ocr.space/parse/image', {
-          method: 'POST',
-          headers: { apikey: apiKey },
-          body: form as any,
-        });
-        const json = await resp.json();
-        const text = json?.ParsedResults?.[0]?.ParsedText || '';
-        if (text && String(text).trim()) return String(text).trim();
-      } catch {}
-    }
-
-    // 2) Custom OCR endpoint (POST JSON: { imageBase64 })
-    if (customUrl && customKey) {
-      try {
-        const resp2 = await fetch(customUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${customKey}`,
-          },
-          body: JSON.stringify({ imageBase64: base64 }),
-        });
-        const json2 = await resp2.json();
-        const text2 = json2?.text || json2?.result || '';
-        if (text2 && String(text2).trim()) return String(text2).trim();
-      } catch {}
-    }
-
-    return '';
-  };
-
-  const describeImage = async (base64: string): Promise<string> => {
-    // Prefer a custom vision endpoint if provided
-    const visionUrl = (Constants as any).expoConfig?.extra?.VISION_API_URL || (Constants as any).manifest?.extra?.VISION_API_URL;
-    const visionKey = (Constants as any).expoConfig?.extra?.VISION_API_KEY || (Constants as any).manifest?.extra?.VISION_API_KEY;
-    if (!visionUrl || !visionKey) {
+    if (!ocrSpaceKey || !ocrSpaceKey.trim()) {
+      Alert.alert(
+        'API Key Missing',
+        'OCR.Space API key is not configured. Please add OCR_SPACE_API_KEY to app.json extra section.'
+      );
       return '';
     }
+
     try {
-      const resp = await fetch(visionUrl, {
+      const formData = new FormData();
+      const normalizedMime = mimeType.toLowerCase();
+      const isPDF = normalizedMime.includes('pdf');
+
+      if (isPDF) {
+        formData.append('base64Image', `data:application/pdf;base64,${base64}`);
+        formData.append('filetype', 'PDF');
+      } else {
+        formData.append('base64Image', `data:${mimeType};base64,${base64}`);
+        formData.append('filetype', 'IMAGE');
+      }
+
+      formData.append('language', 'eng');
+      formData.append('isOverlayRequired', 'false');
+      formData.append('OCREngine', '2');
+
+      const response = await fetch('https://api.ocr.space/parse/image', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${visionKey}`,
+          apikey: ocrSpaceKey,
         },
-        body: JSON.stringify({ imageBase64: base64 }),
+        body: formData,
       });
-      const json = await resp.json();
-      const desc = json?.description || json?.result || json?.caption || '';
-      return String(desc).trim();
-    } catch {
+
+      const data = await response.json();
+
+      if (data?.IsErroredOnProcessing) {
+        const message =
+          data?.ErrorMessage?.[0] ||
+          data?.ErrorDetails ||
+          'Failed to process the document.';
+        throw new Error(message);
+      }
+
+      const text = data?.ParsedResults?.[0]?.ParsedText || '';
+      return text.trim();
+    } catch (error: any) {
+      console.error('OCR.Space API Error:', error);
+      Alert.alert('Error', `Failed to extract text: ${error.message || 'Unknown error'}`);
       return '';
     }
   };
 
-  // Camera text extracted removed
+  /**
+   * Convert file to base64
+   */
+  const fileToBase64 = async (uri: string): Promise<string> => {
+    try {
+      const info = await FileSystemLegacy.getInfoAsync(uri);
+
+      if (info.size && info.size > 1024 * 1024) {
+        throw new Error('File size exceeds 1 MB limit. Please choose a smaller file.');
+      }
+
+      return await FileSystemLegacy.readAsStringAsync(uri, { encoding: 'base64' });
+    } catch (error) {
+      console.error('Error converting file to base64:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * Resize/compress an image asset to stay within OCR.Space limits and return base64
+   */
+  const prepareImageForOCR = async (
+    asset: ImagePicker.ImagePickerAsset
+  ): Promise<{ base64: string; mimeType: string }> => {
+    try {
+      const targetWidth = Math.min(asset.width ?? 1600, 1600);
+      const manipResult = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: targetWidth } }],
+        {
+          compress: 0.7,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        }
+      );
+
+      if (!manipResult.base64) {
+        throw new Error('Unable to process image. Please try again with a different photo.');
+      }
+
+      const estimatedSizeBytes = (manipResult.base64.length * 3) / 4;
+      if (estimatedSizeBytes > 1024 * 1024) {
+        throw new Error('Image is still larger than 1 MB. Please choose a smaller image.');
+      }
+
+      return { base64: manipResult.base64, mimeType: 'image/jpeg' };
+    } catch (error) {
+      console.error('Error preparing image for OCR:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * Handle taking a picture with camera
+   */
+  const handleTakePicture = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Speech.speak('Opening camera...', { language: 'en-US', rate: 1.0 });
+
+      // Request camera permission
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+      if (cameraPermission.status !== 'granted') {
+        Alert.alert('Permission Required', 'Camera permission is needed to take pictures.');
+        return;
+      }
+
+      // Launch camera
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.9,
+        base64: false,
+      });
+
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      setIsProcessing(true);
+      setAiReaderText('');
+      Speech.speak('Processing image...', { language: 'en-US', rate: 1.0 });
+
+      // Prepare and extract text using OCR.Space
+      let processedImage;
+      try {
+        processedImage = await prepareImageForOCR(asset);
+      } catch (prepError: any) {
+        const message = prepError?.message || 'Unable to process the captured image. Please try again with better lighting.';
+        Alert.alert('Image Too Large', message);
+        Speech.speak(message, { language: 'en-US', rate: 1.0 });
+        return;
+      }
+
+      // Extract text using OCR.Space
+      const extractedText = await extractTextWithOCRSpace(processedImage.base64, processedImage.mimeType);
+
+      if (extractedText) {
+        setAiReaderText(extractedText);
+        const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+        Speech.speak(extractedText, {
+          language: 'en-US',
+          rate: safeRate,
+          pitch: 1.0,
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert('No Text Found', 'No readable text was detected in the image. Please try again with a clearer image.');
+        Speech.speak('No text detected. Please try again.', { language: 'en-US', rate: 1.0 });
+      }
+    } catch (error: any) {
+      console.error('Error taking picture:', error);
+      Alert.alert('Error', `Failed to process image: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Handle uploading an image from gallery
+   */
+  const handleUploadImage = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Speech.speak('Opening image gallery...', { language: 'en-US', rate: 1.0 });
+
+      // Request media library permission
+      const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (mediaPermission.status !== 'granted') {
+        Alert.alert('Permission Required', 'Media library permission is needed to select images.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.9,
+        base64: false,
+      });
+
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      setIsProcessing(true);
+      setAiReaderText('');
+      Speech.speak('Processing image...', { language: 'en-US', rate: 1.0 });
+
+      // Prepare and extract text using OCR.Space
+      let processedImage;
+      try {
+        processedImage = await prepareImageForOCR(asset);
+      } catch (prepError: any) {
+        const message = prepError?.message || 'Unable to process the selected image. Please choose a smaller image.';
+        Alert.alert('Image Too Large', message);
+        Speech.speak(message, { language: 'en-US', rate: 1.0 });
+        return;
+      }
+
+      // Extract text using OCR.Space
+      const extractedText = await extractTextWithOCRSpace(processedImage.base64, processedImage.mimeType);
+
+      if (extractedText) {
+        setAiReaderText(extractedText);
+        const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+        Speech.speak(extractedText, {
+          language: 'en-US',
+          rate: safeRate,
+          pitch: 1.0,
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert('No Text Found', 'No readable text was detected in the image. Please try again with a different image.');
+        Speech.speak('No text detected. Please try again.', { language: 'en-US', rate: 1.0 });
+      }
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      Alert.alert('Error', `Failed to process image: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Handle uploading a file (PDF or text)
+   */
+  const handleUploadFile = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Speech.speak('Opening file picker...', { language: 'en-US', rate: 1.0 });
+
+      // Launch document picker
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      const file = result.assets[0];
+      const mimeType = (file.mimeType || 'application/pdf').toLowerCase();
+
+      setIsProcessing(true);
+      setAiReaderText('');
+      Speech.speak('Processing file...', { language: 'en-US', rate: 1.0 });
+
+      // If it's a plain text file, read directly without OCR
+      if (mimeType.includes('text')) {
+        try {
+          const content = await FileSystemLegacy.readAsStringAsync(file.uri, {
+            encoding: 'utf8',
+          });
+          const trimmed = content.trim();
+          if (trimmed) {
+            setAiReaderText(trimmed);
+            const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+            Speech.speak(trimmed, {
+              language: 'en-US',
+              rate: safeRate,
+              pitch: 1.0,
+            });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } else {
+            Alert.alert('No Text Found', 'The selected file appears to be empty.');
+          }
+        } catch (readError: any) {
+          Alert.alert('Error', `Failed to read the text file: ${readError.message || 'Unknown error'}`);
+        } finally {
+          setIsProcessing(false);
+        }
+        return;
+      }
+
+      // Convert other files (e.g., PDF) to base64 and ensure size <= 1 MB
+      let base64: string;
+      try {
+        base64 = await fileToBase64(file.uri);
+      } catch (conversionError: any) {
+        const message = conversionError?.message || 'Unable to process this file. Please choose a smaller document (under 1 MB).';
+        Alert.alert('File Too Large', message);
+        Speech.speak('The selected file is too large. Please pick a smaller document.', { language: 'en-US', rate: 1.0 });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Extract text using OCR.Space
+      const extractedText = await extractTextWithOCRSpace(base64, mimeType);
+
+      if (extractedText) {
+        setAiReaderText(extractedText);
+        const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+        Speech.speak(extractedText, {
+          language: 'en-US',
+          rate: safeRate,
+          pitch: 1.0,
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert('No Text Found', 'No readable text was detected in the file. Please try again with a different file.');
+        Speech.speak('No text detected. Please try again.', { language: 'en-US', rate: 1.0 });
+      }
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      Alert.alert('Error', `Failed to process file: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Read the extracted text again
+   */
+  const handleReadAgain = () => {
+    if (aiReaderText.trim()) {
+      const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+      Speech.speak(aiReaderText, {
+        language: 'en-US',
+        rate: safeRate,
+        pitch: 1.0,
+      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else {
+      Alert.alert('No Text', 'No text to read. Please upload or capture a document first.');
+    }
+  };
+
+  /**
+   * Stop reading
+   */
+  const handleStopReading = () => {
+    Speech.stop();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
 
   const FeatureCard = ({ 
     title, 
@@ -326,10 +549,7 @@ const HomeScreen = () => {
   );
 
   return (
-    <LinearGradient
-      colors={['#667eea', '#764ba2', '#f093fb']}
-      style={styles.container}
-    >
+    <LinearGradient colors={gradientColors} style={styles.container}>
       <BackgroundLogo />
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <ScrollView
@@ -356,7 +576,7 @@ const HomeScreen = () => {
                 onPress={handleVoiceInput}
                 variant={isListening ? 'danger' : 'outline'}
                 size="small"
-                icon={<Ionicons name={isListening ? "mic" : "mic-outline"} size={16} color={isListening ? "#FF6B6B" : "#4A90E2"} />}
+                icon={<Ionicons name={isListening ? "mic" : "mic-outline"} size={16} color={isListening ? theme.danger : theme.accent} />}
                 style={styles.voiceInputButton}
               />
             </View>
@@ -370,7 +590,7 @@ const HomeScreen = () => {
                 value={ttsText}
                 onChangeText={setTtsText}
                 placeholder="Type or speak your text here..."
-                placeholderTextColor="#999"
+                placeholderTextColor={placeholderColor}
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
@@ -389,26 +609,102 @@ const HomeScreen = () => {
             />
           </ModernCard>
 
+          {/* AI Reader Section */}
+          <ModernCard variant="elevated" style={styles.aiReaderContainer}>
+            <Text style={styles.sectionTitle}>AI Reader</Text>
+            <Text style={styles.sectionDescription}>
+              Extract and read text from images or documents
+            </Text>
+
+            <View style={styles.aiReaderButtons}>
+              <ModernButton
+                title="📸 Take Picture"
+                onPress={handleTakePicture}
+                variant="primary"
+                size="medium"
+                disabled={isProcessing}
+                icon={<Ionicons name="camera" size={20} color="white" />}
+                style={[styles.aiReaderButton, { marginBottom: 12 }]}
+                accessibilityLabel="Take a picture to extract text"
+              />
+
+              <ModernButton
+                title="🖼️ Upload Image"
+                onPress={handleUploadImage}
+                variant="primary"
+                size="medium"
+                disabled={isProcessing}
+                icon={<Ionicons name="image" size={20} color="white" />}
+                style={[styles.aiReaderButton, { marginBottom: 12 }]}
+                accessibilityLabel="Upload an image to extract text"
+              />
+
+              <ModernButton
+                title="📄 Upload File"
+                onPress={handleUploadFile}
+                variant="primary"
+                size="medium"
+                disabled={isProcessing}
+                icon={<Ionicons name="document-text" size={20} color="white" />}
+                style={styles.aiReaderButton}
+                accessibilityLabel="Upload a file to extract text"
+              />
+            </View>
+
+            {isProcessing && (
+              <View style={styles.processingContainer}>
+                <ActivityIndicator size="large" color={theme.accent} />
+                <Text style={styles.processingText}>Processing... Please wait</Text>
+              </View>
+            )}
+
+            {aiReaderText ? (
+              <View style={styles.extractedTextContainer}>
+                <View style={styles.extractedTextHeader}>
+                  <Text style={styles.extractedTextTitle}>Extracted Text</Text>
+                  <View style={styles.extractedTextActions}>
+                    <ModernButton
+                      title=""
+                      onPress={handleReadAgain}
+                      variant="outline"
+                      size="small"
+                      icon={<Ionicons name="volume-high" size={16} color={theme.accent} />}
+                      style={[styles.actionButton, { marginRight: 8 }]}
+                      accessibilityLabel="Read text again"
+                    />
+                    <ModernButton
+                      title=""
+                      onPress={handleStopReading}
+                      variant="outline"
+                      size="small"
+                      icon={<Ionicons name="stop" size={16} color={theme.danger} />}
+                      style={styles.actionButton}
+                      accessibilityLabel="Stop reading"
+                    />
+                  </View>
+                </View>
+                <ScrollView
+                  style={styles.extractedTextScrollView}
+                  contentContainerStyle={styles.extractedTextScrollContent}
+                  showsVerticalScrollIndicator={true}
+                >
+                  <Text
+                    style={[
+                      styles.extractedText,
+                      { fontSize: 16 * (state.accessibilitySettings.textZoom / 100) },
+                    ]}
+                    accessibilityLabel="Extracted text from document or image"
+                    accessibilityRole="text"
+                  >
+                    {aiReaderText}
+                  </Text>
+                </ScrollView>
+              </View>
+            ) : null}
+          </ModernCard>
+
           <View style={styles.featuresContainer}>
             <Text style={styles.sectionTitle}>Quick Access</Text>
-
-            <FeatureCard
-              title="Camera Reader"
-              description="Capture text from camera and read aloud"
-              icon="camera"
-              onPress={handleCameraFeature}
-              gradientColors={['#4A90E2', '#357ABD']}
-              accessibilityLabel="Camera Reader feature"
-            />
-
-            {!(Constants as any).expoConfig?.extra?.VISION_API_URL && (
-              <Text style={styles.infoText}>Tip: Add extra.VISION_API_URL and VISION_API_KEY in app config to enable AI object descriptions.</Text>
-            )}
-            {!(Constants as any).expoConfig?.extra?.OCR_API_KEY && !(Constants as any).expoConfig?.extra?.OCR_API_URL && (
-              <Text style={styles.infoText}>Tip: Add extra.OCR_API_KEY (OCR.space) or OCR_API_URL/OCR_API_KEY2 to enable OCR.</Text>
-            )}
-            
-            {/* Camera feature removed */}
 
             <FeatureCard
               title="Voice Commands"
@@ -431,16 +727,16 @@ const HomeScreen = () => {
           <ModernCard variant="outlined" style={styles.voiceCommandsContainer}>
             <Text style={styles.sectionTitle}>Voice Commands</Text>
             <Text style={styles.voiceCommandsText}>
-              Try saying: "Read text", "Open camera", or "Go to profile"
+              Try saying: "Read text" or "Go to profile"
             </Text>
             
             <ModernButton
               title="Voice Help"
               onPress={() => {
-                speakText('Available commands: Read text, Open camera, Go to profile, Help');
+                speakText('Available commands: Read text, Go to profile, Help');
               }}
               variant="outline"
-              icon={<Ionicons name="help-circle" size={16} color="#4A90E2" />}
+              icon={<Ionicons name="help-circle" size={16} color={theme.accent} />}
               style={styles.voiceCommandButton}
             />
           </ModernCard>
@@ -478,153 +774,259 @@ const HomeScreen = () => {
 
         </ScrollView>
       </Animated.View>
-
-      {/* Camera modal removed */}
     </LinearGradient>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: isSmallScreen ? 20 : 30,
-    paddingTop: isSmallScreen ? 15 : 20,
-    paddingHorizontal: isSmallScreen ? 10 : 0,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: isSmallScreen ? 15 : 20,
-    minWidth: isSmallScreen ? 180 : 200,
-    maxWidth: screenWidth - 40,
-  },
-  welcomeText: {
-    fontSize: isSmallScreen ? 24 : 28,
-    fontWeight: 'bold',
-    color: 'white',
-    marginTop: isSmallScreen ? 10 : 15,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-    paddingHorizontal: isSmallScreen ? 10 : 0,
-  },
-  subtitleText: {
-    fontSize: isSmallScreen ? 14 : 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: isSmallScreen ? 6 : 8,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    paddingHorizontal: isSmallScreen ? 10 : 0,
-  },
-  ttsContainer: {
-    padding: 20,
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  voiceInputButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  inputContainer: {
-    marginBottom: 15,
-  },
-  textInput: {
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FAFAFA',
-    minHeight: 100,
-  },
-  speakButton: {
-    width: '100%',
-  },
-  featuresContainer: {
-    marginBottom: 20,
-  },
-  featureCard: {
-    marginBottom: 15,
-  },
-  cardContent: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  cardTitle: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  cardDescription: {
-    color: 'white',
-    fontSize: 14,
-    opacity: 0.9,
-    textAlign: 'center',
-  },
-  voiceCommandsContainer: {
-    padding: 20,
-    marginBottom: 20,
-  },
-  voiceCommandsText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
-    lineHeight: 20,
-  },
-  voiceCommandButton: {
-    width: '100%',
-  },
-  quickStatsContainer: {
-    padding: 20,
-  },
-  infoText: {
-    color: '#9CA3AF',
-    marginTop: 8,
-    fontSize: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#4A90E2',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-});
+const createStyles = (theme: AppTheme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      flex: 1,
+    },
+    scrollContainer: {
+      flexGrow: 1,
+      paddingHorizontal: 20,
+      paddingVertical: 20,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: isSmallScreen ? 20 : 30,
+      paddingTop: isSmallScreen ? 15 : 20,
+      paddingHorizontal: isSmallScreen ? 10 : 0,
+    },
+    logoContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: isSmallScreen ? 15 : 20,
+      minWidth: isSmallScreen ? 180 : 200,
+      maxWidth: screenWidth - 40,
+    },
+    welcomeText: {
+      fontSize: isSmallScreen ? 24 : 28,
+      fontWeight: 'bold',
+      color: theme.textInverted,
+      marginTop: isSmallScreen ? 10 : 15,
+      textAlign: 'center',
+      textShadowColor: 'rgba(0, 0, 0, 0.35)',
+      textShadowOffset: { width: 0, height: 2 },
+      textShadowRadius: 5,
+      paddingHorizontal: isSmallScreen ? 10 : 0,
+    },
+    subtitleText: {
+      fontSize: isSmallScreen ? 14 : 16,
+      color: theme.textInverted,
+      opacity: 0.85,
+      marginTop: isSmallScreen ? 6 : 8,
+      textAlign: 'center',
+      textShadowColor: 'rgba(0, 0, 0, 0.2)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 3,
+      paddingHorizontal: isSmallScreen ? 10 : 0,
+    },
+    ttsContainer: {
+      padding: 20,
+      marginBottom: 20,
+      backgroundColor: theme.cardBackground,
+      borderRadius: 20,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+      shadowColor: theme.cardShadow,
+      shadowOffset: { width: 0, height: theme.isDark ? 6 : 3 },
+      shadowOpacity: theme.isDark ? 0.35 : 0.08,
+      shadowRadius: theme.isDark ? 16 : 8,
+      elevation: theme.isDark ? 8 : 3,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 15,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.textPrimary,
+    },
+    voiceInputButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    inputContainer: {
+      marginBottom: 15,
+    },
+    textInput: {
+      borderWidth: 2,
+      borderColor: theme.inputBorder,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: theme.inputBackground,
+      minHeight: 100,
+      color: theme.textPrimary,
+    },
+    speakButton: {
+      width: '100%',
+    },
+    featuresContainer: {
+      marginBottom: 20,
+    },
+    featureCard: {
+      marginBottom: 15,
+    },
+    cardContent: {
+      alignItems: 'center',
+      padding: 20,
+    },
+    cardTitle: {
+      color: theme.textInverted,
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginTop: 12,
+      marginBottom: 8,
+    },
+    cardDescription: {
+      color: theme.textInverted,
+      fontSize: 14,
+      opacity: 0.9,
+      textAlign: 'center',
+    },
+    voiceCommandsContainer: {
+      padding: 20,
+      marginBottom: 20,
+      backgroundColor: theme.cardBackground,
+      borderRadius: 20,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+      shadowColor: theme.cardShadow,
+      shadowOffset: { width: 0, height: theme.isDark ? 5 : 2 },
+      shadowOpacity: theme.isDark ? 0.25 : 0.08,
+      shadowRadius: theme.isDark ? 12 : 6,
+      elevation: theme.isDark ? 6 : 2,
+    },
+    voiceCommandsText: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginBottom: 15,
+      lineHeight: 20,
+    },
+    voiceCommandButton: {
+      width: '100%',
+    },
+    quickStatsContainer: {
+      padding: 20,
+      backgroundColor: theme.cardBackground,
+      borderRadius: 20,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+      shadowColor: theme.cardShadow,
+      shadowOffset: { width: 0, height: theme.isDark ? 6 : 2 },
+      shadowOpacity: theme.isDark ? 0.3 : 0.08,
+      shadowRadius: theme.isDark ? 14 : 6,
+      elevation: theme.isDark ? 7 : 2,
+    },
+    infoText: {
+      color: theme.textMuted,
+      marginTop: 8,
+      fontSize: 12,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+    },
+    statItem: {
+      alignItems: 'center',
+    },
+    statNumber: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.accent,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      marginTop: 4,
+    },
+    aiReaderContainer: {
+      padding: 20,
+      marginBottom: 20,
+      backgroundColor: theme.cardBackground,
+      borderRadius: 20,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+      shadowColor: theme.cardShadow,
+      shadowOffset: { width: 0, height: theme.isDark ? 6 : 3 },
+      shadowOpacity: theme.isDark ? 0.3 : 0.1,
+      shadowRadius: theme.isDark ? 14 : 8,
+      elevation: theme.isDark ? 8 : 3,
+    },
+    sectionDescription: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginBottom: 20,
+      lineHeight: 20,
+    },
+    aiReaderButtons: {
+      flexDirection: 'column',
+      marginBottom: 20,
+    },
+    aiReaderButton: {
+      width: '100%',
+    },
+    processingContainer: {
+      alignItems: 'center',
+      padding: 20,
+    },
+    processingText: {
+      marginTop: 12,
+      fontSize: 16,
+      color: theme.textSecondary,
+      fontWeight: '600',
+    },
+    extractedTextContainer: {
+      marginTop: 20,
+      borderTopWidth: 1,
+      borderTopColor: theme.cardBorder,
+      paddingTop: 20,
+    },
+    extractedTextHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    extractedTextTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.textPrimary,
+    },
+    extractedTextActions: {
+      flexDirection: 'row',
+    },
+    actionButton: {
+      minWidth: 40,
+      minHeight: 40,
+      backgroundColor: theme.accentSoft,
+      borderRadius: 12,
+    },
+    extractedTextScrollView: {
+      maxHeight: 300,
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      borderRadius: 12,
+      backgroundColor: theme.inputBackground,
+    },
+    extractedTextScrollContent: {
+      padding: 16,
+    },
+    extractedText: {
+      color: theme.textPrimary,
+      lineHeight: 24,
+      fontSize: 16,
+    },
+  });
 
 export default HomeScreen;

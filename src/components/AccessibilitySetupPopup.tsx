@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AccessAidLogo } from './AccessAidLogo';
 import { ModernButton } from './ModernButton';
 import { TouchSlider } from './TouchSlider';
+import { AppTheme, getThemeConfig } from '../../constants/theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -30,12 +31,14 @@ interface AccessibilitySetupPopupProps {
     voiceSpeed: number;
   }) => void;
   onClose: () => void;
+  theme?: AppTheme;
 }
 
 export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = ({
   visible,
   onSave,
   onClose,
+  theme,
 }) => {
   const [brightness, setBrightness] = useState(50);
   const [textZoom, setTextZoom] = useState(100);
@@ -241,6 +244,10 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
     return 'Fast';
   };
 
+  const resolvedTheme = useMemo(() => theme ?? getThemeConfig(false), [theme]);
+  const styles = useMemo(() => createStyles(resolvedTheme), [resolvedTheme]);
+  const popupGradient = resolvedTheme.isDark ? ['#1F2937', '#0B1120'] : ['#FFFFFF', '#F8F9FA'];
+
   return (
     <Modal
       visible={visible}
@@ -259,10 +266,7 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
             },
           ]}
         >
-          <LinearGradient
-            colors={['#FFFFFF', '#F8F9FA']}
-            style={styles.popup}
-          >
+          <LinearGradient colors={popupGradient} style={styles.popup}>
             {/* Header */}
             <View style={styles.header}>
               <AccessAidLogo size={40} showText={false} />
@@ -289,7 +293,7 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
                   <Ionicons
                     name={isListening ? 'mic' : 'mic-outline'}
                     size={20}
-                    color={isListening ? '#FF6B6B' : '#4A90E2'}
+                    color={isListening ? resolvedTheme.textInverted : resolvedTheme.accent}
                   />
                 </Animated.View>
                 
@@ -350,7 +354,7 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
               {/* Text Zoom Card */}
               <View style={styles.settingCard}>
                 <View style={styles.settingHeader}>
-                  <Ionicons name="text" size={24} color="#42A5F5" />
+                  <Ionicons name="text" size={24} color={resolvedTheme.accent} />
                   <Text style={styles.settingTitle}>Text Size</Text>
                   <Text style={styles.settingValue}>
                     {textZoom}% • {getTextZoomLabel(textZoom)}
@@ -388,7 +392,7 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
               {/* Voice Speed Card */}
               <View style={styles.settingCard}>
                 <View style={styles.settingHeader}>
-                  <Ionicons name="volume-high" size={24} color="#66BB6A" />
+                  <Ionicons name="volume-high" size={24} color={resolvedTheme.success} />
                   <Text style={styles.settingTitle}>Voice Speed</Text>
                   <Text style={styles.settingValue}>
                     {voiceSpeed.toFixed(1)}x • {getVoiceSpeedLabel(voiceSpeed)}
@@ -415,7 +419,7 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
                   onPress={() => speakText('This is how your voice will sound at the current speed.')}
                   variant="outline"
                   size="small"
-                  icon={<Ionicons name="play" size={16} color="#4A90E2" />}
+                  icon={<Ionicons name="play" size={16} color={resolvedTheme.accent} />}
                   style={styles.testButton}
                 />
               </View>
@@ -439,169 +443,172 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  container: {
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: screenHeight * 0.9,
-  },
-  popup: {
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
+const createStyles = (theme: AppTheme) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: theme.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 20,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 16,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 24,
-    position: 'relative',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#8E8E93',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  voiceButton: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F0F8FF',
-    borderWidth: 2,
-    borderColor: '#4A90E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#4A90E2',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  voiceButtonActive: {
-    backgroundColor: '#FFE0E0',
-    borderColor: '#FF6B6B',
-  },
-  voiceIconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  waveContainer: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: '#FF6B6B',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  wave: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FF6B6B',
-    opacity: 0.6,
-  },
-  settingsContainer: {
-    marginBottom: 24,
-    maxHeight: screenHeight * 0.5,
-  },
-  settingsContent: {
-    paddingBottom: 10,
-  },
-  settingCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 0.5,
-    borderColor: '#E5E5EA',
-  },
-  settingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  settingTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginLeft: 12,
-    flex: 1,
-  },
-  settingValue: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#007AFF',
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  settingDescription: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 16,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  previewContainer: {
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  previewLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-  },
-  previewText: {
-    fontSize: 16,
-    color: '#333',
-    lineHeight: 22,
-  },
-  testButton: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-  },
-  actionButtons: {
-    gap: 12,
-  },
-  saveButton: {
-    width: '100%',
-  },
-});
+    container: {
+      width: '100%',
+      maxWidth: 400,
+      maxHeight: screenHeight * 0.9,
+    },
+    popup: {
+      borderRadius: 16,
+      padding: 20,
+      shadowColor: theme.cardShadow,
+      shadowOffset: {
+        width: 0,
+        height: 8,
+      },
+      shadowOpacity: theme.isDark ? 0.35 : 0.15,
+      shadowRadius: theme.isDark ? 20 : 16,
+      elevation: 16,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: 24,
+      position: 'relative',
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: theme.textPrimary,
+      marginTop: 12,
+      marginBottom: 4,
+    },
+    subtitle: {
+      fontSize: 15,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    voiceButton: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: theme.accentSoft,
+      borderWidth: 2,
+      borderColor: theme.accent,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: theme.accent,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: theme.isDark ? 0.3 : 0.2,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    voiceButtonActive: {
+      backgroundColor: theme.danger,
+      borderColor: theme.danger,
+    },
+    voiceIconContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    waveContainer: {
+      position: 'absolute',
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      borderWidth: 2,
+      borderColor: theme.danger,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    wave: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: theme.danger,
+      opacity: 0.6,
+    },
+    settingsContainer: {
+      marginBottom: 24,
+      maxHeight: screenHeight * 0.5,
+    },
+    settingsContent: {
+      paddingBottom: 10,
+    },
+    settingCard: {
+      backgroundColor: theme.cardBackground,
+      borderRadius: 12,
+      padding: 20,
+      marginBottom: 12,
+      shadowColor: theme.cardShadow,
+      shadowOffset: { width: 0, height: theme.isDark ? 4 : 1 },
+      shadowOpacity: theme.isDark ? 0.25 : 0.08,
+      shadowRadius: theme.isDark ? 12 : 4,
+      elevation: theme.isDark ? 6 : 2,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+    },
+    settingHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    settingTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      marginLeft: 12,
+      flex: 1,
+    },
+    settingValue: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.accent,
+      backgroundColor: theme.tagBackground,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    settingDescription: {
+      fontSize: 13,
+      color: theme.textSecondary,
+      marginTop: 16,
+      lineHeight: 18,
+      textAlign: 'center',
+    },
+    previewContainer: {
+      marginTop: 16,
+      padding: 12,
+      backgroundColor: theme.inputBackground,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+    },
+    previewLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.textSecondary,
+      marginBottom: 8,
+    },
+    previewText: {
+      fontSize: 16,
+      color: theme.textPrimary,
+      lineHeight: 22,
+    },
+    testButton: {
+      marginTop: 12,
+      alignSelf: 'flex-start',
+    },
+    actionButtons: {
+      gap: 12,
+    },
+    saveButton: {
+      width: '100%',
+    },
+  });
 
 export default AccessibilitySetupPopup;

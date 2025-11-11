@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { voiceManager } from '../utils/voiceCommandManager';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import { User } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppTheme, getThemeConfig } from '../../constants/theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -34,6 +35,11 @@ const LoginScreen = () => {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+
+  const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const gradientColors = theme.gradient;
+  const placeholderColor = theme.placeholder;
 
   useEffect(() => {
     // Simple voice announcement without complex command setup
@@ -177,10 +183,7 @@ const LoginScreen = () => {
   };
 
   return (
-    <LinearGradient
-      colors={['#667eea', '#764ba2', '#f093fb']}
-      style={styles.container}
-    >
+    <LinearGradient colors={gradientColors} style={styles.container}>
       <BackgroundLogo />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -192,12 +195,8 @@ const LoginScreen = () => {
         >
           <View style={styles.header}>
             <AccessAidLogo size={100} showText={true} />
-            <Text style={styles.welcomeText}>
-              Welcome to AccessAid
-            </Text>
-            <Text style={styles.subtitleText}>
-              Your intelligent accessibility companion
-            </Text>
+            <Text style={styles.welcomeText}>Welcome to AccessAid</Text>
+            <Text style={styles.subtitleText}>Your intelligent accessibility companion</Text>
           </View>
 
           <ModernCard variant="elevated" style={styles.formContainer}>
@@ -211,9 +210,9 @@ const LoginScreen = () => {
                 accessibilityLabel={isVoiceEnabled ? 'Disable voice commands' : 'Enable voice commands'}
               >
                 <Ionicons 
-                  name={isVoiceEnabled ? "mic" : "mic-off"} 
-                  size={20} 
-                  color={isVoiceEnabled ? "#FF6B6B" : "#4A90E2"} 
+                  name={isVoiceEnabled ? 'mic' : 'mic-off'}
+                  size={20}
+                  color={isVoiceEnabled ? theme.danger : theme.accent}
                 />
                 <Text style={[styles.voiceButtonText, isVoiceEnabled && styles.voiceButtonTextActive]}>
                   {isVoiceEnabled ? 'Voice ON' : 'Voice OFF'}
@@ -229,7 +228,7 @@ const LoginScreen = () => {
                   value={name}
                   onChangeText={setName}
                   placeholder="Enter your full name"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={placeholderColor}
                   autoCapitalize="words"
                   accessibilityLabel="Full name input"
                 />
@@ -243,7 +242,7 @@ const LoginScreen = () => {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Enter your email"
-                placeholderTextColor="#999"
+                placeholderTextColor={placeholderColor}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -258,7 +257,7 @@ const LoginScreen = () => {
                 value={pin}
                 onChangeText={setPin}
                 placeholder="Enter 4-digit PIN"
-                placeholderTextColor="#999"
+                placeholderTextColor={placeholderColor}
                 keyboardType="numeric"
                 maxLength={4}
                 secureTextEntry
@@ -273,7 +272,7 @@ const LoginScreen = () => {
               size="large"
               disabled={isLoading}
               loading={isLoading}
-              icon={<Ionicons name={isLogin ? "log-in" : "person-add"} size={20} color="white" />}
+              icon={<Ionicons name={isLogin ? 'log-in' : 'person-add'} size={20} color="white" />}
               style={styles.primaryButton}
             />
 
@@ -297,126 +296,139 @@ const LoginScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  welcomeText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
-    marginTop: 20,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  subtitleText: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 8,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  formContainer: {
-    padding: 30,
-    marginBottom: 20,
-  },
-  formHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  formTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    flex: 1,
-  },
-  voiceButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#F0F8FF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#4A90E2',
-  },
-  voiceButtonActive: {
-    backgroundColor: '#FFE0E0',
-    borderColor: '#FF6B6B',
-  },
-  voiceButtonText: {
-    color: '#4A90E2',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  voiceButtonTextActive: {
-    color: '#FF6B6B',
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  textInput: {
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    fontSize: 16,
-    backgroundColor: '#FAFAFA',
-    minHeight: 56,
-  },
-  primaryButton: {
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  secondaryButton: {
-    marginTop: 0,
-  },
-  voiceHelpContainer: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 20,
-  },
-  voiceHelpTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 8,
-  },
-  voiceHelpText: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
+const createStyles = (theme: AppTheme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    keyboardAvoidingView: {
+      flex: 1,
+    },
+    scrollContainer: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 40,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: 40,
+    },
+    welcomeText: {
+      fontSize: 32,
+      fontWeight: 'bold',
+      color: theme.textInverted,
+      marginTop: 20,
+      textAlign: 'center',
+      textShadowColor: 'rgba(0, 0, 0, 0.35)',
+      textShadowOffset: { width: 0, height: 3 },
+      textShadowRadius: 6,
+    },
+    subtitleText: {
+      fontSize: 18,
+      color: theme.textInverted,
+      opacity: 0.9,
+      marginTop: 8,
+      textAlign: 'center',
+    },
+    formContainer: {
+      padding: 30,
+      marginBottom: 20,
+      backgroundColor: theme.cardBackground,
+      borderRadius: 24,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+      shadowColor: theme.cardShadow,
+      shadowOffset: { width: 0, height: theme.isDark ? 8 : 4 },
+      shadowOpacity: theme.isDark ? 0.35 : 0.12,
+      shadowRadius: theme.isDark ? 20 : 12,
+      elevation: theme.isDark ? 10 : 4,
+    },
+    formHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 30,
+    },
+    formTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: theme.textPrimary,
+      flex: 1,
+    },
+    voiceButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      backgroundColor: theme.accentSoft,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: theme.accent,
+    },
+    voiceButtonActive: {
+      backgroundColor: theme.danger,
+      borderColor: theme.danger,
+    },
+    voiceButtonText: {
+      color: theme.accent,
+      fontSize: 12,
+      fontWeight: '600',
+      marginLeft: 6,
+    },
+    voiceButtonTextActive: {
+      color: theme.textInverted,
+    },
+    inputContainer: {
+      marginBottom: 20,
+    },
+    inputLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      marginBottom: 8,
+    },
+    textInput: {
+      borderWidth: 2,
+      borderColor: theme.inputBorder,
+      borderRadius: 16,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      fontSize: 16,
+      backgroundColor: theme.inputBackground,
+      minHeight: 56,
+      color: theme.textPrimary,
+    },
+    primaryButton: {
+      marginTop: 10,
+      marginBottom: 20,
+    },
+    secondaryButton: {
+      marginTop: 0,
+    },
+    voiceHelpContainer: {
+      alignItems: 'center',
+      backgroundColor: theme.isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.2)',
+      borderRadius: 16,
+      padding: 20,
+      marginTop: 20,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+    },
+    voiceHelpTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.textInverted,
+      marginBottom: 8,
+    },
+    voiceHelpText: {
+      fontSize: 14,
+      color: theme.textInverted,
+      opacity: 0.85,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+  });
 
 export default LoginScreen;

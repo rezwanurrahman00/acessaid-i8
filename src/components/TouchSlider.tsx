@@ -5,7 +5,6 @@ import {
   StyleSheet,
   PanResponder,
   Dimensions,
-  Animated,
   TouchableOpacity,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -45,20 +44,24 @@ export const TouchSlider: React.FC<TouchSliderProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
-  const pan = useRef(new Animated.Value(0)).current;
-  const thumbScale = useRef(new Animated.Value(1)).current;
-  const thumbOpacity = useRef(new Animated.Value(1)).current;
+  const [localValue, setLocalValue] = useState(value);
+  const startPositionRef = useRef(0);
 
   const sliderWidth = containerWidth * SLIDER_WIDTH_RATIO;
   const trackStartX = (containerWidth - sliderWidth) / 2;
 
   // Update position when value changes externally
   useEffect(() => {
-    if (!isDragging && sliderWidth > 0) {
-      const position = getPositionFromValue(value);
-      pan.setValue(position);
+    if (!isDragging) {
+      setLocalValue(value);
     }
-  }, [value, sliderWidth, isDragging]);
+  }, [value, isDragging]);
+
+  useEffect(() => {
+    if (sliderWidth > 0) {
+      startPositionRef.current = getPositionFromValue(localValue);
+    }
+  }, [sliderWidth, localValue]);
 
   const getValueFromPosition = (position: number) => {
     if (sliderWidth === 0) return min;
@@ -76,93 +79,63 @@ export const TouchSlider: React.FC<TouchSliderProps> = ({
 
   const updateValue = (newValue: number) => {
     const clampedValue = Math.max(min, Math.min(max, newValue));
+    setLocalValue(clampedValue);
     onValueChange(clampedValue);
+  };
+
+  const updateValueFromPosition = (position: number) => {
+    const newValue = getValueFromPosition(position);
+    updateValue(newValue);
   };
 
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => !disabled,
     onMoveShouldSetPanResponder: () => !disabled,
-    onPanResponderGrant: (evt) => {
+    onStartShouldSetPanResponderCapture: () => !disabled,
+    onMoveShouldSetPanResponderCapture: () => !disabled,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: () => {
       if (disabled) return;
       
       setIsDragging(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      
-      // Animate thumb scale and opacity
-      Animated.parallel([
-        Animated.spring(thumbScale, {
-          toValue: 1.2,
-          useNativeDriver: true,
-          tension: 300,
-          friction: 10,
-        }),
-        Animated.timing(thumbOpacity, {
-          toValue: 0.8,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      const touchX = evt.nativeEvent.locationX;
-      const newPosition = Math.max(0, Math.min(sliderWidth, touchX - trackStartX));
-      const newValue = getValueFromPosition(newPosition);
-      
-      pan.setValue(newPosition);
-      updateValue(newValue);
+      startPositionRef.current = getPositionFromValue(localValue);
     },
     onPanResponderMove: (evt, gestureState) => {
       if (disabled) return;
-      
-      const currentPosition = pan._value;
-      const newPosition = Math.max(0, Math.min(sliderWidth, currentPosition + gestureState.dx));
-      const newValue = getValueFromPosition(newPosition);
-      
-      pan.setValue(newPosition);
-      updateValue(newValue);
+
+      const newPosition = Math.max(
+        0,
+        Math.min(sliderWidth, startPositionRef.current + gestureState.dx)
+      );
+      updateValueFromPosition(newPosition);
     },
     onPanResponderRelease: () => {
       if (disabled) return;
       
       setIsDragging(false);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      
-      // Animate thumb back to normal
-      Animated.parallel([
-        Animated.spring(thumbScale, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 300,
-          friction: 10,
-        }),
-        Animated.timing(thumbOpacity, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
+
+      startPositionRef.current = getPositionFromValue(localValue);
     },
   });
 
   const handleTrackPress = (evt: any) => {
     if (disabled) return;
+    if (sliderWidth <= 0) return;
     
     const touchX = evt.nativeEvent.locationX;
-    const newPosition = Math.max(0, Math.min(sliderWidth, touchX - trackStartX));
-    const newValue = getValueFromPosition(newPosition);
-    
+    const newPosition = Math.max(0, Math.min(sliderWidth, touchX));
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    Animated.spring(pan, {
-      toValue: newPosition,
-      useNativeDriver: true,
-      tension: 300,
-      friction: 10,
-    }).start();
-    
-    updateValue(newValue);
+
+    startPositionRef.current = newPosition;
+    updateValueFromPosition(newPosition);
   };
 
-  const progress = ((value - min) / (max - min)) * 100;
+  const progress = sliderWidth > 0 ? ((localValue - min) / (max - min)) * 100 : 0;
+  const filledTrackWidth = (sliderWidth * progress) / 100;
+  const thumbOffset = Math.max(0, Math.min(sliderWidth - THUMB_SIZE, filledTrackWidth - THUMB_SIZE / 2));
 
   return (
     <View 
@@ -186,39 +159,21 @@ export const TouchSlider: React.FC<TouchSliderProps> = ({
           disabled={disabled}
         >
           {/* Active Track - Using scaleX instead of width */}
-          <Animated.View
+          <View
             style={[
               styles.activeTrack,
               {
-                transform: [
-                  {
-                    scaleX: pan.interpolate({
-                      inputRange: [0, sliderWidth],
-                      outputRange: [0, 1],
-                      extrapolate: 'clamp',
-                    }),
-                  },
-                ],
+                width: filledTrackWidth,
               },
             ]}
           />
           
           {/* Thumb - Using translateX instead of left */}
-          <Animated.View
+          <View
             style={[
               styles.thumb,
               {
-                transform: [
-                  {
-                    translateX: pan.interpolate({
-                      inputRange: [0, sliderWidth],
-                      outputRange: [0, sliderWidth - THUMB_SIZE],
-                      extrapolate: 'clamp',
-                    }),
-                  },
-                  { scale: thumbScale },
-                ],
-                opacity: thumbOpacity,
+                left: thumbOffset,
               },
             ]}
             {...panResponder.panHandlers}
@@ -262,9 +217,6 @@ const styles = StyleSheet.create({
     borderRadius: TRACK_HEIGHT / 2,
     position: 'absolute',
     left: 0,
-    // Set a fixed width that will be scaled
-    width: '100%',
-    transformOrigin: 'left',
   },
   thumb: {
     position: 'absolute',
@@ -283,7 +235,6 @@ const styles = StyleSheet.create({
     shadowRadius: THUMB_SHADOW_RADIUS,
     elevation: 4,
     top: (TRACK_HEIGHT - THUMB_SIZE) / 2,
-    left: 0, // Fixed position, moved with translateX
   },
   labelsContainer: {
     flexDirection: 'row',

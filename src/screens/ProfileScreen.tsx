@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
 import { voiceManager } from '../utils/voiceCommandManager';
 import { BackgroundLogo } from '../components/BackgroundLogo';
+import { AppTheme, getThemeConfig } from '../../constants/theme';
 let ImagePicker: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -225,6 +226,11 @@ const ProfileScreen = () => {
     handleAccessibilityChange('isDarkMode', value);
   };
 
+  const theme = useMemo(() => getThemeConfig(isDarkMode), [isDarkMode]);
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const gradientColors = theme.gradient;
+  const placeholderColor = theme.placeholder;
+
   const ProfileSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <ModernCard variant="elevated" style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -256,7 +262,7 @@ const ProfileScreen = () => {
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#999"
+        placeholderTextColor={placeholderColor}
         multiline={multiline}
         numberOfLines={multiline ? 3 : 1}
         keyboardType={keyboardType}
@@ -269,7 +275,7 @@ const ProfileScreen = () => {
 
   return (
     <LinearGradient
-      colors={['#667eea', '#764ba2', '#f093fb']}
+      colors={gradientColors}
       style={styles.container}
     >
       <BackgroundLogo />
@@ -499,8 +505,9 @@ const ProfileScreen = () => {
               <Switch
                 value={isDarkMode}
                 onValueChange={handleDarkModeToggle}
-                trackColor={{ false: '#E0E0E0', true: '#4A90E2' }}
-                thumbColor={isDarkMode ? '#FFFFFF' : '#FFFFFF'}
+                trackColor={{ false: theme.border, true: theme.accent }}
+                thumbColor={isDarkMode ? theme.accent : '#FFFFFF'}
+                ios_backgroundColor={theme.border}
                 accessibilityLabel="Dark mode toggle"
               />
             </View>
@@ -535,229 +542,316 @@ const ProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: isSmallScreen ? 20 : 30,
-    paddingTop: isSmallScreen ? 15 : 20,
-    paddingHorizontal: isSmallScreen ? 10 : 0,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: isSmallScreen ? 15 : 20,
-    minWidth: isSmallScreen ? 180 : 200,
-    maxWidth: screenWidth - 40,
-  },
-  welcomeText: {
-    fontSize: isSmallScreen ? 24 : 28,
-    fontWeight: 'bold',
-    color: 'white',
-    marginTop: isSmallScreen ? 10 : 15,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-    paddingHorizontal: isSmallScreen ? 10 : 0,
-  },
-  subtitleText: {
-    fontSize: isSmallScreen ? 14 : 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: isSmallScreen ? 6 : 8,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    paddingHorizontal: isSmallScreen ? 10 : 0,
-  },
-  section: {
-    padding: 20,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
-  },
-  profileActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 12,
-  },
-  editButton: {
-    flex: 1,
-  },
-  saveButton: {
-    flex: 1,
-  },
-  fieldContainer: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  textInput: {
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#FAFAFA',
-  },
-  multilineInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  profilePictureContainer: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  profilePictureWrapper: {
-    position: 'relative',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    overflow: 'hidden',
-    backgroundColor: '#F0F0F0',
-    borderWidth: 3,
-    borderColor: '#4A90E2',
-    shadowColor: '#4A90E2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  profilePicture: {
-    width: '100%',
-    height: '100%',
-  },
-  profilePicturePlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-  },
-  profilePictureText: {
-    fontSize: 12,
-    color: '#4A90E2',
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  profilePictureOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#4A90E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfField: {
-    flex: 1,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    paddingVertical: 8,
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  infoContainer: {
-    gap: 12,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  infoLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  logoutButton: {
-    marginTop: 20,
-  },
-  settingCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 0.5,
-    borderColor: '#E5E5EA',
-  },
-  settingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  settingTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginLeft: 12,
-    flex: 1,
-  },
-  settingValue: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#007AFF',
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  settingDescription: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 16,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-});
-
 export default ProfileScreen;
+
+const createStyles = (theme: AppTheme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      flex: 1,
+    },
+    scrollContainer: {
+      flexGrow: 1,
+      paddingHorizontal: 20,
+      paddingVertical: 20,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: isSmallScreen ? 20 : 30,
+      paddingTop: isSmallScreen ? 15 : 20,
+      paddingHorizontal: isSmallScreen ? 10 : 0,
+    },
+    logoContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: isSmallScreen ? 15 : 20,
+      minWidth: isSmallScreen ? 180 : 200,
+      maxWidth: screenWidth - 40,
+    },
+    welcomeText: {
+      fontSize: isSmallScreen ? 24 : 28,
+      fontWeight: 'bold',
+      color: theme.textPrimary,
+      marginTop: isSmallScreen ? 10 : 15,
+      textAlign: 'center',
+      textShadowColor: theme.isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.3)',
+      textShadowOffset: { width: 0, height: 2 },
+      textShadowRadius: 4,
+      paddingHorizontal: isSmallScreen ? 10 : 0,
+    },
+    subtitleText: {
+      fontSize: isSmallScreen ? 14 : 16,
+      color: theme.textSecondary,
+      marginTop: isSmallScreen ? 6 : 8,
+      textAlign: 'center',
+    },
+    section: {
+      padding: 20,
+      marginBottom: 20,
+      backgroundColor: theme.cardBackground,
+      borderRadius: 20,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.border,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: theme.isDark ? 6 : 3 },
+      shadowOpacity: theme.isDark ? 0.35 : 0.1,
+      shadowRadius: theme.isDark ? 16 : 8,
+      elevation: theme.isDark ? 8 : 4,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.textPrimary,
+      marginBottom: 20,
+    },
+    profileActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 20,
+      gap: 12,
+    },
+    editButton: {
+      flex: 1,
+    },
+    saveButton: {
+      flex: 1,
+    },
+    fieldContainer: {
+      marginBottom: 16,
+    },
+    fieldLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      marginBottom: 8,
+    },
+    textInput: {
+      borderWidth: 2,
+      borderColor: theme.inputBorder,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      fontSize: 16,
+      backgroundColor: theme.inputBackground,
+      color: theme.textPrimary,
+    },
+    multilineInput: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
+    profilePictureContainer: {
+      marginBottom: 20,
+      alignItems: 'center',
+    },
+    profilePictureWrapper: {
+      position: 'relative',
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      overflow: 'hidden',
+      backgroundColor: theme.inputBackground,
+      borderWidth: 3,
+      borderColor: theme.accent,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: theme.isDark ? 0.45 : 0.25,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    profilePicture: {
+      width: '100%',
+      height: '100%',
+    },
+    profilePicturePlaceholder: {
+      width: '100%',
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.inputBackground,
+    },
+    profilePictureText: {
+      fontSize: 12,
+      color: theme.accent,
+      fontWeight: '600',
+      marginTop: 4,
+    },
+    profilePictureOverlay: {
+      position: 'absolute',
+      bottom: 0,
+      right: 0,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: theme.accent,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: theme.isDark ? 0.45 : 0.3,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    rowContainer: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    halfField: {
+      flex: 1,
+    },
+    switchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 20,
+      paddingVertical: 8,
+    },
+    switchLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textPrimary,
+    },
+    infoContainer: {
+      gap: 12,
+    },
+    infoItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 8,
+    },
+    infoLabel: {
+      fontSize: 16,
+      color: theme.textSecondary,
+    },
+    infoValue: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.textPrimary,
+    },
+    logoutButton: {
+      marginTop: 20,
+    },
+    settingCard: {
+      backgroundColor: theme.cardBackground,
+      borderRadius: 12,
+      padding: 20,
+      marginBottom: 12,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: theme.isDark ? 4 : 1 },
+      shadowOpacity: theme.isDark ? 0.4 : 0.08,
+      shadowRadius: theme.isDark ? 12 : 4,
+      elevation: theme.isDark ? 6 : 2,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.border,
+    },
+    settingHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    settingTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      marginLeft: 12,
+      flex: 1,
+    },
+    settingValue: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.accent,
+      backgroundColor: theme.tagBackground,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    settingDescription: {
+      fontSize: 13,
+      color: theme.textSecondary,
+      marginTop: 16,
+      lineHeight: 18,
+      textAlign: 'center',
+    },
+    voiceCommandsContainer: {
+      padding: 20,
+      marginBottom: 20,
+      backgroundColor: theme.cardBackground,
+      borderRadius: 20,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.border,
+    },
+    voiceCommandsText: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginBottom: 15,
+      lineHeight: 20,
+    },
+    voiceCommandButton: {
+      width: '100%',
+    },
+    featuresContainer: {
+      marginBottom: 20,
+    },
+    cardContent: {
+      alignItems: 'center',
+      padding: 20,
+    },
+    cardTitle: {
+      color: 'white',
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginTop: 12,
+      marginBottom: 8,
+    },
+    cardDescription: {
+      color: 'white',
+      fontSize: 14,
+      opacity: 0.9,
+      textAlign: 'center',
+    },
+    quickStatsContainer: {
+      padding: 20,
+      marginBottom: 20,
+      backgroundColor: theme.cardBackground,
+      borderRadius: 20,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.border,
+      shadowColor: theme.shadowColor,
+      shadowOffset: { width: 0, height: theme.isDark ? 4 : 2 },
+      shadowOpacity: theme.isDark ? 0.35 : 0.08,
+      shadowRadius: theme.isDark ? 12 : 6,
+      elevation: theme.isDark ? 6 : 2,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+    },
+    statItem: {
+      alignItems: 'center',
+    },
+    settingCardsContainer: {
+      gap: 12,
+    },
+    statNumber: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#4A90E2',
+    },
+    statLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+    },
+    infoLabelSmall: {
+      fontSize: 13,
+      color: theme.textSecondary,
+    },
+    sectionDescription: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginBottom: 16,
+      lineHeight: 20,
+    },
+  });

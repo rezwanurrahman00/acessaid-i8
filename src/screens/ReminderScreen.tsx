@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../contexts/AppContext';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import Constants from 'expo-constants';
+import { AppTheme, getThemeConfig } from '../../constants/theme';
 let Clipboard: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -67,6 +68,9 @@ const ReminderScreen: React.FC = () => {
 
   // Optional import of DateTimePicker; fallback on web
   const DateTimePicker: any = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
+
+  const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   useEffect(() => {
     Animated.parallel([
@@ -317,10 +321,10 @@ const ReminderScreen: React.FC = () => {
       </View>
       <View style={styles.cardActions}>
         <TouchableOpacity onPress={() => toggleComplete(item.id)} style={styles.actionBtn} accessibilityLabel={item.isCompleted ? 'Mark as active' : 'Mark as completed'}>
-          <Ionicons name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={item.isCompleted ? '#34C759' : '#8E8E93'} />
+          <Ionicons name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={item.isCompleted ? theme.success : theme.textMuted} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => removeReminder(item.id)} style={styles.actionBtn} accessibilityLabel="Delete reminder">
-          <Ionicons name="trash" size={20} color="#FF3B30" />
+          <Ionicons name="trash" size={20} color={theme.danger} />
         </TouchableOpacity>
       </View>
     </View>
@@ -337,10 +341,14 @@ const ReminderScreen: React.FC = () => {
             <Text style={[styles.preview, { marginTop: 6 }]} numberOfLines={1}>Push Token: {pushToken}</Text>
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
               <TouchableOpacity onPress={handleCopyToken} style={[styles.btn, styles.btnCancel, { flex: undefined, paddingHorizontal: 12 }]}>
-                <Text style={[styles.btnText, { color: '#8E8E93' }]}>Copy Token</Text>
+                <Text style={[styles.btnText, { color: theme.textSecondary }]}>Copy Token</Text>
               </TouchableOpacity>
-              <TouchableOpacity disabled={sendingTest} onPress={handleSendTestPush} style={[styles.btn, styles.btnPrimary, { flex: undefined, paddingHorizontal: 12, opacity: sendingTest ? 0.6 : 1 }]}>
-                <Text style={[styles.btnText, { color: '#fff' }]}>{sendingTest ? 'Sending…' : 'Send Test Push'}</Text>
+              <TouchableOpacity
+                disabled={sendingTest}
+                onPress={handleSendTestPush}
+                style={[styles.btn, styles.btnPrimary, sendingTest && styles.btnDisabled, { flex: undefined, paddingHorizontal: 12 }]}
+              >
+                <Text style={[styles.btnText, { color: theme.textInverted }]}>{sendingTest ? 'Sending…' : 'Send Test Push'}</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -356,7 +364,7 @@ const ReminderScreen: React.FC = () => {
       />
 
       <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={openModal} accessibilityLabel="Add Reminder">
-        <Ionicons name="add" size={28} color="#fff" />
+        <Ionicons name="add" size={28} color={theme.textInverted} />
       </TouchableOpacity>
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
@@ -367,7 +375,7 @@ const ReminderScreen: React.FC = () => {
             <TextInput
               style={styles.input}
               placeholder="Reminder Title"
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={theme.placeholder}
               value={title}
               onChangeText={setTitle}
               returnKeyType="done"
@@ -375,7 +383,7 @@ const ReminderScreen: React.FC = () => {
             <TextInput
               style={[styles.input, { marginTop: 8 }]}
               placeholder="Description (optional)"
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={theme.placeholder}
               value={description}
               onChangeText={setDescription}
               multiline
@@ -399,7 +407,7 @@ const ReminderScreen: React.FC = () => {
                 <TextInput
                   style={styles.input}
                   placeholder="YYYY-MM-DD HH:MM"
-                  placeholderTextColor="#8E8E93"
+                  placeholderTextColor={theme.placeholder}
                   value={formatISOInput(date)}
                   onChangeText={(t) => {
                     const parsed = parseISOInput(t);
@@ -416,10 +424,14 @@ const ReminderScreen: React.FC = () => {
 
             <View style={styles.actionsRow}>
               <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={() => setModalVisible(false)}>
-                <Text style={[styles.btnText, { color: '#8E8E93' }]}>Cancel</Text>
+                <Text style={[styles.btnText, { color: theme.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={saveReminder}>
-                <Text style={[styles.btnText, { color: '#fff' }]}>Save Reminder</Text>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnPrimary, !title.trim() && styles.btnDisabled, { opacity: title.trim() ? 1 : 0.6 }]}
+                onPress={saveReminder}
+                disabled={!title.trim()}
+              >
+                <Text style={[styles.btnText, { color: theme.textInverted }]}>Save Reminder</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -439,10 +451,10 @@ const ReminderScreen: React.FC = () => {
             <Text style={[styles.preview, { marginTop: 6 }]}>{formatPreview(alertReminder?.datetime || new Date())}</Text>
             <View style={styles.actionsRow}>
               <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={handleAlertNo}>
-                <Text style={[styles.btnText, { color: '#8E8E93' }]}>No (Remind in 5m)</Text>
+                <Text style={[styles.btnText, { color: theme.textSecondary }]}>No (Remind in 5m)</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={handleAlertYes}>
-                <Text style={[styles.btnText, { color: '#fff' }]}>Yes (Done)</Text>
+                <Text style={[styles.btnText, { color: theme.textInverted }]}>Yes (Done)</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -483,78 +495,109 @@ const buildSpokenMessage = (title: string, description?: string) => {
   return `${intro}${desc} Please take action now.`;
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { paddingTop: 52, paddingHorizontal: 20, paddingBottom: 12 },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: '#111' },
-  headerSubtitle: { marginTop: 4, color: '#6B7280' },
-  emptyText: { textAlign: 'center', color: '#8E8E93', marginTop: 40 },
+const createStyles = (theme: AppTheme) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.background },
+    header: {
+      paddingTop: 52,
+      paddingHorizontal: 20,
+      paddingBottom: 12,
+    },
+    headerTitle: { fontSize: 28, fontWeight: '700', color: theme.textPrimary },
+    headerSubtitle: { marginTop: 4, color: theme.textSecondary },
+    emptyText: { textAlign: 'center', color: theme.textMuted, marginTop: 40 },
 
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: '#111' },
-  cardSubtitle: { marginTop: 6, color: '#6B7280' },
-  cardActions: { flexDirection: 'row', alignItems: 'center' },
-  actionBtn: { paddingHorizontal: 8, paddingVertical: 6 },
+    card: {
+      backgroundColor: theme.cardBackground,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 12,
+      shadowColor: theme.cardShadow,
+      shadowOffset: { width: 0, height: theme.isDark ? 6 : 4 },
+      shadowOpacity: theme.isDark ? 0.25 : 0.08,
+      shadowRadius: theme.isDark ? 14 : 10,
+      elevation: theme.isDark ? 6 : 2,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      borderWidth: theme.isDark ? 1 : StyleSheet.hairlineWidth,
+      borderColor: theme.cardBorder,
+    },
+    cardTitle: { fontSize: 16, fontWeight: '600', color: theme.textPrimary },
+    cardSubtitle: { marginTop: 6, color: theme.textSecondary },
+    cardActions: { flexDirection: 'row', alignItems: 'center' },
+    actionBtn: { paddingHorizontal: 8, paddingVertical: 6 },
 
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 30,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007AFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
-  },
+    fab: {
+      position: 'absolute',
+      right: 20,
+      bottom: 30,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: theme.fabBackground,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: theme.fabShadow,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: theme.isDark ? 0.35 : 0.2,
+      shadowRadius: 12,
+      elevation: 6,
+    },
 
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'center', padding: 20 },
-  blurFill: { ...StyleSheet.absoluteFillObject, borderRadius: 24 },
-  sheet: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  sheetTitle: { fontSize: 20, fontWeight: '700', color: '#111' },
-  input: {
-    marginTop: 12,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#D1D5DB',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#111',
-    backgroundColor: '#F9FAFB',
-  },
-  preview: { marginTop: 12, color: '#6B7280' },
-  actionsRow: { flexDirection: 'row', marginTop: 18, gap: 12 },
-  btn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  btnCancel: { backgroundColor: '#EFEFF4' },
-  btnPrimary: { backgroundColor: '#007AFF', shadowColor: '#007AFF', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } },
-  btnText: { fontWeight: '600' },
-});
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: theme.overlay,
+      justifyContent: 'center',
+      padding: 20,
+    },
+    blurFill: { ...StyleSheet.absoluteFillObject, borderRadius: 24 },
+    sheet: {
+      backgroundColor: theme.modalBackground,
+      borderRadius: 20,
+      padding: 20,
+      shadowColor: theme.cardShadow,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: theme.isDark ? 0.35 : 0.15,
+      shadowRadius: theme.isDark ? 24 : 18,
+      elevation: 8,
+      borderWidth: theme.isDark ? 1 : StyleSheet.hairlineWidth,
+      borderColor: theme.cardBorder,
+    },
+    sheetTitle: { fontSize: 20, fontWeight: '700', color: theme.textPrimary },
+    input: {
+      marginTop: 12,
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.inputBorder,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      color: theme.textPrimary,
+      backgroundColor: theme.inputBackground,
+    },
+    preview: { marginTop: 12, color: theme.textSecondary },
+    actionsRow: { flexDirection: 'row', marginTop: 18, gap: 12 },
+    btn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    btnCancel: {
+      backgroundColor: theme.tagBackground,
+    },
+    btnPrimary: {
+      backgroundColor: theme.accent,
+      shadowColor: theme.accent,
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 3 },
+    },
+    btnDisabled: {
+      backgroundColor: theme.accentSoft,
+      shadowOpacity: 0,
+    },
+    btnText: { fontWeight: '600' },
+  });
 
 export default ReminderScreen;
