@@ -10,6 +10,7 @@ import {
   TextInput,
   Platform,
   FlatList,
+  ScrollView,
 } from 'react-native';
 // BlurView fallback for environments without expo-blur
 const BlurViewComponent: any = (() => {
@@ -35,6 +36,9 @@ try {
 } catch {
   Clipboard = { setStringAsync: async (_: string) => {} };
 }
+type ReminderCategory = 'personal' | 'work' | 'health' | 'finance' | 'shopping' | 'other';
+type ReminderPriority = 'low' | 'medium' | 'high';
+type ReminderRecurrence = 'once' | 'daily' | 'weekly' | 'monthly';
 
 type Reminder = {
   id: string;
@@ -44,6 +48,9 @@ type Reminder = {
   isCompleted: boolean;
   createdAt: Date;
   hasFired?: boolean;
+  category?: ReminderCategory;
+  priority?: ReminderPriority;
+  recurrence?: ReminderRecurrence;
 };
 
 const baseKey = 'reminders_v2';
@@ -56,6 +63,12 @@ const ReminderScreen: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState<Date>(new Date(Date.now() + 60 * 60 * 1000));
+  const [category, setCategory] = useState<ReminderCategory>('personal');
+  const [priority, setPriority] = useState<ReminderPriority>('medium');
+  const [recurrence, setRecurrence] = useState<ReminderRecurrence>('once');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState<ReminderCategory | 'all'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('all');
   const [fadeIn] = useState(new Animated.Value(0));
   const [slideUp] = useState(new Animated.Value(40));
   const intervalRef = useRef<any>(null);
@@ -238,6 +251,9 @@ const ReminderScreen: React.FC = () => {
     setTitle('');
     setDescription('');
     setDate(new Date(Date.now() + 60 * 60 * 1000));
+    setCategory('personal');
+    setPriority('medium');
+    setRecurrence('once');
     setModalVisible(true);
   };
 
@@ -281,10 +297,11 @@ const ReminderScreen: React.FC = () => {
       Alert.alert('Missing title', 'Please enter a reminder title.');
       return;
     }
-    if (reminders.length >= 20) {
-      Alert.alert('Limit reached', 'You can only have up to 20 reminders.');
+    if (reminders.length >= 50) {
+      Alert.alert('Limit reached', 'You can only have up to 50 reminders.');
       return;
     }
+
     if (date.getTime() <= Date.now()) {
       Alert.alert('Invalid time', 'Please select a future date and time.');
       return;
@@ -296,10 +313,45 @@ const ReminderScreen: React.FC = () => {
       datetime: date,
       isCompleted: false,
       createdAt: new Date(),
+      category,
+      priority,
+      recurrence,
     };
     setReminders(prev => [...prev, newReminder]);
     await scheduleNative(newReminder);
+      // Schedule recurring reminders
+    if (recurrence !== 'once') {
+      scheduleRecurringReminders(newReminder);
+    }
     setModalVisible(false);
+    Speech.speak(`Reminder "${title.trim()}" created successfully`);
+  };
+
+  const scheduleRecurringReminders = async (reminder: Reminder) => {
+    // Schedule future occurrences for recurring reminders
+    const occurrences = 5; // Schedule next 5 occurrences
+    for (let i = 1; i <= occurrences; i++) {
+      const nextDate = new Date(reminder.datetime);
+      if (reminder.recurrence === 'daily') {
+        nextDate.setDate(nextDate.getDate() + i);
+      } else if (reminder.recurrence === 'weekly') {
+        nextDate.setDate(nextDate.getDate() + (i * 7));
+      } else if (reminder.recurrence === 'monthly') {
+        nextDate.setMonth(nextDate.getMonth() + i);
+      }
+      
+      if (Platform.OS !== 'web' && nextDate.getTime() > Date.now()) {
+        await Notifications.scheduleNotificationAsync({
+          content: { 
+            title: '⏰ Recurring Reminder', 
+            body: reminder.title, 
+            sound: true, 
+            data: { reminderId: reminder.id } 
+          },
+          trigger: ({ date: nextDate } as unknown) as Notifications.NotificationTriggerInput,
+        });
+      }
+    }
   };
 
   const toggleComplete = (id: string) => {
@@ -309,58 +361,224 @@ const ReminderScreen: React.FC = () => {
   const removeReminder = (id: string) => {
     Alert.alert('Delete Reminder', 'Are you sure you want to delete this reminder?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => setReminders(prev => prev.filter(r => r.id !== id)) },
+      { 
+        text: 'Delete', 
+        style: 'destructive', 
+        onPress: () => {
+          setReminders(prev => prev.filter(r => r.id !== id));
+          Speech.speak('Reminder deleted');
+        }
+      },
     ]);
   };
+  const getCategoryIcon = (cat?: ReminderCategory) => {
+    switch (cat) {
+      case 'work': return '💼';
+      case 'health': return '❤️';
+      case 'finance': return '💰';
+      case 'shopping': return '🛒';
+      case 'personal': return '👤';
+      default: return '📌';
+    }
+  };
+
+  const getPriorityColor = (pri?: ReminderPriority) => {
+    switch (pri) {
+      case 'high': return '#FF3B30';
+      case 'medium': return '#FF9500';
+      case 'low': return '#34C759';
+      default: return '#8E8E93';
+    }
+  };
+
+  const getRecurrenceText = (rec?: ReminderRecurrence) => {
+    switch (rec) {
+      case 'daily': return '🔁 Daily';
+      case 'weekly': return '🔁 Weekly';
+      case 'monthly': return '🔁 Monthly';
+      default: return '🔔 Once';
+    }
+  };
+
+  // Filter reminders
+  const filteredReminders = useMemo(() => {
+    let filtered = reminders;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(r => 
+        r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (r.description && r.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    // Category filter
+    if (filterCategory !== 'all') {
+      filtered = filtered.filter(r => r.category === filterCategory);
+    }
+
+    // Status filter
+    if (filterStatus === 'active') {
+      filtered = filtered.filter(r => !r.isCompleted);
+    } else if (filterStatus === 'completed') {
+      filtered = filtered.filter(r => r.isCompleted);
+    }
+
+    return filtered.sort((a, b) => a.datetime.getTime() - b.datetime.getTime());
+  }, [reminders, searchQuery, filterCategory, filterStatus]);
+
 
   const renderItem = ({ item }: { item: Reminder }) => (
-    <View style={styles.card}>
+     <TouchableOpacity 
+      style={[
+        styles.card,
+        item.isCompleted && styles.cardCompleted
+      ]}
+      activeOpacity={0.7}
+      onPress={() => {
+        const msg = `${item.title}. ${item.description || ''}. Scheduled for ${formatPreview(item.datetime)}`;
+        Speech.speak(msg);
+      }}
+    >
+      <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(item.priority) }]} 
       <View style={{ flex: 1 }}>
-        <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-        <Text style={styles.cardSubtitle}>🔔 {formatPreview(item.datetime)}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+          <Text style={{ fontSize: 20, marginRight: 8 }}>{getCategoryIcon(item.category)}</Text>
+          <Text style={[styles.cardTitle, item.isCompleted && styles.cardTitleCompleted]} numberOfLines={2}>
+            {item.title}
+          </Text>
+        </View>
+        {item.description && (
+          <Text style={styles.cardDescription} numberOfLines={2}>{item.description}</Text>
+        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 12 }}>
+          <Text style={styles.cardSubtitle}>🔔 {formatPreview(item.datetime)}</Text>
+          <Text style={[styles.recurrenceBadge, { color: theme.accent }]}>{getRecurrenceText(item.recurrence)}</Text>
+        </View>
       </View>
       <View style={styles.cardActions}>
-        <TouchableOpacity onPress={() => toggleComplete(item.id)} style={styles.actionBtn} accessibilityLabel={item.isCompleted ? 'Mark as active' : 'Mark as completed'}>
-          <Ionicons name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={item.isCompleted ? theme.success : theme.textMuted} />
+        <TouchableOpacity 
+          onPress={() => toggleComplete(item.id)} 
+          style={styles.actionBtn} 
+          accessibilityLabel={item.isCompleted ? 'Mark as active' : 'Mark as completed'}
+        >
+          <Ionicons 
+            name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'} 
+            size={24} 
+            color={item.isCompleted ? theme.success : theme.textMuted} 
+          />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => removeReminder(item.id)} style={styles.actionBtn} accessibilityLabel="Delete reminder">
-          <Ionicons name="trash" size={20} color={theme.danger} />
+        <TouchableOpacity 
+          onPress={() => removeReminder(item.id)} 
+          style={styles.actionBtn} 
+          accessibilityLabel="Delete reminder"
+        >
+          <Ionicons name="trash" size={22} color={theme.danger} />
         </TouchableOpacity>
       </View>
     </View>
+    </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
       <BackgroundLogo />
       <Animated.View style={[styles.header, { opacity: fadeIn, transform: [{ translateY: slideUp }] }]}> 
-        <Text style={styles.headerTitle}>Reminders</Text>
-        <Text style={styles.headerSubtitle}>{reminders.filter(r => !r.isCompleted).length} Active • {reminders.length}/20 Total</Text>
-        {!!pushToken && (
-          <>
-            <Text style={[styles.preview, { marginTop: 6 }]} numberOfLines={1}>Push Token: {pushToken}</Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-              <TouchableOpacity onPress={handleCopyToken} style={[styles.btn, styles.btnCancel, { flex: undefined, paddingHorizontal: 12 }]}>
-                <Text style={[styles.btnText, { color: theme.textSecondary }]}>Copy Token</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                disabled={sendingTest}
-                onPress={handleSendTestPush}
-                style={[styles.btn, styles.btnPrimary, sendingTest && styles.btnDisabled, { flex: undefined, paddingHorizontal: 12 }]}
-              >
-                <Text style={[styles.btnText, { color: theme.textInverted }]}>{sendingTest ? 'Sending…' : 'Send Test Push'}</Text>
-              </TouchableOpacity>
+      <Text style={styles.headerTitle}>✨ Reminders</Text>
+      <Text style={styles.headerSubtitle}>
+          {filteredReminders.filter(r => !r.isCompleted).length} Active • {reminders.length}/50 Total
+      </Text>
+        
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search reminders..."
+            placeholderTextColor={theme.placeholder}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={theme.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Filter Button */}
+        <TouchableOpacity 
+          style={styles.filterButton} 
+          onPress={() => setShowFilters(!showFilters)}
+        >
+          <Ionicons name="filter" size={18} color={theme.textInverted} />
+          <Text style={styles.filterButtonText}>Filters</Text>
+        </TouchableOpacity>
+
+        {/* Filters Panel */}
+        {showFilters && (
+          <View style={styles.filtersPanel}>
+            <Text style={styles.filterLabel}>Category:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              {(['all', 'personal', 'work', 'health', 'finance', 'shopping', 'other'] as const).map(cat => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.filterChip,
+                    filterCategory === cat && styles.filterChipActive
+                  ]}
+                  onPress={() => setFilterCategory(cat)}
+                >
+                  <Text style={[
+                    styles.filterChipText,
+                    filterCategory === cat && styles.filterChipTextActive
+                  ]}>
+                    {cat === 'all' ? '🌟 All' : `${getCategoryIcon(cat as ReminderCategory)} ${cat.charAt(0).toUpperCase() + cat.slice(1)}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={styles.filterLabel}>Status:</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              {(['all', 'active', 'completed'] as const).map(status => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.filterChip,
+                    filterStatus === status && styles.filterChipActive
+                  ]}
+                  onPress={() => setFilterStatus(status)}
+                >
+                  <Text style={[
+                    styles.filterChipText,
+                    filterStatus === status && styles.filterChipTextActive
+                  ]}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
             </View>
-          </>
+          
         )}
       </Animated.View>
 
       <FlatList
-        data={reminders.sort((a, b) => a.datetime.getTime() - b.datetime.getTime())}
+        data={filteredReminders}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
         renderItem={renderItem}
-        ListEmptyComponent={<Text style={styles.emptyText}>No reminders yet. Tap + to add one.</Text>}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>📝</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery || filterCategory !== 'all' || filterStatus !== 'all' 
+                ? 'No reminders match your filters' 
+                : 'No reminders yet. Tap + to add one.'}
+            </Text>
+          </View>
+        }
       />
 
       <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={openModal} accessibilityLabel="Add Reminder">
@@ -370,71 +588,151 @@ const ReminderScreen: React.FC = () => {
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <BlurViewComponent intensity={40} tint={Platform.OS === 'ios' ? 'systemThinMaterial' : 'light'} style={styles.blurFill} />
-          <Animated.View style={[styles.sheet, { opacity: fadeIn }]}> 
-            <Text style={styles.sheetTitle}>⏰ Set Reminder</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Reminder Title"
-              placeholderTextColor={theme.placeholder}
-              value={title}
-              onChangeText={setTitle}
-              returnKeyType="done"
-            />
-            <TextInput
-              style={[styles.input, { marginTop: 8 }]}
-              placeholder="Description (optional)"
-              placeholderTextColor={theme.placeholder}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-            />
+         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}>
+            <Animated.View style={[styles.sheet, { opacity: fadeIn }]}> 
+              <Text style={styles.sheetTitle}>⏰ Create Reminder</Text>
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Reminder Title *"
+                placeholderTextColor={theme.placeholder}
+                value={title}
+                onChangeText={setTitle}
+                returnKeyType="done"
+              />
+              
+              <TextInput
+                style={[styles.input, { marginTop: 8, minHeight: 60 }]}
+                placeholder="Description (optional)"
+                placeholderTextColor={theme.placeholder}
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={3}
+              />
 
-            {DateTimePicker ? (
-              <View style={{ marginTop: 8 }}>
-                <DateTimePicker
-                  value={date}
-                  mode="datetime"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  onChange={(_: any, selected?: Date) => {
-                    if (selected) setDate(selected);
-                  }}
-                  minimumDate={new Date()}
-                />
+              {/* Category Selector */}
+              <Text style={styles.sectionLabel}>Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                {(['personal', 'work', 'health', 'finance', 'shopping', 'other'] as ReminderCategory[]).map(cat => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryChip,
+                      category === cat && styles.categoryChipActive
+                    ]}
+                    onPress={() => setCategory(cat)}
+                  >
+                    <Text style={{ fontSize: 18 }}>{getCategoryIcon(cat)}</Text>
+                    <Text style={[
+                      styles.categoryChipText,
+                      category === cat && styles.categoryChipTextActive
+                    ]}>
+                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Priority Selector */}
+              <Text style={styles.sectionLabel}>Priority</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                {(['low', 'medium', 'high'] as ReminderPriority[]).map(pri => (
+                  <TouchableOpacity
+                    key={pri}
+                    style={[
+                      styles.priorityChip,
+                      { borderColor: getPriorityColor(pri) },
+                      priority === pri && { backgroundColor: getPriorityColor(pri) }
+                    ]}
+                    onPress={() => setPriority(pri)}
+                  >
+                    <Text style={[
+                      styles.priorityChipText,
+                      { color: priority === pri ? '#FFF' : getPriorityColor(pri) }
+                    ]}>
+                      {pri.charAt(0).toUpperCase() + pri.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            ) : (
-              <View style={{ marginTop: 8 }}>
-                <Text style={styles.preview}>Pickers not supported on web. Enter ISO date-time:</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="YYYY-MM-DD HH:MM"
-                  placeholderTextColor={theme.placeholder}
-                  value={formatISOInput(date)}
-                  onChangeText={(t) => {
-                    const parsed = parseISOInput(t);
-                    if (parsed) setDate(parsed);
-                  }}
-                />
+
+              {/* Recurrence Selector */}
+              <Text style={styles.sectionLabel}>Repeat</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                {(['once', 'daily', 'weekly', 'monthly'] as ReminderRecurrence[]).map(rec => (
+                  <TouchableOpacity
+                    key={rec}
+                    style={[
+                      styles.recurrenceChip,
+                      recurrence === rec && styles.recurrenceChipActive
+                    ]}
+                    onPress={() => setRecurrence(rec)}
+                  >
+                    <Text style={[
+                      styles.recurrenceChipText,
+                      recurrence === rec && styles.recurrenceChipTextActive
+                    ]}>
+                      {rec === 'once' ? 'Once' : rec.charAt(0).toUpperCase() + rec.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            )}
 
-            <Text style={styles.preview}>🔔 {`Reminder set for ${formatPreview(date)}`}</Text>
-            {!!description && (
-              <Text style={[styles.preview, { marginTop: 4 }]} numberOfLines={2}>📝 {description}</Text>
-            )}
+              {/* Date Time Picker */}
+              <Text style={styles.sectionLabel}>Date & Time</Text>
+              {DateTimePicker ? (
+                <View style={{ marginTop: 8 }}>
+                  <DateTimePicker
+                    value={date}
+                    mode="datetime"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={(_: any, selected?: Date) => {
+                      if (selected) setDate(selected);
+                    }}
+                    minimumDate={new Date()}
+                  />
+                </View>
+              ) : (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={styles.preview}>Pickers not supported on web. Enter ISO date-time:</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="YYYY-MM-DD HH:MM"
+                    placeholderTextColor={theme.placeholder}
+                    value={formatISOInput(date)}
+                    onChangeText={(t) => {
+                      const parsed = parseISOInput(t);
+                      if (parsed) setDate(parsed);
+                    }}
+                  />
+                </View>
+              )}
 
-            <View style={styles.actionsRow}>
-              <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={() => setModalVisible(false)}>
-                <Text style={[styles.btnText, { color: theme.textSecondary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.btn, styles.btnPrimary, !title.trim() && styles.btnDisabled, { opacity: title.trim() ? 1 : 0.6 }]}
-                onPress={saveReminder}
-                disabled={!title.trim()}
-              >
-                <Text style={[styles.btnText, { color: theme.textInverted }]}>Save Reminder</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+              <View style={styles.previewBox}>
+                <Text style={styles.preview}>🔔 {formatPreview(date)}</Text>
+                {!!description && (
+                  <Text style={[styles.preview, { marginTop: 4 }]} numberOfLines={2}>📝 {description}</Text>
+                )}
+              </View>
+
+              <View style={styles.actionsRow}>
+                <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={() => setModalVisible(false)}>
+                  <Text style={[styles.btnText, { color: theme.textSecondary }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnPrimary, !title.trim() && styles.btnDisabled, { opacity: title.trim() ? 1 : 0.6 }]}
+                  onPress={saveReminder}
+                  disabled={!title.trim()}
+                >
+                  <Text style={[styles.btnText, { color: theme.textInverted }]}>Create Reminder</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </ScrollView>
+
+
+            
         </View>
       </Modal>
 
