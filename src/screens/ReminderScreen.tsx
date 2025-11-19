@@ -799,17 +799,103 @@ const createStyles = (theme: AppTheme) =>
     header: {
       paddingTop: 52,
       paddingHorizontal: 20,
-      paddingBottom: 12,
+      paddingBottom: 16,
     },
-    headerTitle: { fontSize: 28, fontWeight: '700', color: theme.textPrimary },
-    headerSubtitle: { marginTop: 4, color: theme.textSecondary },
-    emptyText: { textAlign: 'center', color: theme.textMuted, marginTop: 40 },
+       headerTitle: { fontSize: 32, fontWeight: '700', color: theme.textPrimary },
+    headerSubtitle: { marginTop: 4, color: theme.textSecondary, fontSize: 15 },
+    
+    // Search & Filters
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.inputBackground,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginTop: 16,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.inputBorder,
+    },
+    searchInput: {
+      flex: 1,
+      color: theme.textPrimary,
+      fontSize: 16,
+    },
+    filterButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.accent,
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      marginTop: 12,
+      gap: 6,
+    },
+    filterButtonText: {
+      color: theme.textInverted,
+      fontWeight: '600',
+      fontSize: 15,
+    },
+    filtersPanel: {
+      backgroundColor: theme.cardBackground,
+      borderRadius: 12,
+      padding: 14,
+      marginTop: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.cardBorder,
+    },
+    filterLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.textSecondary,
+      marginBottom: 8,
+    },
+    filterChip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: theme.tagBackground,
+      marginRight: 8,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    filterChipActive: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    filterChipText: {
+      color: theme.textSecondary,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    filterChipTextActive: {
+      color: theme.textInverted,
+      fontWeight: '600',
+    },
 
+    // Empty State
+    emptyContainer: {
+      alignItems: 'center',
+      marginTop: 60,
+      paddingHorizontal: 40,
+    },
+    emptyIcon: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyText: { 
+      textAlign: 'center', 
+      color: theme.textMuted, 
+      fontSize: 16,
+      lineHeight: 24,
+    },
+    //Cards
     card: {
       backgroundColor: theme.cardBackground,
       borderRadius: 16,
       padding: 16,
-      marginBottom: 12,
+      marginBottom: 14,
       shadowColor: theme.cardShadow,
       shadowOffset: { width: 0, height: theme.isDark ? 6 : 4 },
       shadowOpacity: theme.isDark ? 0.25 : 0.08,
@@ -820,9 +906,43 @@ const createStyles = (theme: AppTheme) =>
       gap: 12,
       borderWidth: theme.isDark ? 1 : StyleSheet.hairlineWidth,
       borderColor: theme.cardBorder,
+      overflow: 'hidden',
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: theme.textPrimary },
-    cardSubtitle: { marginTop: 6, color: theme.textSecondary },
+    cardCompleted: {
+      opacity: 0.6,
+    },
+    priorityIndicator: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 4,
+    
+    },
+    cardTitle: { 
+      fontSize: 17, 
+      fontWeight: '600', 
+      color: theme.textPrimary,
+      lineHeight: 22,
+    },
+    cardTitleCompleted: {
+      textDecorationLine: 'line-through',
+      color: theme.textMuted,
+    },
+    cardDescription: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginTop: 4,
+      lineHeight: 20,
+    },
+    cardSubtitle: { 
+      fontSize: 13, 
+      color: theme.textSecondary 
+    },
+    recurrenceBadge: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
     cardActions: { flexDirection: 'row', alignItems: 'center' },
     actionBtn: { paddingHorizontal: 8, paddingVertical: 6 },
 
@@ -843,17 +963,18 @@ const createStyles = (theme: AppTheme) =>
       elevation: 6,
     },
 
+    //Modal
     modalBackdrop: {
       flex: 1,
       backgroundColor: theme.overlay,
-      justifyContent: 'center',
-      padding: 20,
+      
     },
     blurFill: { ...StyleSheet.absoluteFillObject, borderRadius: 24 },
     sheet: {
       backgroundColor: theme.modalBackground,
       borderRadius: 20,
       padding: 20,
+      marginHorizontal: 20,
       shadowColor: theme.cardShadow,
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: theme.isDark ? 0.35 : 0.15,
@@ -861,9 +982,23 @@ const createStyles = (theme: AppTheme) =>
       elevation: 8,
       borderWidth: theme.isDark ? 1 : StyleSheet.hairlineWidth,
       borderColor: theme.cardBorder,
+      maxHeight: '90%',
     },
-    sheetTitle: { fontSize: 20, fontWeight: '700', color: theme.textPrimary },
+    sheetTitle: { 
+      fontSize: 24, 
+      fontWeight: '700', 
+      color: theme.textPrimary,
+      marginBottom: 16,
+    },
+    sectionLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      marginTop: 12,
+      marginBottom: 8,
+    },
     input: {
+      marginTop: 8,
       marginTop: 12,
       borderRadius: 12,
       borderWidth: StyleSheet.hairlineWidth,
@@ -872,12 +1007,89 @@ const createStyles = (theme: AppTheme) =>
       paddingVertical: 12,
       color: theme.textPrimary,
       backgroundColor: theme.inputBackground,
+        fontSize: 16,
     },
-    preview: { marginTop: 12, color: theme.textSecondary },
-    actionsRow: { flexDirection: 'row', marginTop: 18, gap: 12 },
+    
+    // Category Chips
+    categoryChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 20,
+      backgroundColor: theme.tagBackground,
+      marginRight: 10,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    categoryChipActive: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    categoryChipText: {
+      color: theme.textSecondary,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    categoryChipTextActive: {
+      color: theme.textInverted,
+      fontWeight: '600',
+    },
+
+    // Priority Chips
+    priorityChip: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 10,
+      alignItems: 'center',
+      borderWidth: 2,
+    },
+    priorityChipText: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+
+    // Recurrence Chips
+    recurrenceChip: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 10,
+      alignItems: 'center',
+      backgroundColor: theme.tagBackground,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    recurrenceChipActive: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    recurrenceChipText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.textSecondary,
+    },
+    recurrenceChipTextActive: {
+      color: theme.textInverted,
+      fontWeight: '600',
+    },
+
+    previewBox: {
+      backgroundColor: theme.tagBackground,
+      borderRadius: 12,
+      padding: 12,
+      marginTop: 12,
+    },
+    preview: { 
+      color: theme.textSecondary,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    actionsRow: { flexDirection: 'row', marginTop: 20, gap: 12 },
+   
     btn: {
       flex: 1,
-      paddingVertical: 12,
+      paddingVertical: 14,
       borderRadius: 12,
       alignItems: 'center',
     },
@@ -895,7 +1107,7 @@ const createStyles = (theme: AppTheme) =>
       backgroundColor: theme.accentSoft,
       shadowOpacity: 0,
     },
-    btnText: { fontWeight: '600' },
+    btnText: { fontWeight: '600', fontSize: 16 },
   });
 
 export default ReminderScreen;
