@@ -91,6 +91,10 @@ const ReminderScreen: React.FC = () => {
       Animated.timing(fadeIn, { toValue: 1, duration: 450, useNativeDriver: true }),
       Animated.timing(slideUp, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start();
+     // Announce screen load
+    setTimeout(() => {
+      Speech.speak('You are on the Reminders page. Here you can create, view, and manage your reminders.');
+    }, 500);
   }, []);
 
   useEffect(() => {
@@ -590,18 +594,21 @@ const ReminderScreen: React.FC = () => {
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <BlurViewComponent intensity={40} tint={Platform.OS === 'ios' ? 'systemThinMaterial' : 'light'} style={styles.blurFill} />
-         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}>
+          <View style={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}>
             <Animated.View style={[styles.sheet, { opacity: fadeIn }]}> 
               <Text style={styles.sheetTitle}>⏰ Create Reminder</Text>
               
-              <TextInput
-                style={styles.input}
-                placeholder="Reminder Title *"
-                placeholderTextColor={theme.placeholder}
-                value={title}
-                onChangeText={setTitle}
-                returnKeyType="done"
-              />
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '80%' }}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Reminder Title *"
+                  placeholderTextColor={theme.placeholder}
+                  value={title}
+                  onChangeText={setTitle}
+                  returnKeyType="done"
+                />
+                
+                
               
               <TextInput
                 style={[styles.input, { marginTop: 8, minHeight: 60 }]}
@@ -615,7 +622,7 @@ const ReminderScreen: React.FC = () => {
 
               {/* Category Selector */}
               <Text style={styles.sectionLabel}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                 {(['personal', 'work', 'health', 'finance', 'shopping', 'other'] as ReminderCategory[]).map(cat => (
                   <TouchableOpacity
                     key={cat}
@@ -634,7 +641,7 @@ const ReminderScreen: React.FC = () => {
                     </Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
 
               {/* Priority Selector */}
               <Text style={styles.sectionLabel}>Priority</Text>
@@ -719,6 +726,7 @@ const ReminderScreen: React.FC = () => {
                   <Text style={[styles.preview, { marginTop: 4 }]} numberOfLines={2}>📝 {description}</Text>
                 )}
               </View>
+              </ScrollView>
 
               <View style={styles.actionsRow}>
                 <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={() => setModalVisible(false)}>
@@ -733,7 +741,8 @@ const ReminderScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
             </Animated.View>
-          </ScrollView>
+          </View>
+          
 
 
             
