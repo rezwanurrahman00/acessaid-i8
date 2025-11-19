@@ -69,6 +69,7 @@ const ReminderScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<ReminderCategory | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [fadeIn] = useState(new Animated.Value(0));
   const [slideUp] = useState(new Animated.Value(40));
   const intervalRef = useRef<any>(null);
@@ -440,7 +441,7 @@ const ReminderScreen: React.FC = () => {
         Speech.speak(msg);
       }}
     >
-      <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(item.priority) }]} 
+      <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(item.priority) }]}/>
       <View style={{ flex: 1 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
           <Text style={{ fontSize: 20, marginRight: 8 }}>{getCategoryIcon(item.category)}</Text>
