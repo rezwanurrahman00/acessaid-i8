@@ -684,15 +684,17 @@ const ReminderScreen: React.FC = () => {
               {/* Date Time Picker */}
               <Text style={styles.sectionLabel}>Date & Time</Text>
               {DateTimePicker ? (
-                <View style={{ marginTop: 8 }}>
+                <View style={styles.datePickerContainer}>
                   <DateTimePicker
                     value={date}
                     mode="datetime"
-                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={(_: any, selected?: Date) => {
                       if (selected) setDate(selected);
                     }}
                     minimumDate={new Date()}
+                    textColor={theme.textPrimary}
+                    style={styles.datePicker}
                   />
                 </View>
               ) : (
@@ -1000,7 +1002,6 @@ const createStyles = (theme: AppTheme) =>
       marginBottom: 8,
     },
     input: {
-      marginTop: 8,
       marginTop: 12,
       borderRadius: 12,
       borderWidth: StyleSheet.hairlineWidth,
@@ -1009,7 +1010,22 @@ const createStyles = (theme: AppTheme) =>
       paddingVertical: 12,
       color: theme.textPrimary,
       backgroundColor: theme.inputBackground,
-        fontSize: 16,
+      fontSize: 16,
+    },
+     // Date Picker Styles
+    datePickerContainer: {
+      backgroundColor: theme.inputBackground,
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.inputBorder,
+      marginTop: 8,
+      padding: 8,
+      alignItems: 'center',
+      overflow: 'hidden',
+    },
+    datePicker: {
+      width: '100%',
+      height: 200,
     },
     
     // Category Chips
