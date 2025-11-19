@@ -476,7 +476,7 @@ const ReminderScreen: React.FC = () => {
           <Ionicons name="trash" size={22} color={theme.danger} />
         </TouchableOpacity>
       </View>
-    </View>
+    
     </TouchableOpacity>
   );
 
@@ -560,6 +560,7 @@ const ReminderScreen: React.FC = () => {
               ))}
 
             </View>
+          </View>
           
         )}
       </Animated.View>
