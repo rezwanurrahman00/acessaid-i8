@@ -4,9 +4,9 @@ AccessAid is a comprehensive React Native application designed to enhance daily 
 
 ## ✨ Key Features
 
-🎤 **Voice Control** - Basic voice command framework (Speech recognition coming soon)  
+🎤 **Voice Control** - Basic voice command framework with screen announcements and TTS feedback   
 📸 **Camera OCR** - Camera integration ready (OCR API configuration required)  
-⏰ **Smart Reminders** - Fully working CRUD system with notifications  
+⏰ **Smart Reminders** - Full featured reminder system with categories, priorities, recurrence, and real-time alerts  
 ♿ **Accessibility First** - Complete dynamic text scaling, brightness control, and screen reader support  
 🎨 **Adaptive UI** - Full dark mode, high contrast, and customizable interface elements  
 🔐 **Secure Authentication** - Working email/PIN authentication with local data storage
@@ -130,7 +130,15 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
 #### 📱 Core Features
 - Home screen with TTS input and camera OCR reader
 - Camera OCR integration for text extraction from images
-- Complete reminder system with CRUD operations
+- **Advanced reminder system** with:
+  - Full CRUD operations (Create, Read, Update, Delete)
+  - 7 categories: Personal, Work, Health, Medicine, Finance, Shopping, Other
+  - 3 priority levels: Low, Medium, High (color-coded)
+  - Recurrence options: Once, Daily, Weekly, Monthly
+  - Date and time picker with improved UI
+  - Real-time reminder alerts with modal notifications
+  - Visual indicators (priority colors, category icons)
+  - Filter and search functionality
 - Settings screen for app configuration
 - Profile screen for user information management
 

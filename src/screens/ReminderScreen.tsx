@@ -10,6 +10,7 @@ import {
   TextInput,
   Platform,
   FlatList,
+  ScrollView,
 } from 'react-native';
 // BlurView fallback for environments without expo-blur
 const BlurViewComponent: any = (() => {
@@ -35,6 +36,9 @@ try {
 } catch {
   Clipboard = { setStringAsync: async (_: string) => {} };
 }
+type ReminderCategory = 'personal' | 'work' | 'health' | 'finance' | 'shopping' | 'other';
+type ReminderPriority = 'low' | 'medium' | 'high';
+type ReminderRecurrence = 'once' | 'daily' | 'weekly' | 'monthly';
 
 type Reminder = {
   id: string;
@@ -44,6 +48,9 @@ type Reminder = {
   isCompleted: boolean;
   createdAt: Date;
   hasFired?: boolean;
+  category?: ReminderCategory;
+  priority?: ReminderPriority;
+  recurrence?: ReminderRecurrence;
 };
 
 const baseKey = 'reminders_v2';
@@ -56,6 +63,13 @@ const ReminderScreen: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState<Date>(new Date(Date.now() + 60 * 60 * 1000));
+  const [category, setCategory] = useState<ReminderCategory>('personal');
+  const [priority, setPriority] = useState<ReminderPriority>('medium');
+  const [recurrence, setRecurrence] = useState<ReminderRecurrence>('once');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState<ReminderCategory | 'all'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [fadeIn] = useState(new Animated.Value(0));
   const [slideUp] = useState(new Animated.Value(40));
   const intervalRef = useRef<any>(null);
@@ -77,6 +91,10 @@ const ReminderScreen: React.FC = () => {
       Animated.timing(fadeIn, { toValue: 1, duration: 450, useNativeDriver: true }),
       Animated.timing(slideUp, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start();
+     // Announce screen load
+    setTimeout(() => {
+      Speech.speak('You are on the Reminders page. Here you can create, view, and manage your reminders.');
+    }, 500);
   }, []);
 
   useEffect(() => {
@@ -238,6 +256,9 @@ const ReminderScreen: React.FC = () => {
     setTitle('');
     setDescription('');
     setDate(new Date(Date.now() + 60 * 60 * 1000));
+    setCategory('personal');
+    setPriority('medium');
+    setRecurrence('once');
     setModalVisible(true);
   };
 
@@ -281,10 +302,11 @@ const ReminderScreen: React.FC = () => {
       Alert.alert('Missing title', 'Please enter a reminder title.');
       return;
     }
-    if (reminders.length >= 20) {
-      Alert.alert('Limit reached', 'You can only have up to 20 reminders.');
+    if (reminders.length >= 50) {
+      Alert.alert('Limit reached', 'You can only have up to 50 reminders.');
       return;
     }
+
     if (date.getTime() <= Date.now()) {
       Alert.alert('Invalid time', 'Please select a future date and time.');
       return;
@@ -296,10 +318,45 @@ const ReminderScreen: React.FC = () => {
       datetime: date,
       isCompleted: false,
       createdAt: new Date(),
+      category,
+      priority,
+      recurrence,
     };
     setReminders(prev => [...prev, newReminder]);
     await scheduleNative(newReminder);
+      // Schedule recurring reminders
+    if (recurrence !== 'once') {
+      scheduleRecurringReminders(newReminder);
+    }
     setModalVisible(false);
+    Speech.speak(`Reminder "${title.trim()}" created successfully`);
+  };
+
+  const scheduleRecurringReminders = async (reminder: Reminder) => {
+    // Schedule future occurrences for recurring reminders
+    const occurrences = 5; // Schedule next 5 occurrences
+    for (let i = 1; i <= occurrences; i++) {
+      const nextDate = new Date(reminder.datetime);
+      if (reminder.recurrence === 'daily') {
+        nextDate.setDate(nextDate.getDate() + i);
+      } else if (reminder.recurrence === 'weekly') {
+        nextDate.setDate(nextDate.getDate() + (i * 7));
+      } else if (reminder.recurrence === 'monthly') {
+        nextDate.setMonth(nextDate.getMonth() + i);
+      }
+      
+      if (Platform.OS !== 'web' && nextDate.getTime() > Date.now()) {
+        await Notifications.scheduleNotificationAsync({
+          content: { 
+            title: '⏰ Recurring Reminder', 
+            body: reminder.title, 
+            sound: true, 
+            data: { reminderId: reminder.id } 
+          },
+          trigger: ({ date: nextDate } as unknown) as Notifications.NotificationTriggerInput,
+        });
+      }
+    }
   };
 
   const toggleComplete = (id: string) => {
@@ -309,58 +366,225 @@ const ReminderScreen: React.FC = () => {
   const removeReminder = (id: string) => {
     Alert.alert('Delete Reminder', 'Are you sure you want to delete this reminder?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => setReminders(prev => prev.filter(r => r.id !== id)) },
+      { 
+        text: 'Delete', 
+        style: 'destructive', 
+        onPress: () => {
+          setReminders(prev => prev.filter(r => r.id !== id));
+          Speech.speak('Reminder deleted');
+        }
+      },
     ]);
   };
+  const getCategoryIcon = (cat?: ReminderCategory) => {
+    switch (cat) {
+      case 'work': return '💼';
+      case 'health': return '❤️';
+      case 'finance': return '💰';
+      case 'shopping': return '🛒';
+      case 'personal': return '👤';
+      default: return '📌';
+    }
+  };
+
+  const getPriorityColor = (pri?: ReminderPriority) => {
+    switch (pri) {
+      case 'high': return '#FF3B30';
+      case 'medium': return '#FF9500';
+      case 'low': return '#34C759';
+      default: return '#8E8E93';
+    }
+  };
+
+  const getRecurrenceText = (rec?: ReminderRecurrence) => {
+    switch (rec) {
+      case 'daily': return '🔁 Daily';
+      case 'weekly': return '🔁 Weekly';
+      case 'monthly': return '🔁 Monthly';
+      default: return '🔔 Once';
+    }
+  };
+
+  // Filter reminders
+  const filteredReminders = useMemo(() => {
+    let filtered = reminders;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(r => 
+        r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (r.description && r.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    // Category filter
+    if (filterCategory !== 'all') {
+      filtered = filtered.filter(r => r.category === filterCategory);
+    }
+
+    // Status filter
+    if (filterStatus === 'active') {
+      filtered = filtered.filter(r => !r.isCompleted);
+    } else if (filterStatus === 'completed') {
+      filtered = filtered.filter(r => r.isCompleted);
+    }
+
+    return filtered.sort((a, b) => a.datetime.getTime() - b.datetime.getTime());
+  }, [reminders, searchQuery, filterCategory, filterStatus]);
+
 
   const renderItem = ({ item }: { item: Reminder }) => (
-    <View style={styles.card}>
+     <TouchableOpacity 
+      style={[
+        styles.card,
+        item.isCompleted && styles.cardCompleted
+      ]}
+      activeOpacity={0.7}
+      onPress={() => {
+        const msg = `${item.title}. ${item.description || ''}. Scheduled for ${formatPreview(item.datetime)}`;
+        Speech.speak(msg);
+      }}
+    >
+      <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(item.priority) }]}/>
       <View style={{ flex: 1 }}>
-        <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-        <Text style={styles.cardSubtitle}>🔔 {formatPreview(item.datetime)}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+          <Text style={{ fontSize: 20, marginRight: 8 }}>{getCategoryIcon(item.category)}</Text>
+          <Text style={[styles.cardTitle, item.isCompleted && styles.cardTitleCompleted]} numberOfLines={2}>
+            {item.title}
+          </Text>
+        </View>
+        {item.description && (
+          <Text style={styles.cardDescription} numberOfLines={2}>{item.description}</Text>
+        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 12 }}>
+          <Text style={styles.cardSubtitle}>🔔 {formatPreview(item.datetime)}</Text>
+          <Text style={[styles.recurrenceBadge, { color: theme.accent }]}>{getRecurrenceText(item.recurrence)}</Text>
+        </View>
       </View>
       <View style={styles.cardActions}>
-        <TouchableOpacity onPress={() => toggleComplete(item.id)} style={styles.actionBtn} accessibilityLabel={item.isCompleted ? 'Mark as active' : 'Mark as completed'}>
-          <Ionicons name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={item.isCompleted ? theme.success : theme.textMuted} />
+        <TouchableOpacity 
+          onPress={() => toggleComplete(item.id)} 
+          style={styles.actionBtn} 
+          accessibilityLabel={item.isCompleted ? 'Mark as active' : 'Mark as completed'}
+        >
+          <Ionicons 
+            name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'} 
+            size={24} 
+            color={item.isCompleted ? theme.success : theme.textMuted} 
+          />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => removeReminder(item.id)} style={styles.actionBtn} accessibilityLabel="Delete reminder">
-          <Ionicons name="trash" size={20} color={theme.danger} />
+        <TouchableOpacity 
+          onPress={() => removeReminder(item.id)} 
+          style={styles.actionBtn} 
+          accessibilityLabel="Delete reminder"
+        >
+          <Ionicons name="trash" size={22} color={theme.danger} />
         </TouchableOpacity>
       </View>
-    </View>
+    
+    </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
       <BackgroundLogo />
       <Animated.View style={[styles.header, { opacity: fadeIn, transform: [{ translateY: slideUp }] }]}> 
-        <Text style={styles.headerTitle}>Reminders</Text>
-        <Text style={styles.headerSubtitle}>{reminders.filter(r => !r.isCompleted).length} Active • {reminders.length}/20 Total</Text>
-        {!!pushToken && (
-          <>
-            <Text style={[styles.preview, { marginTop: 6 }]} numberOfLines={1}>Push Token: {pushToken}</Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-              <TouchableOpacity onPress={handleCopyToken} style={[styles.btn, styles.btnCancel, { flex: undefined, paddingHorizontal: 12 }]}>
-                <Text style={[styles.btnText, { color: theme.textSecondary }]}>Copy Token</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                disabled={sendingTest}
-                onPress={handleSendTestPush}
-                style={[styles.btn, styles.btnPrimary, sendingTest && styles.btnDisabled, { flex: undefined, paddingHorizontal: 12 }]}
-              >
-                <Text style={[styles.btnText, { color: theme.textInverted }]}>{sendingTest ? 'Sending…' : 'Send Test Push'}</Text>
-              </TouchableOpacity>
+      <Text style={styles.headerTitle}>✨ Reminders</Text>
+      <Text style={styles.headerSubtitle}>
+          {filteredReminders.filter(r => !r.isCompleted).length} Active • {reminders.length}/50 Total
+      </Text>
+        
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search reminders..."
+            placeholderTextColor={theme.placeholder}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={theme.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Filter Button */}
+        <TouchableOpacity 
+          style={styles.filterButton} 
+          onPress={() => setShowFilters(!showFilters)}
+        >
+          <Ionicons name="filter" size={18} color={theme.textInverted} />
+          <Text style={styles.filterButtonText}>Filters</Text>
+        </TouchableOpacity>
+
+        {/* Filters Panel */}
+        {showFilters && (
+          <View style={styles.filtersPanel}>
+            <Text style={styles.filterLabel}>Category:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              {(['all', 'personal', 'work', 'health', 'finance', 'shopping', 'other'] as const).map(cat => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.filterChip,
+                    filterCategory === cat && styles.filterChipActive
+                  ]}
+                  onPress={() => setFilterCategory(cat)}
+                >
+                  <Text style={[
+                    styles.filterChipText,
+                    filterCategory === cat && styles.filterChipTextActive
+                  ]}>
+                    {cat === 'all' ? '🌟 All' : `${getCategoryIcon(cat as ReminderCategory)} ${cat.charAt(0).toUpperCase() + cat.slice(1)}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={styles.filterLabel}>Status:</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              {(['all', 'active', 'completed'] as const).map(status => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.filterChip,
+                    filterStatus === status && styles.filterChipActive
+                  ]}
+                  onPress={() => setFilterStatus(status)}
+                >
+                  <Text style={[
+                    styles.filterChipText,
+                    filterStatus === status && styles.filterChipTextActive
+                  ]}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
             </View>
-          </>
+          </View>
+          
         )}
       </Animated.View>
 
       <FlatList
-        data={reminders.sort((a, b) => a.datetime.getTime() - b.datetime.getTime())}
+        data={filteredReminders}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
         renderItem={renderItem}
-        ListEmptyComponent={<Text style={styles.emptyText}>No reminders yet. Tap + to add one.</Text>}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>📝</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery || filterCategory !== 'all' || filterStatus !== 'all' 
+                ? 'No reminders match your filters' 
+                : 'No reminders yet. Tap + to add one.'}
+            </Text>
+          </View>
+        }
       />
 
       <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={openModal} accessibilityLabel="Add Reminder">
@@ -370,71 +594,158 @@ const ReminderScreen: React.FC = () => {
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <BlurViewComponent intensity={40} tint={Platform.OS === 'ios' ? 'systemThinMaterial' : 'light'} style={styles.blurFill} />
-          <Animated.View style={[styles.sheet, { opacity: fadeIn }]}> 
-            <Text style={styles.sheetTitle}>⏰ Set Reminder</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Reminder Title"
-              placeholderTextColor={theme.placeholder}
-              value={title}
-              onChangeText={setTitle}
-              returnKeyType="done"
-            />
-            <TextInput
-              style={[styles.input, { marginTop: 8 }]}
-              placeholder="Description (optional)"
-              placeholderTextColor={theme.placeholder}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-            />
-
-            {DateTimePicker ? (
-              <View style={{ marginTop: 8 }}>
-                <DateTimePicker
-                  value={date}
-                  mode="datetime"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  onChange={(_: any, selected?: Date) => {
-                    if (selected) setDate(selected);
-                  }}
-                  minimumDate={new Date()}
-                />
-              </View>
-            ) : (
-              <View style={{ marginTop: 8 }}>
-                <Text style={styles.preview}>Pickers not supported on web. Enter ISO date-time:</Text>
+          <View style={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}>
+            <Animated.View style={[styles.sheet, { opacity: fadeIn }]}> 
+              <Text style={styles.sheetTitle}>⏰ Create Reminder</Text>
+              
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '80%' }}>
                 <TextInput
                   style={styles.input}
-                  placeholder="YYYY-MM-DD HH:MM"
+                  placeholder="Reminder Title *"
                   placeholderTextColor={theme.placeholder}
-                  value={formatISOInput(date)}
-                  onChangeText={(t) => {
-                    const parsed = parseISOInput(t);
-                    if (parsed) setDate(parsed);
-                  }}
+                  value={title}
+                  onChangeText={setTitle}
+                  returnKeyType="done"
                 />
+                
+                
+              
+              <TextInput
+                style={[styles.input, { marginTop: 8, minHeight: 60 }]}
+                placeholder="Description (optional)"
+                placeholderTextColor={theme.placeholder}
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={3}
+              />
+
+              {/* Category Selector */}
+              <Text style={styles.sectionLabel}>Category</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                {(['personal', 'work', 'health', 'finance', 'shopping', 'other'] as ReminderCategory[]).map(cat => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryChip,
+                      category === cat && styles.categoryChipActive
+                    ]}
+                    onPress={() => setCategory(cat)}
+                  >
+                    <Text style={{ fontSize: 18 }}>{getCategoryIcon(cat)}</Text>
+                    <Text style={[
+                      styles.categoryChipText,
+                      category === cat && styles.categoryChipTextActive
+                    ]}>
+                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            )}
 
-            <Text style={styles.preview}>🔔 {`Reminder set for ${formatPreview(date)}`}</Text>
-            {!!description && (
-              <Text style={[styles.preview, { marginTop: 4 }]} numberOfLines={2}>📝 {description}</Text>
-            )}
+              {/* Priority Selector */}
+              <Text style={styles.sectionLabel}>Priority</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                {(['low', 'medium', 'high'] as ReminderPriority[]).map(pri => (
+                  <TouchableOpacity
+                    key={pri}
+                    style={[
+                      styles.priorityChip,
+                      { borderColor: getPriorityColor(pri) },
+                      priority === pri && { backgroundColor: getPriorityColor(pri) }
+                    ]}
+                    onPress={() => setPriority(pri)}
+                  >
+                    <Text style={[
+                      styles.priorityChipText,
+                      { color: priority === pri ? '#FFF' : getPriorityColor(pri) }
+                    ]}>
+                      {pri.charAt(0).toUpperCase() + pri.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            <View style={styles.actionsRow}>
-              <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={() => setModalVisible(false)}>
-                <Text style={[styles.btnText, { color: theme.textSecondary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.btn, styles.btnPrimary, !title.trim() && styles.btnDisabled, { opacity: title.trim() ? 1 : 0.6 }]}
-                onPress={saveReminder}
-                disabled={!title.trim()}
-              >
-                <Text style={[styles.btnText, { color: theme.textInverted }]}>Save Reminder</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+              {/* Recurrence Selector */}
+              <Text style={styles.sectionLabel}>Repeat</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                {(['once', 'daily', 'weekly', 'monthly'] as ReminderRecurrence[]).map(rec => (
+                  <TouchableOpacity
+                    key={rec}
+                    style={[
+                      styles.recurrenceChip,
+                      recurrence === rec && styles.recurrenceChipActive
+                    ]}
+                    onPress={() => setRecurrence(rec)}
+                  >
+                    <Text style={[
+                      styles.recurrenceChipText,
+                      recurrence === rec && styles.recurrenceChipTextActive
+                    ]}>
+                      {rec === 'once' ? 'Once' : rec.charAt(0).toUpperCase() + rec.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Date Time Picker */}
+              <Text style={styles.sectionLabel}>Date & Time</Text>
+              {DateTimePicker ? (
+                <View style={styles.datePickerContainer}>
+                  <DateTimePicker
+                    value={date}
+                    mode="datetime"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(_: any, selected?: Date) => {
+                      if (selected) setDate(selected);
+                    }}
+                    minimumDate={new Date()}
+                    textColor={theme.textPrimary}
+                    style={styles.datePicker}
+                  />
+                </View>
+              ) : (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={styles.preview}>Pickers not supported on web. Enter ISO date-time:</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="YYYY-MM-DD HH:MM"
+                    placeholderTextColor={theme.placeholder}
+                    value={formatISOInput(date)}
+                    onChangeText={(t) => {
+                      const parsed = parseISOInput(t);
+                      if (parsed) setDate(parsed);
+                    }}
+                  />
+                </View>
+              )}
+
+              <View style={styles.previewBox}>
+                <Text style={styles.preview}>🔔 {formatPreview(date)}</Text>
+                {!!description && (
+                  <Text style={[styles.preview, { marginTop: 4 }]} numberOfLines={2}>📝 {description}</Text>
+                )}
+              </View>
+              </ScrollView>
+
+              <View style={styles.actionsRow}>
+                <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={() => setModalVisible(false)}>
+                  <Text style={[styles.btnText, { color: theme.textSecondary }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnPrimary, !title.trim() && styles.btnDisabled, { opacity: title.trim() ? 1 : 0.6 }]}
+                  onPress={saveReminder}
+                  disabled={!title.trim()}
+                >
+                  <Text style={[styles.btnText, { color: theme.textInverted }]}>Create Reminder</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
+          
+
+
+            
         </View>
       </Modal>
 
@@ -501,17 +812,103 @@ const createStyles = (theme: AppTheme) =>
     header: {
       paddingTop: 52,
       paddingHorizontal: 20,
-      paddingBottom: 12,
+      paddingBottom: 16,
     },
-    headerTitle: { fontSize: 28, fontWeight: '700', color: theme.textPrimary },
-    headerSubtitle: { marginTop: 4, color: theme.textSecondary },
-    emptyText: { textAlign: 'center', color: theme.textMuted, marginTop: 40 },
+       headerTitle: { fontSize: 32, fontWeight: '700', color: theme.textPrimary },
+    headerSubtitle: { marginTop: 4, color: theme.textSecondary, fontSize: 15 },
+    
+    // Search & Filters
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.inputBackground,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginTop: 16,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.inputBorder,
+    },
+    searchInput: {
+      flex: 1,
+      color: theme.textPrimary,
+      fontSize: 16,
+    },
+    filterButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.accent,
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      marginTop: 12,
+      gap: 6,
+    },
+    filterButtonText: {
+      color: theme.textInverted,
+      fontWeight: '600',
+      fontSize: 15,
+    },
+    filtersPanel: {
+      backgroundColor: theme.cardBackground,
+      borderRadius: 12,
+      padding: 14,
+      marginTop: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.cardBorder,
+    },
+    filterLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.textSecondary,
+      marginBottom: 8,
+    },
+    filterChip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: theme.tagBackground,
+      marginRight: 8,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    filterChipActive: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    filterChipText: {
+      color: theme.textSecondary,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    filterChipTextActive: {
+      color: theme.textInverted,
+      fontWeight: '600',
+    },
 
+    // Empty State
+    emptyContainer: {
+      alignItems: 'center',
+      marginTop: 60,
+      paddingHorizontal: 40,
+    },
+    emptyIcon: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyText: { 
+      textAlign: 'center', 
+      color: theme.textMuted, 
+      fontSize: 16,
+      lineHeight: 24,
+    },
+    //Cards
     card: {
       backgroundColor: theme.cardBackground,
       borderRadius: 16,
       padding: 16,
-      marginBottom: 12,
+      marginBottom: 14,
       shadowColor: theme.cardShadow,
       shadowOffset: { width: 0, height: theme.isDark ? 6 : 4 },
       shadowOpacity: theme.isDark ? 0.25 : 0.08,
@@ -522,9 +919,43 @@ const createStyles = (theme: AppTheme) =>
       gap: 12,
       borderWidth: theme.isDark ? 1 : StyleSheet.hairlineWidth,
       borderColor: theme.cardBorder,
+      overflow: 'hidden',
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: theme.textPrimary },
-    cardSubtitle: { marginTop: 6, color: theme.textSecondary },
+    cardCompleted: {
+      opacity: 0.6,
+    },
+    priorityIndicator: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 4,
+    
+    },
+    cardTitle: { 
+      fontSize: 17, 
+      fontWeight: '600', 
+      color: theme.textPrimary,
+      lineHeight: 22,
+    },
+    cardTitleCompleted: {
+      textDecorationLine: 'line-through',
+      color: theme.textMuted,
+    },
+    cardDescription: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginTop: 4,
+      lineHeight: 20,
+    },
+    cardSubtitle: { 
+      fontSize: 13, 
+      color: theme.textSecondary 
+    },
+    recurrenceBadge: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
     cardActions: { flexDirection: 'row', alignItems: 'center' },
     actionBtn: { paddingHorizontal: 8, paddingVertical: 6 },
 
@@ -545,17 +976,18 @@ const createStyles = (theme: AppTheme) =>
       elevation: 6,
     },
 
+    //Modal
     modalBackdrop: {
       flex: 1,
       backgroundColor: theme.overlay,
-      justifyContent: 'center',
-      padding: 20,
+      
     },
     blurFill: { ...StyleSheet.absoluteFillObject, borderRadius: 24 },
     sheet: {
       backgroundColor: theme.modalBackground,
       borderRadius: 20,
       padding: 20,
+      marginHorizontal: 20,
       shadowColor: theme.cardShadow,
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: theme.isDark ? 0.35 : 0.15,
@@ -563,8 +995,21 @@ const createStyles = (theme: AppTheme) =>
       elevation: 8,
       borderWidth: theme.isDark ? 1 : StyleSheet.hairlineWidth,
       borderColor: theme.cardBorder,
+      maxHeight: '90%',
     },
-    sheetTitle: { fontSize: 20, fontWeight: '700', color: theme.textPrimary },
+    sheetTitle: { 
+      fontSize: 24, 
+      fontWeight: '700', 
+      color: theme.textPrimary,
+      marginBottom: 16,
+    },
+    sectionLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.textPrimary,
+      marginTop: 12,
+      marginBottom: 8,
+    },
     input: {
       marginTop: 12,
       borderRadius: 12,
@@ -574,12 +1019,104 @@ const createStyles = (theme: AppTheme) =>
       paddingVertical: 12,
       color: theme.textPrimary,
       backgroundColor: theme.inputBackground,
+      fontSize: 16,
     },
-    preview: { marginTop: 12, color: theme.textSecondary },
-    actionsRow: { flexDirection: 'row', marginTop: 18, gap: 12 },
+     // Date Picker Styles
+    datePickerContainer: {
+      backgroundColor: theme.inputBackground,
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.inputBorder,
+      marginTop: 8,
+      padding: 8,
+      alignItems: 'center',
+      overflow: 'hidden',
+    },
+    datePicker: {
+      width: '100%',
+      height: 200,
+    },
+    
+    // Category Chips
+    categoryChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 20,
+      backgroundColor: theme.tagBackground,
+      marginRight: 10,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    categoryChipActive: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    categoryChipText: {
+      color: theme.textSecondary,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    categoryChipTextActive: {
+      color: theme.textInverted,
+      fontWeight: '600',
+    },
+
+    // Priority Chips
+    priorityChip: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 10,
+      alignItems: 'center',
+      borderWidth: 2,
+    },
+    priorityChipText: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+
+    // Recurrence Chips
+    recurrenceChip: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 10,
+      alignItems: 'center',
+      backgroundColor: theme.tagBackground,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    recurrenceChipActive: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    recurrenceChipText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.textSecondary,
+    },
+    recurrenceChipTextActive: {
+      color: theme.textInverted,
+      fontWeight: '600',
+    },
+
+    previewBox: {
+      backgroundColor: theme.tagBackground,
+      borderRadius: 12,
+      padding: 12,
+      marginTop: 12,
+    },
+    preview: { 
+      color: theme.textSecondary,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    actionsRow: { flexDirection: 'row', marginTop: 20, gap: 12 },
+   
     btn: {
       flex: 1,
-      paddingVertical: 12,
+      paddingVertical: 14,
       borderRadius: 12,
       alignItems: 'center',
     },
@@ -597,7 +1134,7 @@ const createStyles = (theme: AppTheme) =>
       backgroundColor: theme.accentSoft,
       shadowOpacity: 0,
     },
-    btnText: { fontWeight: '600' },
+    btnText: { fontWeight: '600', fontSize: 16 },
   });
 
 export default ReminderScreen;

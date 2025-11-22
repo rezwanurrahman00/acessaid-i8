@@ -18,6 +18,9 @@ export interface AccessibilitySettings {
   voiceSpeed: number; // 0.5-2.0
   isDarkMode: boolean;
 }
+export type ReminderCategory = 'medication' | 'doctor' | 'therapy' | 'exercise' | 'personal' | 'emergency';
+export type ReminderPriority = 'low' | 'medium' | 'high' | 'emergency';
+export type ReminderRecurrence = 'once' | 'daily' | 'weekly' | 'monthly';
 
 export interface Reminder {
   id: string;
@@ -29,7 +32,11 @@ export interface Reminder {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  category?: ReminderCategory;
+  priority?: ReminderPriority;
+  recurrence?: ReminderRecurrence;
 }
+
 
 
 export interface VoiceCommand {
