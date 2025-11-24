@@ -6,14 +6,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../contexts/AppContext';
 import { RootStackParamList, MainTabParamList } from '../types';
 
-// Import screens
+// Screen imports
 import LoginScreen from '../screens/LoginScreen';
 import AccessibilitySetupScreen from '../screens/AccessibilitySetupScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ReminderScreen from '../screens/ReminderScreen';
 import ProfileScreen from '../screens/ProfileScreen';
-// @ts-ignore - screen module is present
-// Camera feature removed
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -62,7 +60,6 @@ const MainTabNavigator = () => {
           tabBarAccessibilityLabel: 'Home screen',
         }}
       />
-      {/* Camera tab removed */}
       <Tab.Screen 
         name="Reminders" 
         component={ReminderScreen}

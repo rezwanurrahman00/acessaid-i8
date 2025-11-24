@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,23 +18,124 @@ import * as Speech from 'expo-speech';
 import * as Brightness from 'expo-brightness';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../contexts/AppContext';
-import { AccessAidLogo } from '../components/AccessAidLogo';
 import { TouchSlider } from '../components/TouchSlider';
 import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
 import { voiceManager } from '../utils/voiceCommandManager';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
+
+// Constants
 let ImagePicker: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   ImagePicker = require('expo-image-picker');
 } catch {}
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const isSmallScreen = screenWidth < 375;
-const isPhone = screenWidth < 768;
+const { width: screenWidth } = Dimensions.get('window');
+const ANIMATION_DURATION = 600;
 
+// Utility Functions
+const getBrightnessLabel = (value: number): string => {
+  if (value <= 25) return 'Low';
+  if (value <= 50) return 'Medium';
+  if (value <= 75) return 'High';
+  return 'Maximum';
+};
+
+const getTextZoomLabel = (value: number): string => {
+  if (value <= 90) return 'Small';
+  if (value <= 110) return 'Normal';
+  if (value <= 140) return 'Large';
+  return 'Extra Large';
+};
+
+const getVoiceSpeedLabel = (value: number): string => {
+  if (value <= 0.7) return 'Slow';
+  if (value <= 1.3) return 'Normal';
+  return 'Fast';
+};
+
+// Components
+interface ProfileSectionProps {
+  title: string;
+  children: React.ReactNode;
+  icon?: string;
+}
+
+const ProfileSection: React.FC<ProfileSectionProps> = ({ title, children, icon }) => {
+  const { state } = useApp();
+  const isDarkMode = state.accessibilitySettings.isDarkMode;
+  const theme = getThemeConfig(isDarkMode);
+  
+  return (
+    <ModernCard variant="elevated" style={createSectionStyle(theme)}>
+      <View style={styles.sectionHeaderContainer}>
+        {icon && (
+          <View style={styles.sectionIconContainer}>
+            <Ionicons name={icon as any} size={22} color={theme.accent} />
+          </View>
+        )}
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+      {children}
+    </ModernCard>
+  );
+};
+
+interface ProfileFieldProps {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  multiline?: boolean;
+  keyboardType?: 'default' | 'email-address' | 'numeric';
+  accessibilityLabel: string;
+  editable?: boolean;
+}
+
+const ProfileField: React.FC<ProfileFieldProps> = ({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  multiline = false,
+  keyboardType = 'default',
+  accessibilityLabel,
+  editable = false,
+}) => {
+  const { state } = useApp();
+  const isDarkMode = state.accessibilitySettings.isDarkMode;
+  const theme = getThemeConfig(isDarkMode);
+  
+  return (
+    <View style={styles.fieldContainer}>
+      <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>{label}</Text>
+      <TextInput
+        style={[
+          styles.textInput,
+          multiline && styles.multilineInput,
+          {
+            borderColor: theme.inputBorder,
+            backgroundColor: theme.inputBackground,
+            color: theme.textPrimary,
+          },
+        ]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={theme.placeholder}
+        multiline={multiline}
+        numberOfLines={multiline ? 3 : 1}
+        keyboardType={keyboardType}
+        textAlignVertical={multiline ? 'top' : 'center'}
+        accessibilityLabel={accessibilityLabel}
+        editable={editable}
+      />
+    </View>
+  );
+};
+
+// Main Component
 const ProfileScreen = () => {
   const { state, dispatch } = useApp();
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -50,16 +151,51 @@ const ProfileScreen = () => {
     interests: state.user?.interests || '',
     profilePhoto: state.user?.profilePhoto || '',
   });
-  const [fadeAnim] = useState(new Animated.Value(0));
 
+  // Animation refs
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const profileScaleAnim = useRef(new Animated.Value(0)).current;
+
+  const theme = useMemo(() => getThemeConfig(isDarkMode), [isDarkMode]);
+
+  // Initialize animations and voice commands
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: ANIMATION_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: ANIMATION_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.spring(profileScaleAnim, {
+        toValue: 1,
+        tension: 40,
+        friction: 6,
+        delay: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-    // Set up voice commands for profile screen
+    setupVoiceCommands();
+    voiceManager.announceScreenChange('profile');
+    speakText('Profile screen. You can edit your information or adjust accessibility settings.');
+
+    return cleanupVoiceCommands;
+  }, [isEditingProfile]);
+
+  const setupVoiceCommands = () => {
     voiceManager.addCommand({
       keywords: ['edit profile', 'edit information', 'update profile'],
       action: () => {
@@ -67,84 +203,53 @@ const ProfileScreen = () => {
         speakText(isEditingProfile ? 'Profile editing disabled' : 'Profile editing enabled');
       },
       description: 'Toggle profile editing mode',
-      category: 'general'
+      category: 'general',
     });
 
     voiceManager.addCommand({
       keywords: ['save profile', 'save changes', 'update information'],
-      action: () => handleSaveProfile(),
+      action: handleSaveProfile,
       description: 'Save profile changes',
-      category: 'general'
+      category: 'general',
     });
 
     voiceManager.addCommand({
       keywords: ['logout', 'sign out', 'log out'],
-      action: () => handleLogout(),
+      action: handleLogout,
       description: 'Log out of your account',
-      category: 'general'
+      category: 'general',
     });
+  };
 
-    voiceManager.addCommand({
-      keywords: ['go to home', 'home', 'main screen'],
-      action: () => {
-        speakText('Navigating to home screen');
-      },
-      description: 'Go to home screen',
-      category: 'navigation'
-    });
-
-
-    voiceManager.addCommand({
-      keywords: ['help', 'commands', 'what can I say'],
-      action: () => {
-        speakText('You can say: Edit profile, Save profile, Logout, Go to home, or Help');
-      },
-      description: 'Show available voice commands',
-      category: 'general'
-    });
-
-    // Announce screen change
-    voiceManager.announceScreenChange('profile');
-    speakText(`Profile screen. You can edit your information or adjust accessibility settings.`);
-
-    return () => {
-      // Clean up voice commands when component unmounts
-      voiceManager.removeCommand(['edit profile', 'edit information', 'update profile']);
-      voiceManager.removeCommand(['save profile', 'save changes', 'update information']);
-      voiceManager.removeCommand(['logout', 'sign out', 'log out']);
-      voiceManager.removeCommand(['go to home', 'home', 'main screen']);
-      voiceManager.removeCommand(['help', 'commands', 'what can I say']);
-    };
-  }, [isEditingProfile]);
+  const cleanupVoiceCommands = () => {
+    voiceManager.removeCommand(['edit profile', 'edit information', 'update profile']);
+    voiceManager.removeCommand(['save profile', 'save changes', 'update information']);
+    voiceManager.removeCommand(['logout', 'sign out', 'log out']);
+  };
 
   const speakText = (text: string) => {
-    try { Speech.stop(); } catch {}
+    try {
+      Speech.stop();
+    } catch {}
     try {
       const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
-      Speech.speak(text, {
-        rate: safeRate,
-        pitch: 1.0,
-      });
+      Speech.speak(text, { rate: safeRate, pitch: 1.0 });
     } catch {}
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => {
-            dispatch({ type: 'LOGOUT' });
-            speakText('You have been logged out successfully');
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          },
+    Alert.alert('Logout', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: () => {
+          dispatch({ type: 'LOGOUT' });
+          speakText('You have been logged out successfully');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleProfilePicture = async () => {
@@ -152,20 +257,30 @@ const ProfileScreen = () => {
       Alert.alert('Unavailable', 'Image picking is unavailable in this environment.');
       return;
     }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (perm.status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow photo library access to set a profile picture.');
-      return;
-    }
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
-    if (res.canceled) return;
-    const uri = res.assets?.[0]?.uri;
-    if (uri) {
-      setProfileData({ ...profileData, profilePhoto: uri });
-      // Immediately persist to user profile
-      dispatch({ type: 'UPDATE_USER', payload: { profilePhoto: uri } });
-      speakText('Profile picture updated');
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow photo library access to set a profile picture.');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+      
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        const uri = result.assets[0].uri;
+        setProfileData({ ...profileData, profilePhoto: uri });
+        dispatch({ type: 'UPDATE_USER', payload: { profilePhoto: uri } });
+        speakText('Profile picture updated');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update profile picture');
     }
   };
 
@@ -176,12 +291,11 @@ const ProfileScreen = () => {
       return;
     }
 
-    const updatedUser = {
-      ...state.user!,
-      ...profileData,
-    };
-
-    dispatch({ type: 'UPDATE_USER', payload: updatedUser });
+    dispatch({
+      type: 'UPDATE_USER',
+      payload: { ...state.user!, ...profileData },
+    });
+    
     setIsEditingProfile(false);
     speakText('Profile updated successfully');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -201,327 +315,355 @@ const ProfileScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const getBrightnessLabel = (value: number) => {
-    if (value <= 25) return 'Low';
-    if (value <= 50) return 'Medium';
-    if (value <= 75) return 'High';
-    return 'Maximum';
-  };
-
-  const getTextZoomLabel = (value: number) => {
-    if (value <= 90) return 'Small';
-    if (value <= 110) return 'Normal';
-    if (value <= 140) return 'Large';
-    return 'Extra Large';
-  };
-
-  const getVoiceSpeedLabel = (value: number) => {
-    if (value <= 0.7) return 'Slow';
-    if (value <= 1.3) return 'Normal';
-    return 'Fast';
-  };
-
   const handleDarkModeToggle = (value: boolean) => {
     setIsDarkMode(value);
     handleAccessibilityChange('isDarkMode', value);
   };
 
-  const theme = useMemo(() => getThemeConfig(isDarkMode), [isDarkMode]);
-  const styles = useMemo(() => createStyles(theme), [theme]);
-  const gradientColors = theme.gradient;
-  const placeholderColor = theme.placeholder;
+  const updateProfileField = (field: keyof typeof profileData, value: string) => {
+    setProfileData({ ...profileData, [field]: value });
+  };
 
-  const ProfileSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <ModernCard variant="elevated" style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
+  const renderHeroHeader = () => (
+    <Animated.View
+      style={[
+        styles.heroHeader,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={
+          (isDarkMode
+            ? ['rgba(74, 144, 226, 0.3)', 'rgba(106, 90, 205, 0.3)', 'rgba(74, 144, 226, 0.2)']
+            : ['rgba(74, 144, 226, 0.15)', 'rgba(106, 90, 205, 0.15)', 'rgba(74, 144, 226, 0.1)']) as any
+        }
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroGradient}
+      >
+        <Animated.View
+          style={[styles.profileHeaderContent, { transform: [{ scale: profileScaleAnim }] }]}
+        >
+          <View style={styles.profilePictureHeroContainer}>
+            <View style={styles.profileRing}>
+              <View style={[styles.profileRingInner, { borderColor: theme.accent }]} />
+            </View>
+            <TouchableOpacity
+              style={styles.profilePictureHeroWrapper}
+              onPress={handleProfilePicture}
+              accessibilityLabel="Profile picture"
+            >
+              {profileData.profilePhoto ? (
+                <Image source={{ uri: profileData.profilePhoto }} style={styles.profilePictureHero} />
+              ) : (
+                <LinearGradient colors={[theme.accent, '#357ABD']} style={styles.profilePictureHeroPlaceholder}>
+                  <Ionicons name="person" size={50} color="white" />
+                </LinearGradient>
+              )}
+              <View style={[styles.profileEditBadge, { backgroundColor: theme.accent }]}>
+                <Ionicons name="camera" size={16} color="white" />
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.userInfoHero}>
+            <Text style={[styles.userNameHero, { color: theme.textPrimary }]}>{state.user?.name || 'User'}</Text>
+            <View style={styles.userMetaRow}>
+              <Ionicons name="mail-outline" size={14} color={theme.textSecondary} />
+              <Text style={[styles.userEmailHero, { color: theme.textSecondary }]}>
+                {state.user?.email || 'user@example.com'}
+              </Text>
+            </View>
+            <View style={styles.userStatsRow}>
+              <View style={[styles.statBadge, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+                <Ionicons name="shield-checkmark" size={14} color={theme.accent} />
+                <Text style={[styles.statText, { color: theme.textPrimary }]}>Verified</Text>
+              </View>
+              <View style={[styles.statBadge, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+                <Ionicons name="calendar-outline" size={14} color={theme.accent} />
+                <Text style={[styles.statText, { color: theme.textPrimary }]}>Member</Text>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+
+        <View style={styles.heroActions}>
+          <TouchableOpacity
+            style={[styles.heroActionButton, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
+            onPress={() => setIsEditingProfile(!isEditingProfile)}
+          >
+            <Ionicons name={isEditingProfile ? 'close-circle' : 'create-outline'} size={20} color={theme.accent} />
+            <Text style={[styles.heroActionText, { color: theme.textPrimary }]}>
+              {isEditingProfile ? 'Cancel' : 'Edit'}
+            </Text>
+          </TouchableOpacity>
+          {isEditingProfile && (
+            <TouchableOpacity style={[styles.heroActionButton, styles.heroActionButtonPrimary]} onPress={handleSaveProfile}>
+              <LinearGradient colors={[theme.accent, '#357ABD']} style={styles.heroActionButtonGradient}>
+                <Ionicons name="checkmark-circle" size={20} color="white" />
+                <Text style={styles.heroActionTextPrimary}>Save</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </View>
+      </LinearGradient>
+    </Animated.View>
+  );
+
+  const renderStatsCards = () => {
+    const stats = [
+      { icon: 'settings-outline', value: `${state.accessibilitySettings.brightness}%`, label: 'Brightness', color: theme.accent },
+      { icon: 'text-outline', value: `${state.accessibilitySettings.textZoom}%`, label: 'Text Size', color: '#6A5ACD' },
+      { icon: 'volume-high-outline', value: `${state.accessibilitySettings.voiceSpeed.toFixed(1)}x`, label: 'Voice Speed', color: '#42BB66' },
+    ];
+
+    const getGradientColors = (isDark: boolean) => {
+      return [
+        [isDark ? 'rgba(74, 144, 226, 0.2)' : 'rgba(74, 144, 226, 0.1)', isDark ? 'rgba(74, 144, 226, 0.1)' : 'rgba(74, 144, 226, 0.05)'],
+        [isDark ? 'rgba(106, 90, 205, 0.2)' : 'rgba(106, 90, 205, 0.1)', isDark ? 'rgba(106, 90, 205, 0.1)' : 'rgba(106, 90, 205, 0.05)'],
+        [isDark ? 'rgba(66, 187, 102, 0.2)' : 'rgba(66, 187, 102, 0.1)', isDark ? 'rgba(66, 187, 102, 0.1)' : 'rgba(66, 187, 102, 0.05)'],
+      ];
+    };
+
+    const gradientColors = getGradientColors(isDarkMode);
+
+    return (
+      <Animated.View style={[styles.statsContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        {stats.map((stat, index) => (
+          <ModernCard key={stat.label} variant="elevated" style={styles.statCard}>
+            <LinearGradient colors={gradientColors[index] as any} style={styles.statCardGradient}>
+              <Ionicons name={stat.icon as any} size={28} color={stat.color} />
+              <Text style={[styles.statNumber, { color: theme.textPrimary }]}>{stat.value}</Text>
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{stat.label}</Text>
+            </LinearGradient>
+          </ModernCard>
+        ))}
+      </Animated.View>
+    );
+  };
+
+  const renderSettingCard = (
+    icon: string,
+    iconColor: string,
+    title: string,
+    value: string,
+    children: React.ReactNode,
+    gradientColors: string[]
+  ) => (
+    <ModernCard 
+      variant="elevated" 
+      style={{
+        ...styles.settingCardEnhanced,
+        borderColor: theme.cardBorder,
+      } as any}
+    >
+      <LinearGradient colors={gradientColors as any} style={styles.settingCardGradient}>
+        <View style={styles.settingHeader}>
+          <View style={[styles.settingIconWrapper, { backgroundColor: `${iconColor}33` }]}>
+            <Ionicons name={icon as any} size={26} color={iconColor} />
+          </View>
+          <View style={styles.settingHeaderText}>
+            <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>{title}</Text>
+            <Text style={[styles.settingValue, { color: theme.accent, backgroundColor: theme.tagBackground }]}>
+              {value}
+            </Text>
+          </View>
+        </View>
+        {children}
+      </LinearGradient>
     </ModernCard>
   );
 
-  const ProfileField = ({ 
-    label, 
-    value, 
-    onChangeText, 
-    placeholder, 
-    multiline = false,
-    keyboardType = 'default',
-    accessibilityLabel 
-  }: {
-    label: string;
-    value: string;
-    onChangeText: (text: string) => void;
-    placeholder: string;
-    multiline?: boolean;
-    keyboardType?: 'default' | 'email-address' | 'numeric';
-    accessibilityLabel: string;
-  }) => (
-    <View style={styles.fieldContainer}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        style={[styles.textInput, multiline && styles.multilineInput]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={placeholderColor}
-        multiline={multiline}
-        numberOfLines={multiline ? 3 : 1}
-        keyboardType={keyboardType}
-        textAlignVertical={multiline ? 'top' : 'center'}
-        accessibilityLabel={accessibilityLabel}
-        editable={isEditingProfile}
-      />
-    </View>
-  );
-
   return (
-    <LinearGradient
-      colors={gradientColors}
-      style={styles.container}
-    >
+    <LinearGradient colors={theme.gradient as any} style={styles.container}>
       <BackgroundLogo />
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
-            <View style={styles.logoContainer}>
-              <AccessAidLogo size={70} showText={true} />
-            </View>
-            <Text style={styles.welcomeText}>
-              {state.user?.name || 'User'}
-            </Text>
-            <Text style={styles.subtitleText}>
-              Manage your profile and preferences
-            </Text>
-          </Animated.View>
+        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+          {renderHeroHeader()}
+          {renderStatsCards()}
 
-          <ProfileSection title="Profile Information">
-            <View style={styles.profileActions}>
-              <ModernButton
-                title={isEditingProfile ? 'Cancel' : 'Edit Profile'}
-                onPress={() => {
-                  setIsEditingProfile(!isEditingProfile);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                variant={isEditingProfile ? 'danger' : 'outline'}
-                size="small"
-                icon={<Ionicons name={isEditingProfile ? "close" : "create-outline"} size={16} color={isEditingProfile ? "#FF6B6B" : "#4A90E2"} />}
-                style={styles.editButton}
-              />
-
-              {isEditingProfile && (
-                <ModernButton
-                  title="Save Changes"
-                  onPress={handleSaveProfile}
-                  variant="primary"
-                  size="small"
-                  icon={<Ionicons name="checkmark" size={16} color="white" />}
-                  style={styles.saveButton}
-                />
-              )}
-            </View>
-
-            {/* Profile Picture Section */}
-            <View style={styles.profilePictureContainer}>
-              <Text style={styles.fieldLabel}>Profile Picture</Text>
-              <TouchableOpacity
-                style={styles.profilePictureWrapper}
-                onPress={handleProfilePicture}
-                accessibilityLabel="Profile picture"
-                accessibilityHint="Tap to change your profile picture"
-              >
-                {profileData.profilePhoto ? (
-                  <Image
-                    source={{ uri: profileData.profilePhoto }}
-                    style={styles.profilePicture}
-                    accessibilityLabel="Current profile picture"
-                  />
-                ) : (
-                  <View style={styles.profilePicturePlaceholder}>
-                    <Ionicons name="person" size={40} color="#4A90E2" />
-                    <Text style={styles.profilePictureText}>Add Photo</Text>
-                  </View>
-                )}
-                <View style={styles.profilePictureOverlay}>
-                  <Ionicons name="camera" size={20} color="white" />
-                </View>
-              </TouchableOpacity>
-            </View>
-
+          <ProfileSection title="Profile Information" icon="person-outline">
             <ProfileField
               label="Full Name"
               value={profileData.name}
-              onChangeText={(text) => setProfileData({ ...profileData, name: text })}
+              onChangeText={(text) => updateProfileField('name', text)}
               placeholder="Enter your full name"
               accessibilityLabel="Full name input"
+              editable={isEditingProfile}
             />
-
             <ProfileField
               label="Email"
               value={profileData.email}
-              onChangeText={(text) => setProfileData({ ...profileData, email: text })}
+              onChangeText={(text) => updateProfileField('email', text)}
               placeholder="Enter your email"
               keyboardType="email-address"
               accessibilityLabel="Email input"
+              editable={isEditingProfile}
             />
-
             <ProfileField
               label="Bio"
               value={profileData.bio}
-              onChangeText={(text) => setProfileData({ ...profileData, bio: text })}
+              onChangeText={(text) => updateProfileField('bio', text)}
               placeholder="Tell us about yourself"
               multiline
               accessibilityLabel="Bio input"
+              editable={isEditingProfile}
             />
-
             <View style={styles.rowContainer}>
               <View style={styles.halfField}>
                 <ProfileField
                   label="Weight"
                   value={profileData.weight}
-                  onChangeText={(text) => setProfileData({ ...profileData, weight: text })}
+                  onChangeText={(text) => updateProfileField('weight', text)}
                   placeholder="e.g., 70 kg"
                   accessibilityLabel="Weight input"
+                  editable={isEditingProfile}
                 />
               </View>
               <View style={styles.halfField}>
                 <ProfileField
                   label="Height"
                   value={profileData.height}
-                  onChangeText={(text) => setProfileData({ ...profileData, height: text })}
+                  onChangeText={(text) => updateProfileField('height', text)}
                   placeholder="e.g., 170 cm"
                   accessibilityLabel="Height input"
+                  editable={isEditingProfile}
                 />
               </View>
             </View>
-
             <ProfileField
               label="Blood Group"
               value={profileData.bloodGroup}
-              onChangeText={(text) => setProfileData({ ...profileData, bloodGroup: text })}
+              onChangeText={(text) => updateProfileField('bloodGroup', text)}
               placeholder="e.g., O+"
               accessibilityLabel="Blood group input"
+              editable={isEditingProfile}
             />
-
             <ProfileField
               label="Allergies"
               value={profileData.allergies}
-              onChangeText={(text) => setProfileData({ ...profileData, allergies: text })}
+              onChangeText={(text) => updateProfileField('allergies', text)}
               placeholder="List any allergies"
               multiline
               accessibilityLabel="Allergies input"
+              editable={isEditingProfile}
             />
-
             <ProfileField
               label="Interests"
               value={profileData.interests}
-              onChangeText={(text) => setProfileData({ ...profileData, interests: text })}
+              onChangeText={(text) => updateProfileField('interests', text)}
               placeholder="Your interests and hobbies"
               multiline
               accessibilityLabel="Interests input"
+              editable={isEditingProfile}
             />
           </ProfileSection>
 
-          <ProfileSection title="Accessibility Settings">
-            {/* Brightness Setting */}
-            <View style={styles.settingCard}>
-              <View style={styles.settingHeader}>
-                <Ionicons name="sunny" size={24} color="#FFA726" />
-                <Text style={styles.settingTitle}>Display Brightness</Text>
-                <Text style={styles.settingValue}>
-                  {state.accessibilitySettings.brightness}% • {getBrightnessLabel(state.accessibilitySettings.brightness)}
-                </Text>
-              </View>
-              
-              <TouchSlider
-                value={state.accessibilitySettings.brightness}
-                min={0}
-                max={100}
-                onValueChange={(value) => handleAccessibilityChange('brightness', value)}
-                levelLabels={['Low', 'Medium', 'High', 'Max']}
-                unit="%"
-                accessibilityLabel="Brightness slider"
-              />
-              
-              <Text style={styles.settingDescription}>
-                Adjust screen brightness for comfortable viewing
-              </Text>
-            </View>
+          <ProfileSection title="Accessibility Settings" icon="accessibility-outline">
+            {renderSettingCard(
+              'sunny',
+              '#FFA726',
+              'Display Brightness',
+              `${state.accessibilitySettings.brightness}% • ${getBrightnessLabel(state.accessibilitySettings.brightness)}`,
+              (
+                <>
+                  <TouchSlider
+                    value={state.accessibilitySettings.brightness}
+                    min={0}
+                    max={100}
+                    onValueChange={(value) => handleAccessibilityChange('brightness', value)}
+                    levelLabels={['Low', 'Medium', 'High', 'Max']}
+                    unit="%"
+                    accessibilityLabel="Brightness slider"
+                  />
+                  <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
+                    Adjust screen brightness for comfortable viewing
+                  </Text>
+                </>
+              ),
+              isDarkMode
+                ? ['rgba(255, 167, 38, 0.15)', 'rgba(255, 167, 38, 0.05)']
+                : ['rgba(255, 167, 38, 0.1)', 'rgba(255, 167, 38, 0.03)']
+            )}
 
-            {/* Text Size Setting */}
-            <View style={styles.settingCard}>
-              <View style={styles.settingHeader}>
-                <Ionicons name="text" size={24} color="#42A5F5" />
-                <Text style={styles.settingTitle}>Text Size</Text>
-                <Text style={styles.settingValue}>
-                  {state.accessibilitySettings.textZoom}% • {getTextZoomLabel(state.accessibilitySettings.textZoom)}
-                </Text>
-              </View>
-              
-              <TouchSlider
-                value={state.accessibilitySettings.textZoom}
-                min={80}
-                max={180}
-                onValueChange={(value) => handleAccessibilityChange('textZoom', value)}
-                levelLabels={['Small', 'Normal', 'Large', 'XL']}
-                unit="%"
-                accessibilityLabel="Text size slider"
-              />
-              
-              <Text style={styles.settingDescription}>
-                Make text larger or smaller for better readability
-              </Text>
-            </View>
+            {renderSettingCard(
+              'text',
+              '#42A5F5',
+              'Text Size',
+              `${state.accessibilitySettings.textZoom}% • ${getTextZoomLabel(state.accessibilitySettings.textZoom)}`,
+              (
+                <>
+                  <TouchSlider
+                    value={state.accessibilitySettings.textZoom}
+                    min={80}
+                    max={180}
+                    onValueChange={(value) => handleAccessibilityChange('textZoom', value)}
+                    levelLabels={['Small', 'Normal', 'Large', 'XL']}
+                    unit="%"
+                    accessibilityLabel="Text size slider"
+                  />
+                  <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
+                    Make text larger or smaller for better readability
+                  </Text>
+                </>
+              ),
+              isDarkMode
+                ? ['rgba(66, 165, 245, 0.15)', 'rgba(66, 165, 245, 0.05)']
+                : ['rgba(66, 165, 245, 0.1)', 'rgba(66, 165, 245, 0.03)']
+            )}
 
-            {/* Voice Speed Setting */}
-            <View style={styles.settingCard}>
-              <View style={styles.settingHeader}>
-                <Ionicons name="volume-high" size={24} color="#66BB6A" />
-                <Text style={styles.settingTitle}>Voice Speed</Text>
-                <Text style={styles.settingValue}>
-                  {state.accessibilitySettings.voiceSpeed.toFixed(1)}x • {getVoiceSpeedLabel(state.accessibilitySettings.voiceSpeed)}
-                </Text>
-              </View>
-              
-              <TouchSlider
-                value={state.accessibilitySettings.voiceSpeed}
-                min={0.5}
-                max={2.0}
-                step={0.1}
-                onValueChange={(value) => handleAccessibilityChange('voiceSpeed', value)}
-                levelLabels={['Slow', 'Normal', 'Fast']}
-                unit="x"
-                accessibilityLabel="Voice speed slider"
-              />
-              
-              <Text style={styles.settingDescription}>
-                Control how fast text is spoken aloud
-              </Text>
-            </View>
+            {renderSettingCard(
+              'volume-high',
+              '#66BB6A',
+              'Voice Speed',
+              `${state.accessibilitySettings.voiceSpeed.toFixed(1)}x • ${getVoiceSpeedLabel(state.accessibilitySettings.voiceSpeed)}`,
+              (
+                <>
+                  <TouchSlider
+                    value={state.accessibilitySettings.voiceSpeed}
+                    min={0.5}
+                    max={2.0}
+                    step={0.1}
+                    onValueChange={(value) => handleAccessibilityChange('voiceSpeed', value)}
+                    levelLabels={['Slow', 'Normal', 'Fast']}
+                    unit="x"
+                    accessibilityLabel="Voice speed slider"
+                  />
+                  <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
+                    Control how fast text is spoken aloud
+                  </Text>
+                </>
+              ),
+              isDarkMode
+                ? ['rgba(102, 187, 106, 0.15)', 'rgba(102, 187, 106, 0.05)']
+                : ['rgba(102, 187, 106, 0.1)', 'rgba(102, 187, 106, 0.03)']
+            )}
 
             <View style={styles.switchContainer}>
-              <Text style={styles.switchLabel}>Dark Mode</Text>
+              <Text style={[styles.switchLabel, { color: theme.textPrimary }]}>Dark Mode</Text>
               <Switch
                 value={isDarkMode}
                 onValueChange={handleDarkModeToggle}
-                trackColor={{ false: theme.border, true: theme.accent }}
+                trackColor={{ false: theme.inputBorder, true: theme.accent }}
                 thumbColor={isDarkMode ? theme.accent : '#FFFFFF'}
-                ios_backgroundColor={theme.border}
+                ios_backgroundColor={theme.inputBorder}
                 accessibilityLabel="Dark mode toggle"
               />
             </View>
           </ProfileSection>
 
-          <ProfileSection title="App Information">
+          <ProfileSection title="App Information" icon="information-circle-outline">
             <View style={styles.infoContainer}>
               <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Version</Text>
-                <Text style={styles.infoValue}>1.0.0</Text>
+                <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Version</Text>
+                <Text style={[styles.infoValue, { color: theme.textPrimary }]}>1.0.0</Text>
               </View>
               <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Account Created</Text>
-                <Text style={styles.infoValue}>
+                <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Account Created</Text>
+                <Text style={[styles.infoValue, { color: theme.textPrimary }]}>
                   {new Date().toLocaleDateString()}
                 </Text>
               </View>
@@ -544,314 +686,334 @@ const ProfileScreen = () => {
 
 export default ProfileScreen;
 
-const createStyles = (theme: AppTheme) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.background,
-    },
-    content: {
-      flex: 1,
-    },
-    scrollContainer: {
-      flexGrow: 1,
-      paddingHorizontal: 20,
-      paddingVertical: 20,
-    },
-    header: {
-      alignItems: 'center',
-      marginBottom: isSmallScreen ? 20 : 30,
-      paddingTop: isSmallScreen ? 15 : 20,
-      paddingHorizontal: isSmallScreen ? 10 : 0,
-    },
-    logoContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: isSmallScreen ? 15 : 20,
-      minWidth: isSmallScreen ? 180 : 200,
-      maxWidth: screenWidth - 40,
-    },
-    welcomeText: {
-      fontSize: isSmallScreen ? 24 : 28,
-      fontWeight: 'bold',
-      color: theme.textPrimary,
-      marginTop: isSmallScreen ? 10 : 15,
-      textAlign: 'center',
-      textShadowColor: theme.isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.3)',
-      textShadowOffset: { width: 0, height: 2 },
-      textShadowRadius: 4,
-      paddingHorizontal: isSmallScreen ? 10 : 0,
-    },
-    subtitleText: {
-      fontSize: isSmallScreen ? 14 : 16,
-      color: theme.textSecondary,
-      marginTop: isSmallScreen ? 6 : 8,
-      textAlign: 'center',
-    },
-    section: {
-      padding: 20,
-      marginBottom: 20,
-      backgroundColor: theme.cardBackground,
-      borderRadius: 20,
-      borderWidth: theme.isDark ? 1 : 0.5,
-      borderColor: theme.border,
-      shadowColor: theme.shadowColor,
-      shadowOffset: { width: 0, height: theme.isDark ? 6 : 3 },
-      shadowOpacity: theme.isDark ? 0.35 : 0.1,
-      shadowRadius: theme.isDark ? 16 : 8,
-      elevation: theme.isDark ? 8 : 4,
-    },
-    sectionTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: theme.textPrimary,
-      marginBottom: 20,
-    },
-    profileActions: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 20,
-      gap: 12,
-    },
-    editButton: {
-      flex: 1,
-    },
-    saveButton: {
-      flex: 1,
-    },
-    fieldContainer: {
-      marginBottom: 16,
-    },
-    fieldLabel: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.textPrimary,
-      marginBottom: 8,
-    },
-    textInput: {
-      borderWidth: 2,
-      borderColor: theme.inputBorder,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      fontSize: 16,
-      backgroundColor: theme.inputBackground,
-      color: theme.textPrimary,
-    },
-    multilineInput: {
-      minHeight: 80,
-      textAlignVertical: 'top',
-    },
-    profilePictureContainer: {
-      marginBottom: 20,
-      alignItems: 'center',
-    },
-    profilePictureWrapper: {
-      position: 'relative',
-      width: 120,
-      height: 120,
-      borderRadius: 60,
-      overflow: 'hidden',
-      backgroundColor: theme.inputBackground,
-      borderWidth: 3,
-      borderColor: theme.accent,
-      shadowColor: theme.shadowColor,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: theme.isDark ? 0.45 : 0.25,
-      shadowRadius: 8,
-      elevation: 8,
-    },
-    profilePicture: {
-      width: '100%',
-      height: '100%',
-    },
-    profilePicturePlaceholder: {
-      width: '100%',
-      height: '100%',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: theme.inputBackground,
-    },
-    profilePictureText: {
-      fontSize: 12,
-      color: theme.accent,
-      fontWeight: '600',
-      marginTop: 4,
-    },
-    profilePictureOverlay: {
-      position: 'absolute',
-      bottom: 0,
-      right: 0,
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: theme.accent,
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: theme.shadowColor,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: theme.isDark ? 0.45 : 0.3,
-      shadowRadius: 4,
-      elevation: 4,
-    },
-    rowContainer: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    halfField: {
-      flex: 1,
-    },
-    switchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginTop: 20,
-      paddingVertical: 8,
-    },
-    switchLabel: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.textPrimary,
-    },
-    infoContainer: {
-      gap: 12,
-    },
-    infoItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 8,
-    },
-    infoLabel: {
-      fontSize: 16,
-      color: theme.textSecondary,
-    },
-    infoValue: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.textPrimary,
-    },
-    logoutButton: {
-      marginTop: 20,
-    },
-    settingCard: {
-      backgroundColor: theme.cardBackground,
-      borderRadius: 12,
-      padding: 20,
-      marginBottom: 12,
-      shadowColor: theme.shadowColor,
-      shadowOffset: { width: 0, height: theme.isDark ? 4 : 1 },
-      shadowOpacity: theme.isDark ? 0.4 : 0.08,
-      shadowRadius: theme.isDark ? 12 : 4,
-      elevation: theme.isDark ? 6 : 2,
-      borderWidth: theme.isDark ? 1 : 0.5,
-      borderColor: theme.border,
-    },
-    settingHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 20,
-    },
-    settingTitle: {
-      fontSize: 17,
-      fontWeight: '600',
-      color: theme.textPrimary,
-      marginLeft: 12,
-      flex: 1,
-    },
-    settingValue: {
-      fontSize: 13,
-      fontWeight: '500',
-      color: theme.accent,
-      backgroundColor: theme.tagBackground,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 6,
-    },
-    settingDescription: {
-      fontSize: 13,
-      color: theme.textSecondary,
-      marginTop: 16,
-      lineHeight: 18,
-      textAlign: 'center',
-    },
-    voiceCommandsContainer: {
-      padding: 20,
-      marginBottom: 20,
-      backgroundColor: theme.cardBackground,
-      borderRadius: 20,
-      borderWidth: theme.isDark ? 1 : 0.5,
-      borderColor: theme.border,
-    },
-    voiceCommandsText: {
-      fontSize: 14,
-      color: theme.textSecondary,
-      marginBottom: 15,
-      lineHeight: 20,
-    },
-    voiceCommandButton: {
-      width: '100%',
-    },
-    featuresContainer: {
-      marginBottom: 20,
-    },
-    cardContent: {
-      alignItems: 'center',
-      padding: 20,
-    },
-    cardTitle: {
-      color: 'white',
-      fontSize: 20,
-      fontWeight: 'bold',
-      marginTop: 12,
-      marginBottom: 8,
-    },
-    cardDescription: {
-      color: 'white',
-      fontSize: 14,
-      opacity: 0.9,
-      textAlign: 'center',
-    },
-    quickStatsContainer: {
-      padding: 20,
-      marginBottom: 20,
-      backgroundColor: theme.cardBackground,
-      borderRadius: 20,
-      borderWidth: theme.isDark ? 1 : 0.5,
-      borderColor: theme.border,
-      shadowColor: theme.shadowColor,
-      shadowOffset: { width: 0, height: theme.isDark ? 4 : 2 },
-      shadowOpacity: theme.isDark ? 0.35 : 0.08,
-      shadowRadius: theme.isDark ? 12 : 6,
-      elevation: theme.isDark ? 6 : 2,
-    },
-    statsRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-    },
-    statItem: {
-      alignItems: 'center',
-    },
-    settingCardsContainer: {
-      gap: 12,
-    },
-    statNumber: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: '#4A90E2',
-    },
-    statLabel: {
-      fontSize: 12,
-      color: theme.textSecondary,
-    },
-    infoLabelSmall: {
-      fontSize: 13,
-      color: theme.textSecondary,
-    },
-    sectionDescription: {
-      fontSize: 14,
-      color: theme.textSecondary,
-      marginBottom: 16,
-      lineHeight: 20,
-    },
-  });
+// Styles
+const createSectionStyle = (theme: AppTheme) => ({
+  padding: 20,
+  marginBottom: 20,
+  backgroundColor: theme.cardBackground,
+  borderRadius: 20,
+  borderWidth: theme.isDark ? 1 : 0.5,
+  borderColor: theme.cardBorder,
+  shadowColor: theme.cardShadow,
+  shadowOffset: { width: 0, height: theme.isDark ? 6 : 3 },
+  shadowOpacity: theme.isDark ? 0.35 : 0.1,
+  shadowRadius: theme.isDark ? 16 : 8,
+  elevation: theme.isDark ? 8 : 4,
+});
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  heroHeader: {
+    marginBottom: 20,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginHorizontal: 20,
+    marginTop: 20,
+  },
+  heroGradient: {
+    padding: 24,
+  },
+  profileHeaderContent: {
+    alignItems: 'center',
+  },
+  profilePictureHeroContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  profileRing: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    top: -5,
+    left: -5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileRingInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 70,
+    borderWidth: 3,
+    borderStyle: 'dashed',
+    opacity: 0.5,
+  },
+  profilePictureHeroWrapper: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    overflow: 'hidden',
+    borderWidth: 4,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  profilePictureHero: {
+    width: '100%',
+    height: '100%',
+  },
+  profilePictureHeroPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  userInfoHero: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  userNameHero: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  userMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 6,
+  },
+  userEmailHero: {
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  userStatsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  statBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+    borderWidth: 1,
+  },
+  statText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  heroActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+    justifyContent: 'center',
+  },
+  heroActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 8,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  heroActionButtonPrimary: {
+    borderWidth: 0,
+    overflow: 'hidden',
+    shadowColor: '#4A90E2',
+    shadowOpacity: 0.3,
+  },
+  heroActionButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  heroActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  heroActionTextPrimary: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: 'white',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
+    padding: 0,
+    overflow: 'hidden',
+  },
+  statCardGradient: {
+    padding: 20,
+    alignItems: 'center',
+    minHeight: 120,
+    justifyContent: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  sectionIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(74, 144, 226, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  fieldContainer: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  multilineInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfField: {
+    flex: 1,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    paddingVertical: 8,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  infoContainer: {
+    gap: 12,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  infoLabel: {
+    fontSize: 16,
+  },
+  infoValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  logoutButton: {
+    marginTop: 20,
+  },
+  settingCardEnhanced: {
+    marginBottom: 16,
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  settingCardGradient: {
+    padding: 20,
+  },
+  settingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  settingIconWrapper: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  settingHeaderText: {
+    flex: 1,
+  },
+  settingTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  settingValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  settingDescription: {
+    fontSize: 13,
+    marginTop: 16,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+});

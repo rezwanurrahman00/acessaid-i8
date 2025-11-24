@@ -1,11 +1,11 @@
 /**
- * API service for AccessAid app
- * Fully compatible with online + offline (mock fallback) modes
+ * API Service for AccessAid
+ * Handles all backend communication with offline fallback support
  */
 
-const API_BASE_URL = 'http://192.168.0.220:8000/api'; // backend optional
+const API_BASE_URL = 'http://192.168.0.220:8000/api';
 
-// --- Types ---
+// Types
 export interface User {
   user_id: number;
   email: string;
@@ -53,7 +53,7 @@ export interface UserSetting {
   updated_at: string;
 }
 
-// --- Mock Fallback Data ---
+// Mock fallback data
 const mockUser: User = {
   user_id: 1,
   email: "rezwanu.rahman@my.unt.edu",
@@ -84,17 +84,6 @@ const mockReminders: Reminder[] = [
     is_completed: false,
     created_at: new Date().toISOString(),
   },
-  {
-    reminder_id: 2,
-    title: "Review sprint tasks",
-    description: "Check GitHub progress",
-    reminder_datetime: new Date().toISOString(),
-    frequency: "Once",
-    priority: "High",
-    is_active: true,
-    is_completed: false,
-    created_at: new Date().toISOString(),
-  },
 ];
 
 const mockSettings: UserSetting[] = [
@@ -102,13 +91,12 @@ const mockSettings: UserSetting[] = [
   { setting_id: 2, setting_name: "high_contrast", setting_value: "false", updated_at: new Date().toISOString() },
 ];
 
-// --- Helper Function ---
+// Helper: Try fetch with timeout and fallback
 async function tryFetch<T>(url: string, options: RequestInit = {}, fallback: T): Promise<T> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
     const response = await fetch(url, { ...options, signal: controller.signal });
-
     clearTimeout(timeout);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
@@ -118,7 +106,7 @@ async function tryFetch<T>(url: string, options: RequestInit = {}, fallback: T):
   }
 }
 
-// --- Main Service Class ---
+// API Service Class
 class ApiService {
   private baseUrl: string;
 
@@ -126,7 +114,6 @@ class ApiService {
     this.baseUrl = baseUrl;
   }
 
-  // --- USERS ---
   async getUsers(): Promise<User[]> {
     return tryFetch(`${this.baseUrl}/users`, {}, [mockUser]);
   }
@@ -135,16 +122,11 @@ class ApiService {
     return tryFetch(`${this.baseUrl}/users/${userId}`, {}, mockUser);
   }
 
-  // --- REMINDERS ---
   async getUserReminders(userId: number): Promise<Reminder[]> {
     return tryFetch(`${this.baseUrl}/users/${userId}/reminders`, {}, mockReminders);
   }
 
-  async updateReminder(
-    reminderId: number,
-    updateData: Partial<Reminder>
-  ): Promise<{ message: string }> {
-    console.log("🟢 updateReminder called:", reminderId, updateData);
+  async updateReminder(reminderId: number, updateData: Partial<Reminder>): Promise<{ message: string }> {
     return tryFetch(
       `${this.baseUrl}/reminders/${reminderId}`,
       {
@@ -156,13 +138,11 @@ class ApiService {
     );
   }
 
-  // --- SETTINGS ---
   async getUserSettings(userId: number): Promise<UserSetting[]> {
     return tryFetch(`${this.baseUrl}/users/${userId}/settings`, {}, mockSettings);
   }
 
   async updateUserSetting(userId: number, settingName: string, settingValue: string) {
-    console.log("🟢 updateUserSetting called:", settingName, settingValue);
     return tryFetch(
       `${this.baseUrl}/users/${userId}/settings`,
       {
@@ -174,7 +154,6 @@ class ApiService {
     );
   }
 
-  // --- TTS LOGGING (Always Available) ---
   async logTTSUsage(
     userId: number,
     ttsData: {
@@ -185,34 +164,22 @@ class ApiService {
       context?: string;
     }
   ): Promise<{ message: string }> {
-    try {
-      console.log("🟢 logTTSUsage called:", userId, ttsData);
-      return await tryFetch(
-        `${this.baseUrl}/users/${userId}/tts-history`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(ttsData),
-        },
-        { message: "TTS logged locally (offline mode)" }
-      );
-    } catch (error) {
-      console.warn("⚠️ logTTSUsage failed, using offline log");
-      console.log("📝 Offline log:", ttsData);
-      return { message: "Offline mock log saved" };
-    }
+    return tryFetch(
+      `${this.baseUrl}/users/${userId}/tts-history`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ttsData),
+      },
+      { message: "TTS logged locally (offline mode)" }
+    );
   }
 
-  // --- HEALTH CHECK ---
   async healthCheck() {
     return tryFetch(`${this.baseUrl}/health`, {}, { message: "Offline Mode", status: "ok" });
   }
 }
 
-// --- Export Singleton ---
 export const apiService = new ApiService();
 export default ApiService;
-
-
-
 
