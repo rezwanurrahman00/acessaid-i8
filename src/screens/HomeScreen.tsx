@@ -156,18 +156,49 @@ const HomeScreen = () => {
   };
 
   /**
+   * Get OCR API key from various possible locations
+   */
+  const getOCRAPIKey = (): string => {
+    // Try multiple ways to access the API key (for different Expo versions)
+    const key =
+      Constants.expoConfig?.extra?.OCR_SPACE_API_KEY ||
+      (Constants.expoConfig as any)?.extra?.OCR_SPACE_API_KEY ||
+      Constants.manifest?.extra?.OCR_SPACE_API_KEY ||
+      (Constants.manifest2?.extra as any)?.OCR_SPACE_API_KEY ||
+      (process.env as any)?.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
+      '';
+
+    // Debug logging (remove in production if needed)
+    if (__DEV__) {
+      console.log('🔑 OCR API Key check:', {
+        hasExpoConfig: !!Constants.expoConfig,
+        hasManifest: !!Constants.manifest,
+        hasManifest2: !!(Constants as any).manifest2,
+        keyFound: !!key,
+        keyLength: key?.length || 0,
+        keyPreview: key ? `${key.substring(0, 3)}...${key.substring(key.length - 3)}` : 'N/A'
+      });
+    }
+
+    return key;
+  };
+
+  /**
    * Extract text from image or file using OCR.Space API
    */
   const extractTextWithOCRSpace = async (base64: string, mimeType: string = 'image/jpeg'): Promise<string> => {
-    const ocrSpaceKey =
-      Constants.expoConfig?.extra?.OCR_SPACE_API_KEY ||
-      Constants.manifest?.extra?.OCR_SPACE_API_KEY ||
-      '';
+    const ocrSpaceKey = getOCRAPIKey();
 
     if (!ocrSpaceKey || !ocrSpaceKey.trim()) {
+      console.error('❌ OCR API Key is missing!');
+      console.error('Available Constants:', {
+        expoConfig: Constants.expoConfig ? 'exists' : 'missing',
+        manifest: Constants.manifest ? 'exists' : 'missing',
+        manifest2: (Constants as any).manifest2 ? 'exists' : 'missing'
+      });
       Alert.alert(
         'API Key Missing',
-        'OCR.Space API key is not configured. Please add OCR_SPACE_API_KEY to app.json extra section.'
+        'OCR.Space API key is not configured. Please:\n\n1. Check app.json has OCR_SPACE_API_KEY in extra section\n2. Restart the Expo development server\n3. Reload the app'
       );
       return '';
     }
@@ -189,6 +220,7 @@ const HomeScreen = () => {
       formData.append('isOverlayRequired', 'false');
       formData.append('OCREngine', '2');
 
+      console.log('📤 Sending OCR request to OCR.Space API...');
       const response = await fetch('https://api.ocr.space/parse/image', {
         method: 'POST',
         headers: {
@@ -197,21 +229,46 @@ const HomeScreen = () => {
         body: formData,
       });
 
+      console.log('📥 OCR API Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('❌ OCR API HTTP Error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
       const data = await response.json();
+      console.log('📄 OCR API Response data:', {
+        hasData: !!data,
+        isErrored: data?.IsErroredOnProcessing,
+        hasResults: !!data?.ParsedResults,
+        resultsCount: data?.ParsedResults?.length || 0
+      });
 
       if (data?.IsErroredOnProcessing) {
         const message =
           data?.ErrorMessage?.[0] ||
           data?.ErrorDetails ||
+          data?.ErrorMessage ||
           'Failed to process the document.';
+        console.error('❌ OCR Processing Error:', message);
         throw new Error(message);
       }
 
       const text = data?.ParsedResults?.[0]?.ParsedText || '';
-      return text.trim();
+      const trimmedText = text.trim();
+      
+      if (!trimmedText) {
+        console.warn('⚠️ OCR returned empty text');
+        throw new Error('No text was extracted from the image. Please try with a clearer image or document.');
+      }
+
+      console.log('✅ OCR Success! Extracted text length:', trimmedText.length);
+      return trimmedText;
     } catch (error: any) {
-      console.error('OCR.Space API Error:', error);
-      Alert.alert('Error', `Failed to extract text: ${error.message || 'Unknown error'}`);
+      console.error('❌ OCR.Space API Error:', error);
+      const errorMessage = error?.message || 'Unknown error occurred';
+      Alert.alert('Error', `Failed to extract text: ${errorMessage}`);
       return '';
     }
   };
