@@ -163,6 +163,151 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
 - Full CRUD operations for all entities
 - API health check endpoint
 
+---
+
+## 🔌 APIs Used
+
+AccessAid integrates with the following APIs to provide its functionality:
+
+### 1. OCR.Space API (External Third-Party API)
+
+**Purpose**: Optical Character Recognition (OCR) for text extraction from images and PDF documents.
+
+**Description**: 
+OCR.Space is a cloud-based OCR service that allows AccessAid to extract text from images captured by the camera or selected from the photo library. This enables users with visual impairments or reading difficulties to have images read aloud by the app.
+
+**Usage in AccessAid**:
+- Camera OCR: Users can capture images using the device camera and extract text from them
+- Image Picker OCR: Users can select existing images from their photo library for text extraction
+- PDF Support: The API also supports extracting text from PDF documents
+- Text-to-Speech Integration: Extracted text is automatically passed to the TTS system for audio output
+
+**API Details**:
+- **Endpoint**: `https://api.ocr.space/parse/image`
+- **Method**: POST
+- **Authentication**: API Key (configured in `app.json`)
+- **Supported Formats**: 
+  - Images: JPEG, PNG, GIF, BMP
+  - Documents: PDF
+- **Engine**: OCR Engine 2 (default)
+- **Language**: English (eng)
+
+**Configuration**:
+The API key is stored in `app.json` under the `extra` section:
+```json
+{
+  "extra": {
+    "OCR_SPACE_API_KEY": "your-api-key-here"
+  }
+}
+```
+
+**Getting an API Key**:
+1. Visit [OCR.Space API](https://ocr.space/OCRAPI)
+2. Sign up for a free or paid account
+3. Generate an API key from your dashboard
+4. Add the key to `app.json` as shown above
+5. Restart the Expo development server
+
+**Rate Limits**:
+- Free tier: 25,000 requests/month
+- Paid plans available for higher usage
+
+**Error Handling**:
+- API key validation on app startup
+- User-friendly error messages if API key is missing
+- Graceful fallback with alerts when OCR fails
+- Detailed console logging for debugging
+
+**Code Location**: `src/screens/HomeScreen.tsx` - `extractTextWithOCRSpace()` function
+
+---
+
+### 2. AccessAid Custom Backend API (Internal FastAPI)
+
+**Purpose**: Backend service for user data management, reminders, settings, and TTS history storage.
+
+**Description**:
+A custom RESTful API built with FastAPI (Python) that handles all backend operations for AccessAid. The API manages user data, reminders, accessibility preferences, and maintains a history of TTS usage for analytics.
+
+**Base URL**: `http://192.168.0.220:8000/api` (configurable via `services/api.ts`)
+
+**API Endpoints**:
+
+#### Health Check
+- **GET** `/` - API health check endpoint
+  - Returns: `{ "message": "AccessAid API is running!", "status": "healthy" }`
+
+#### User Endpoints
+- **GET** `/api/users` - Get all users
+- **GET** `/api/users/{user_id}` - Get user by ID
+- **POST** `/api/users` - Create new user
+- **PUT** `/api/users/{user_id}` - Update user
+- **DELETE** `/api/users/{user_id}` - Delete user
+
+#### Reminder Endpoints
+- **GET** `/api/users/{user_id}/reminders` - Get all reminders for a user
+- **GET** `/api/reminders/{reminder_id}` - Get reminder by ID
+- **POST** `/api/reminders` - Create new reminder
+- **PUT** `/api/reminders/{reminder_id}` - Update reminder
+- **DELETE** `/api/reminders/{reminder_id}` - Delete reminder
+
+#### Settings Endpoints
+- **GET** `/api/users/{user_id}/settings` - Get user settings
+- **POST** `/api/users/{user_id}/settings` - Update user setting
+
+#### TTS History Endpoints
+- **GET** `/api/users/{user_id}/tts-history` - Get TTS usage history
+- **POST** `/api/users/{user_id}/tts-history` - Log TTS usage
+
+**Database Models**:
+- `User` - User accounts and profiles
+- `Reminder` - Reminder entries with categories and priorities
+- `Task` - Task management
+- `Notification` - Notification tracking
+- `TTSHistory` - Text-to-speech usage logs
+- `UserSettings` - User accessibility preferences
+- `DeviceSync` - Device synchronization data
+
+**Technology Stack**:
+- **Framework**: FastAPI 0.104.1
+- **Database**: SQLite with SQLAlchemy ORM 2.0.23
+- **Server**: Uvicorn ASGI server
+- **Authentication**: Python-JOSE with bcrypt
+- **CORS**: Enabled for React Native frontend
+
+**Offline Support**:
+The frontend includes offline fallback mechanisms. When the backend API is unavailable:
+- Mock data is used automatically
+- User operations continue with local storage
+- Data syncs when connection is restored
+
+**Code Locations**:
+- Backend API: `backend/main.py`
+- Frontend API Service: `services/api.ts`
+- Database Models: `backend/database/models.py`
+- Database Setup: `backend/database/database.py`
+
+**Running the Backend**:
+```bash
+cd backend
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**API Documentation**:
+Once the backend is running, visit `http://localhost:8000/docs` for interactive Swagger/OpenAPI documentation.
+
+---
+
+### API Integration Summary
+
+| API | Type | Purpose | Status |
+|-----|------|---------|--------|
+| OCR.Space | External | Text extraction from images/PDFs | ✅ Active |
+| AccessAid Backend | Internal | User data & app features | ✅ Active |
+
+**Note**: Ensure both APIs are properly configured before deploying to production. The OCR.Space API key must be secured and not exposed in version control.
+
 #### 📂 Code Organization
 - TypeScript throughout for type safety
 - Context API for state management (AppContext, AuthContext)
