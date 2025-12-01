@@ -25,17 +25,38 @@ npm install
 
 2) Start the app
 
+> **⚠️ Important: Voice Recognition Limitations**  
+> Voice recognition (`expo-speech-recognition`) is a **native module** and will **NOT work with Expo Go**.  
+> To test voice commands, you must build the app on a physical device or emulator.
+
+#### Option A: Development Build (Recommended for Voice Features)
+
+**For Android:**
+```bash
+npx expo run:android --device
+```
+
+**For iOS:**
+```bash
+npx expo run:ios --device
+```
+
+This builds and installs the app with native modules on your connected device.
+
+#### Option B: Expo Go (Limited Features)
+
 ```bash
 npx expo start
 ```
 
-From the Expo CLI, you can open the app in:
-- A development build
-- Android emulator
-- iOS simulator
-- Expo Go (sandboxed)
+From the Expo CLI, you can open the app in Expo Go, but note:
+- ✅ Text-to-Speech (TTS) works
+- ✅ OCR and camera features work
+- ✅ Reminders and UI features work
+- ❌ Voice recognition/commands will NOT work
+- ❌ Voice input will NOT work
 
-When you’re ready for a fresh start:
+**When you're ready for a fresh start:**
 
 ```bash
 npm run reset-project
@@ -322,10 +343,10 @@ Once the backend is running, visit `http://localhost:8000/docs` for interactive 
 The app is now functional with all Sprint 2 features implemented. The foundation established in Sprint 1 has been expanded with core accessibility features, authentication, voice commands, and a complete backend API.
 
 ## Scripts
-- `npm start` – Start the Expo dev server
-- `npm run android` – Run on Android emulator/device
-- `npm run ios` – Run on iOS simulator/device (macOS)
-- `npm run web` – Run the web build
+- `npm start` – Start the Expo dev server (⚠️ Voice features won't work in Expo Go)
+- `npm run android` – Build and run on Android emulator/device with full native features
+- `npm run ios` – Build and run on iOS simulator/device with full native features (macOS only)
+- `npm run web` – Run the web build (⚠️ Limited native features)
 
 ## License
 © Code Innovators. All rights reserved.
