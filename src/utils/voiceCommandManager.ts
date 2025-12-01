@@ -1,7 +1,14 @@
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
-import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { Platform } from 'react-native';
+
+// Conditional import for expo-speech-recognition (not available in Expo Go)
+let ExpoSpeechRecognitionModule: any = null;
+try {
+  ExpoSpeechRecognitionModule = require('expo-speech-recognition').ExpoSpeechRecognitionModule;
+} catch (e) {
+  console.log('⚠️ Voice recognition not available (Expo Go). Use development build for voice features.');
+}
 
 export interface VoiceCommand {
   keywords: string[];
@@ -77,6 +84,12 @@ export class VoiceCommandManager {
 
   async startListening() {
     if (this.recognizing) {
+      return;
+    }
+    
+    // Check if voice recognition is available
+    if (!ExpoSpeechRecognitionModule) {
+      this.speak('Voice recognition is not available. Please use a development build to enable this feature.');
       return;
     }
     

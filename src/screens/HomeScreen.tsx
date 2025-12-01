@@ -9,7 +9,6 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
-import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,6 +29,14 @@ import { ModernCard } from '../components/ModernCard';
 import { useApp } from '../contexts/AppContext';
 import type { MainTabParamList } from '../types';
 import { voiceManager } from '../utils/voiceCommandManager';
+
+// Conditional import for expo-speech-recognition (not available in Expo Go)
+let ExpoSpeechRecognitionModule: any = null;
+try {
+  ExpoSpeechRecognitionModule = require('expo-speech-recognition').ExpoSpeechRecognitionModule;
+} catch (e) {
+  console.log('⚠️ Voice input not available (Expo Go). Use development build for voice features.');
+}
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallScreen = screenWidth < 375;
@@ -172,6 +179,15 @@ const HomeScreen = () => {
   const handleVoiceInput = async () => {
     if (isVoiceInputMode) {
       setIsVoiceInputMode(false);
+      return;
+    }
+
+    // Check if voice recognition is available
+    if (!ExpoSpeechRecognitionModule) {
+      Alert.alert(
+        'Feature Not Available',
+        'Voice input requires a development build. Please run:\n\nnpx expo run:android --device\n\nVoice input is not available in Expo Go.'
+      );
       return;
     }
 
