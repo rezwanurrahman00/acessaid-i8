@@ -9,6 +9,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
+import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -39,6 +40,7 @@ const HomeScreen = () => {
   const navigation = useNavigation<NavigationProp<MainTabParamList>>();
   const [ttsText, setTtsText] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [isVoiceInputMode, setIsVoiceInputMode] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   
   // AI Reader state
@@ -132,10 +134,6 @@ const HomeScreen = () => {
       category: 'general'
     });
 
-    // Announce screen change
-    voiceManager.announceScreenChange('home');
-    speakText(`Welcome back, ${state.user?.name || 'User'}! You can use text-to-speech. Say "help" for voice commands.`);
-
     return () => {
       // Clean up voice commands when component unmounts
       voiceManager.removeCommand(['read text', 'speak text', 'read aloud']);
@@ -145,7 +143,13 @@ const HomeScreen = () => {
       voiceManager.removeCommand(['enable voice', 'voice on', 'start voice']);
       voiceManager.removeCommand(['disable voice', 'voice off', 'stop voice']);
     };
-  }, [ttsText]);
+  }, []);
+
+  // Announce screen on mount only
+  useEffect(() => {
+    voiceManager.announceScreenChange('home');
+    speakText(`Welcome back, ${state.user?.name || 'User'}! You can use text-to-speech. Say "help" for voice commands.`);
+  }, []);
 
   const speakText = (text: string) => {
     console.log('speakText called with text:', text);
@@ -165,14 +169,53 @@ const HomeScreen = () => {
     } catch {}
   };
 
-  const handleVoiceInput = () => {
-    if (isListening) {
-      setIsListening(false);
-      voiceManager.stopListening();
+  const handleVoiceInput = async () => {
+    if (isVoiceInputMode) {
+      setIsVoiceInputMode(false);
       return;
     }
-    setIsListening(true);
-    voiceManager.startListening();
+
+    setIsVoiceInputMode(true);
+
+    try {
+      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!result.granted) {
+        Alert.alert('Permission Required', 'Microphone permission is needed for voice input.');
+        setIsVoiceInputMode(false);
+        return;
+      }
+
+      // Set up one-time listener for voice-to-text
+      const subscription = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
+        const transcript = event.results?.[0]?.transcript;
+        const isFinal = event.isFinal;
+        
+        if (transcript && isFinal) {
+          setTtsText(prev => prev ? `${prev} ${transcript}` : transcript);
+          setIsVoiceInputMode(false);
+          subscription.remove();
+        }
+      });
+
+      const errorSubscription = ExpoSpeechRecognitionModule.addListener('error', () => {
+        setIsVoiceInputMode(false);
+        subscription.remove();
+        errorSubscription.remove();
+      });
+
+      await ExpoSpeechRecognitionModule.start({
+        lang: 'en-US',
+        interimResults: true,
+        maxAlternatives: 1,
+        continuous: false,
+        requiresOnDeviceRecognition: false,
+        addsPunctuation: false,
+        contextualStrings: [],
+      });
+    } catch (error) {
+      console.error('Voice input error:', error);
+      setIsVoiceInputMode(false);
+    }
   };
 
   /**
@@ -649,11 +692,11 @@ const HomeScreen = () => {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Text-to-Speech</Text>
               <ModernButton
-                title={isListening ? 'Listening...' : 'Voice Input'}
+                title={isVoiceInputMode ? 'Stop Input' : 'Voice Input'}
                 onPress={handleVoiceInput}
-                variant={isListening ? 'danger' : 'outline'}
+                variant={isVoiceInputMode ? 'danger' : 'outline'}
                 size="small"
-                icon={<Ionicons name={isListening ? "mic" : "mic-outline"} size={16} color={isListening ? theme.danger : theme.accent} />}
+                icon={<Ionicons name={isVoiceInputMode ? "mic" : "mic-outline"} size={16} color={isVoiceInputMode ? theme.danger : theme.accent} />}
                 style={styles.voiceInputButton}
               />
             </View>
@@ -784,8 +827,8 @@ const HomeScreen = () => {
             <Text style={styles.sectionTitle}>Quick Access</Text>
 
             <FeatureCard
-              title="Voice Commands"
-              description="Control the app with your voice"
+              title={isListening ? "Voice Commands (Active)" : "Voice Commands"}
+              description={isListening ? "Listening for commands..." : "Control the app with your voice"}
               icon="mic"
               onPress={() => {
                 if (isListening) {
@@ -796,7 +839,7 @@ const HomeScreen = () => {
                   voiceManager.startListening();
                 }
               }}
-              gradientColors={['#FF6B6B', '#E53E3E']}
+              gradientColors={isListening ? ['#4CAF50', '#45a049'] : ['#FF6B6B', '#E53E3E']}
               accessibilityLabel="Voice Commands feature"
             />
           </View>
