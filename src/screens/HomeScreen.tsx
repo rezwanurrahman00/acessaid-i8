@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { NavigationProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystemLegacy from 'expo-file-system/legacy';
@@ -25,6 +27,7 @@ import { BackgroundLogo } from '../components/BackgroundLogo';
 import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
 import { useApp } from '../contexts/AppContext';
+import type { MainTabParamList } from '../types';
 import { voiceManager } from '../utils/voiceCommandManager';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -33,6 +36,7 @@ const isPhone = screenWidth < 768;
 
 const HomeScreen = () => {
   const { state } = useApp();
+  const navigation = useNavigation<NavigationProp<MainTabParamList>>();
   const [ttsText, setTtsText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -77,7 +81,8 @@ const HomeScreen = () => {
     voiceManager.addCommand({
       keywords: ['go to profile', 'profile', 'settings'],
       action: () => {
-        // Navigation would be handled by tab navigator
+        setIsListening(false);
+        navigation.navigate('Profile');
         speakText('Navigating to profile');
       },
       description: 'Go to profile screen',
@@ -87,7 +92,8 @@ const HomeScreen = () => {
     voiceManager.addCommand({
       keywords: ['go to reminders', 'reminders', 'show reminders'],
       action: () => {
-        // Navigation would be handled by tab navigator
+        setIsListening(false);
+        navigation.navigate('Reminders');
         speakText('Navigating to reminders');
       },
       description: 'Go to reminders screen',
@@ -97,6 +103,7 @@ const HomeScreen = () => {
     voiceManager.addCommand({
       keywords: ['help', 'commands', 'what can I say'],
       action: () => {
+        setIsListening(false);
         speakText('You can say: Read text, Go to reminders, Go to profile, or Help');
       },
       description: 'Show available voice commands',
