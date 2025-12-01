@@ -1,29 +1,29 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Alert,
-  ScrollView,
-  Animated,
-  Switch,
-  Dimensions,
-  TouchableOpacity,
-  Image,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
-import * as Brightness from 'expo-brightness';
 import { Ionicons } from '@expo/vector-icons';
-import { useApp } from '../contexts/AppContext';
-import { TouchSlider } from '../components/TouchSlider';
+import * as Brightness from 'expo-brightness';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Speech from 'expo-speech';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Alert,
+    Animated,
+    Dimensions,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { AppTheme, getThemeConfig } from '../../constants/theme';
+import { BackgroundLogo } from '../components/BackgroundLogo';
 import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
+import { TouchSlider } from '../components/TouchSlider';
+import { useApp } from '../contexts/AppContext';
 import { voiceManager } from '../utils/voiceCommandManager';
-import { BackgroundLogo } from '../components/BackgroundLogo';
-import { AppTheme, getThemeConfig } from '../../constants/theme';
 
 // Constants
 let ImagePicker: any = null;
@@ -228,6 +228,7 @@ const ProfileScreen = () => {
   };
 
   const speakText = (text: string) => {
+    if (!state.voiceAnnouncementsEnabled) return;
     try {
       Speech.stop();
     } catch {}

@@ -165,6 +165,10 @@ const HomeScreen = () => {
       Alert.alert('No Text', 'Please enter some text to read aloud.');
       return;
     }
+    if (!state.voiceAnnouncementsEnabled) {
+      console.log('speakText: Voice announcements disabled');
+      return;
+    }
     console.log('speakText: Speaking text');
     try { Speech.stop(); } catch {}
     try {
@@ -174,6 +178,13 @@ const HomeScreen = () => {
         pitch: 1.0,
       });
     } catch {}
+  };
+
+  // Helper for direct Speech.speak calls (respects voice announcements setting)
+  const speakDirect = (text: string, options?: any) => {
+    if (!state.voiceAnnouncementsEnabled) return;
+    try { Speech.stop(); } catch {}
+    Speech.speak(text, options || { language: 'en-US', rate: 1.0 });
   };
 
   const handleVoiceInput = async () => {
@@ -415,7 +426,9 @@ const HomeScreen = () => {
   const handleTakePicture = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      Speech.speak('Opening camera...', { language: 'en-US', rate: 1.0 });
+      if (state.voiceAnnouncementsEnabled) {
+        speakDirect('Opening camera...');
+      }
 
       // Request camera permission
       const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
@@ -440,7 +453,7 @@ const HomeScreen = () => {
 
       setIsProcessing(true);
       setAiReaderText('');
-      Speech.speak('Processing image...', { language: 'en-US', rate: 1.0 });
+      speakDirect('Processing image...');
 
       // Prepare and extract text using OCR.Space
       let processedImage;
@@ -449,7 +462,9 @@ const HomeScreen = () => {
       } catch (prepError: any) {
         const message = prepError?.message || 'Unable to process the captured image. Please try again with better lighting.';
         Alert.alert('Image Too Large', message);
-        Speech.speak(message, { language: 'en-US', rate: 1.0 });
+        if (state.voiceAnnouncementsEnabled) {
+          speakDirect(message);
+        }
         return;
       }
 
@@ -458,16 +473,20 @@ const HomeScreen = () => {
 
       if (extractedText) {
         setAiReaderText(extractedText);
-        const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
-        Speech.speak(extractedText, {
-          language: 'en-US',
-          rate: safeRate,
-          pitch: 1.0,
-        });
+        if (state.voiceAnnouncementsEnabled) {
+          const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+          speakDirect(extractedText, {
+            language: 'en-US',
+            rate: safeRate,
+            pitch: 1.0,
+          });
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
         Alert.alert('No Text Found', 'No readable text was detected in the image. Please try again with a clearer image.');
-        Speech.speak('No text detected. Please try again.', { language: 'en-US', rate: 1.0 });
+        if (state.voiceAnnouncementsEnabled) {
+          speakDirect('No text detected. Please try again.');
+        }
       }
     } catch (error: any) {
       console.error('Error taking picture:', error);
@@ -483,7 +502,7 @@ const HomeScreen = () => {
   const handleUploadImage = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      Speech.speak('Opening image gallery...', { language: 'en-US', rate: 1.0 });
+      speakDirect('Opening image gallery...');
 
       // Request media library permission
       const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -508,7 +527,7 @@ const HomeScreen = () => {
 
       setIsProcessing(true);
       setAiReaderText('');
-      Speech.speak('Processing image...', { language: 'en-US', rate: 1.0 });
+      speakDirect('Processing image...');
 
       // Prepare and extract text using OCR.Space
       let processedImage;
@@ -517,7 +536,7 @@ const HomeScreen = () => {
       } catch (prepError: any) {
         const message = prepError?.message || 'Unable to process the selected image. Please choose a smaller image.';
         Alert.alert('Image Too Large', message);
-        Speech.speak(message, { language: 'en-US', rate: 1.0 });
+        speakDirect(message);
         return;
       }
 
@@ -526,16 +545,18 @@ const HomeScreen = () => {
 
       if (extractedText) {
         setAiReaderText(extractedText);
-        const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
-        Speech.speak(extractedText, {
-          language: 'en-US',
-          rate: safeRate,
-          pitch: 1.0,
-        });
+        if (state.voiceAnnouncementsEnabled) {
+          const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+          speakDirect(extractedText, {
+            language: 'en-US',
+            rate: safeRate,
+            pitch: 1.0,
+          });
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
         Alert.alert('No Text Found', 'No readable text was detected in the image. Please try again with a different image.');
-        Speech.speak('No text detected. Please try again.', { language: 'en-US', rate: 1.0 });
+        speakDirect('No text detected. Please try again.');
       }
     } catch (error: any) {
       console.error('Error uploading image:', error);
@@ -551,7 +572,7 @@ const HomeScreen = () => {
   const handleUploadFile = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      Speech.speak('Opening file picker...', { language: 'en-US', rate: 1.0 });
+      speakDirect('Opening file picker...');
 
       // Launch document picker
       const result = await DocumentPicker.getDocumentAsync({
@@ -569,7 +590,7 @@ const HomeScreen = () => {
 
       setIsProcessing(true);
       setAiReaderText('');
-      Speech.speak('Processing file...', { language: 'en-US', rate: 1.0 });
+      speakDirect('Processing file...');
 
       // If it's a plain text file, read directly without OCR
       if (mimeType.includes('text')) {
@@ -580,12 +601,14 @@ const HomeScreen = () => {
           const trimmed = content.trim();
           if (trimmed) {
             setAiReaderText(trimmed);
-            const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
-            Speech.speak(trimmed, {
-              language: 'en-US',
-              rate: safeRate,
-              pitch: 1.0,
-            });
+            if (state.voiceAnnouncementsEnabled) {
+              const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+              speakDirect(trimmed, {
+                language: 'en-US',
+                rate: safeRate,
+                pitch: 1.0,
+              });
+            }
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           } else {
             Alert.alert('No Text Found', 'The selected file appears to be empty.');
@@ -605,7 +628,7 @@ const HomeScreen = () => {
       } catch (conversionError: any) {
         const message = conversionError?.message || 'Unable to process this file. Please choose a smaller document (under 1 MB).';
         Alert.alert('File Too Large', message);
-        Speech.speak('The selected file is too large. Please pick a smaller document.', { language: 'en-US', rate: 1.0 });
+        speakDirect('The selected file is too large. Please pick a smaller document.');
         setIsProcessing(false);
         return;
       }
@@ -615,16 +638,18 @@ const HomeScreen = () => {
 
       if (extractedText) {
         setAiReaderText(extractedText);
-        const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
-        Speech.speak(extractedText, {
-          language: 'en-US',
-          rate: safeRate,
-          pitch: 1.0,
-        });
+        if (state.voiceAnnouncementsEnabled) {
+          const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+          speakDirect(extractedText, {
+            language: 'en-US',
+            rate: safeRate,
+            pitch: 1.0,
+          });
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
         Alert.alert('No Text Found', 'No readable text was detected in the file. Please try again with a different file.');
-        Speech.speak('No text detected. Please try again.', { language: 'en-US', rate: 1.0 });
+        speakDirect('No text detected. Please try again.');
       }
     } catch (error: any) {
       console.error('Error uploading file:', error);
@@ -639,12 +664,14 @@ const HomeScreen = () => {
    */
   const handleReadAgain = () => {
     if (aiReaderText.trim()) {
-      const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
-      Speech.speak(aiReaderText, {
-        language: 'en-US',
-        rate: safeRate,
-        pitch: 1.0,
-      });
+      if (state.voiceAnnouncementsEnabled) {
+        const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+        speakDirect(aiReaderText, {
+          language: 'en-US',
+          rate: safeRate,
+          pitch: 1.0,
+        });
+      }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } else {
       Alert.alert('No Text', 'No text to read. Please upload or capture a document first.');

@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, AccessibilitySettings, Reminder } from '../types';
+import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { AccessibilitySettings, Reminder, User } from '../types';
+import { voiceManager } from '../utils/voiceCommandManager';
 
 interface AppState {
   user: User | null;
@@ -8,6 +9,7 @@ interface AppState {
   hasCompletedSetup: boolean;
   accessibilitySettings: AccessibilitySettings;
   isVoiceEnabled: boolean;
+  voiceAnnouncementsEnabled: boolean;
   reminders: Reminder[];
 }
 
@@ -18,6 +20,7 @@ type AppAction =
   | { type: 'COMPLETE_SETUP' }
   | { type: 'UPDATE_ACCESSIBILITY_SETTINGS'; payload: Partial<AccessibilitySettings> }
   | { type: 'TOGGLE_VOICE'; payload: boolean }
+  | { type: 'TOGGLE_VOICE_ANNOUNCEMENTS'; payload: boolean }
   | { type: 'ADD_REMINDER'; payload: Reminder }
   | { type: 'UPDATE_REMINDER'; payload: Reminder }
   | { type: 'DELETE_REMINDER'; payload: string }
@@ -36,6 +39,7 @@ const initialState: AppState = {
     isDarkMode: false,
   },
   isVoiceEnabled: false,
+  voiceAnnouncementsEnabled: true,
   reminders: [],
 };
 
@@ -73,6 +77,11 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return {
         ...state,
         isVoiceEnabled: action.payload,
+      };
+    case 'TOGGLE_VOICE_ANNOUNCEMENTS':
+      return {
+        ...state,
+        voiceAnnouncementsEnabled: action.payload,
       };
     case 'ADD_REMINDER':
       console.log('=== APP CONTEXT ADD_REMINDER ===');
@@ -215,6 +224,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     saveData();
   }, [state.user, state.accessibilitySettings, state.hasCompletedSetup, state.reminders]);
+
+  // Sync voice announcements setting with voiceManager
+  useEffect(() => {
+    voiceManager.setVoiceAnnouncementsEnabled(state.voiceAnnouncementsEnabled);
+  }, [state.voiceAnnouncementsEnabled]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

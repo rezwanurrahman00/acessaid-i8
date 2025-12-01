@@ -26,10 +26,15 @@ export class VoiceCommandManager {
   private recognition: any = null;
   private recognizing = false;
   private listenersInitialized = false;
+  private voiceAnnouncementsEnabled = true; // Global toggle for voice announcements
 
   setCurrentScreen(screen: string) {
     this.currentScreen = screen;
     this.cooldownUntil = Date.now() + this.cooldownMs;
+  }
+
+  setVoiceAnnouncementsEnabled(enabled: boolean) {
+    this.voiceAnnouncementsEnabled = enabled;
   }
 
   addCommand(command: VoiceCommand) {
@@ -71,6 +76,7 @@ export class VoiceCommandManager {
   }
 
   speak(text: string, rate: number = 1.0) {
+    if (!this.voiceAnnouncementsEnabled) return;
     try {
       Speech.stop();
     } catch {}

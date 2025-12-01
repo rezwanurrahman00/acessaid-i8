@@ -1,25 +1,24 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as Brightness from 'expo-brightness';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Speech from 'expo-speech';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
   Animated,
   Dimensions,
-  Alert,
-  ActivityIndicator,
+  Modal,
   ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
-import * as Brightness from 'expo-brightness';
-import { Ionicons } from '@expo/vector-icons';
+import { AppTheme, getThemeConfig } from '../../constants/theme';
+import { useApp } from '../contexts/AppContext';
 import { AccessAidLogo } from './AccessAidLogo';
 import { ModernButton } from './ModernButton';
 import { TouchSlider } from './TouchSlider';
-import { AppTheme, getThemeConfig } from '../../constants/theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -40,6 +39,7 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
   onClose,
   theme,
 }) => {
+  const { state } = useApp();
   const [brightness, setBrightness] = useState(50);
   const [textZoom, setTextZoom] = useState(100);
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
@@ -202,6 +202,7 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
   };
 
   const speakText = (text: string) => {
+    if (!state.voiceAnnouncementsEnabled) return;
     Speech.speak(text, {
       rate: voiceSpeed,
       pitch: 1.0,

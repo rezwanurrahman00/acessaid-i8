@@ -1,29 +1,28 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Speech from 'expo-speech';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
   Alert,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Dimensions,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
-import { Ionicons } from '@expo/vector-icons';
-import { useApp } from '../contexts/AppContext';
+import { AppTheme, getThemeConfig } from '../../constants/theme';
 import { AccessAidLogo } from '../components/AccessAidLogo';
+import { BackgroundLogo } from '../components/BackgroundLogo';
 import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
-import { voiceManager } from '../utils/voiceCommandManager';
-import { BackgroundLogo } from '../components/BackgroundLogo';
+import { useApp } from '../contexts/AppContext';
 import { User } from '../types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppTheme, getThemeConfig } from '../../constants/theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -34,7 +33,6 @@ const LoginScreen = () => {
   const [pin, setPin] = useState('');
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
 
   const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -47,6 +45,7 @@ const LoginScreen = () => {
   }, []);
 
   const speakText = (text: string) => {
+    if (!state.voiceAnnouncementsEnabled) return;
     try { Speech.stop(); } catch {}
     try {
       const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
@@ -169,16 +168,24 @@ const LoginScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const toggleVoice = () => {
-    if (isVoiceEnabled) {
-      setIsVoiceEnabled(false);
-      voiceManager.stopListening();
-      speakText('Voice commands disabled');
+  const toggleVoiceAnnouncements = () => {
+    const newState = !state.voiceAnnouncementsEnabled;
+    dispatch({ type: 'TOGGLE_VOICE_ANNOUNCEMENTS', payload: newState });
+    
+    if (newState) {
+      // Temporarily enable to announce the change
+      try { Speech.stop(); } catch {}
+      try {
+        const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+        Speech.speak('Voice announcements enabled', {
+          rate: safeRate,
+          pitch: 1.0,
+        });
+      } catch {}
     } else {
-      setIsVoiceEnabled(true);
-      voiceManager.startListening();
-      speakText('Voice commands enabled. You can now speak your commands.');
+      try { Speech.stop(); } catch {}
     }
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
@@ -205,17 +212,17 @@ const LoginScreen = () => {
                 {isLogin ? 'Sign In' : 'Create Account'}
               </Text>
               <TouchableOpacity
-                style={[styles.voiceButton, isVoiceEnabled && styles.voiceButtonActive]}
-                onPress={toggleVoice}
-                accessibilityLabel={isVoiceEnabled ? 'Disable voice commands' : 'Enable voice commands'}
+                style={[styles.voiceButton, state.voiceAnnouncementsEnabled && styles.voiceButtonActive]}
+                onPress={toggleVoiceAnnouncements}
+                accessibilityLabel={state.voiceAnnouncementsEnabled ? 'Disable voice announcements' : 'Enable voice announcements'}
               >
                 <Ionicons 
-                  name={isVoiceEnabled ? 'mic' : 'mic-off'}
+                  name={state.voiceAnnouncementsEnabled ? 'volume-high' : 'volume-mute'}
                   size={20}
-                  color={isVoiceEnabled ? theme.danger : theme.accent}
+                  color={state.voiceAnnouncementsEnabled ? theme.accent : theme.textSecondary}
                 />
-                <Text style={[styles.voiceButtonText, isVoiceEnabled && styles.voiceButtonTextActive]}>
-                  {isVoiceEnabled ? 'Voice ON' : 'Voice OFF'}
+                <Text style={[styles.voiceButtonText, state.voiceAnnouncementsEnabled && styles.voiceButtonTextActive]}>
+                  {state.voiceAnnouncementsEnabled ? 'Audio ON' : 'Audio OFF'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -285,9 +292,9 @@ const LoginScreen = () => {
           </ModernCard>
 
           <View style={styles.voiceHelpContainer}>
-            <Text style={styles.voiceHelpTitle}>Voice Commands</Text>
+            <Text style={styles.voiceHelpTitle}>Voice Announcements</Text>
             <Text style={styles.voiceHelpText}>
-              Try saying: "Sign in", "Sign up", "Help", or "Enable voice commands"
+              Toggle audio feedback to hear spoken guidance and confirmations
             </Text>
           </View>
         </ScrollView>

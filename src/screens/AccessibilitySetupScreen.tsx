@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-  Animated,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
-import { useApp } from '../contexts/AppContext';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+    Animated,
+    Dimensions,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
+import { AppTheme, getThemeConfig } from '../../constants/theme';
 import { AccessAidLogo } from '../components/AccessAidLogo';
 import { AccessibilitySetupPopup } from '../components/AccessibilitySetupPopup';
 import { BackgroundLogo } from '../components/BackgroundLogo';
-import { AppTheme, getThemeConfig } from '../../constants/theme';
+import { useApp } from '../contexts/AppContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -33,14 +33,16 @@ const AccessibilitySetupScreen = () => {
     }).start();
 
     // Welcome message
-    Speech.speak(
-      'Welcome to AccessAid! Let\'s set up your accessibility preferences for the best experience.',
-      {
-        rate: state.accessibilitySettings.voiceSpeed,
-        pitch: 1.0,
-        quality: Speech.VoiceQuality.Enhanced,
-      }
-    );
+    if (state.voiceAnnouncementsEnabled) {
+      Speech.speak(
+        'Welcome to AccessAid! Let\'s set up your accessibility preferences for the best experience.',
+        {
+          rate: state.accessibilitySettings.voiceSpeed,
+          pitch: 1.0,
+          quality: Speech.VoiceQuality.Enhanced,
+        }
+      );
+    }
   }, []);
 
   const handleSaveSettings = (settings: {

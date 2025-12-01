@@ -1,17 +1,25 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
+import * as Speech from 'expo-speech';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   Alert,
   Animated,
-  Modal,
-  TextInput,
-  Platform,
   FlatList,
+  Modal,
+  Platform,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { AppTheme, getThemeConfig } from '../../constants/theme';
+import { BackgroundLogo } from '../components/BackgroundLogo';
+import { useApp } from '../contexts/AppContext';
 // BlurView fallback for environments without expo-blur
 const BlurViewComponent: any = (() => {
   try {
@@ -21,14 +29,6 @@ const BlurViewComponent: any = (() => {
     return View;
   }
 })();
-import * as Notifications from 'expo-notifications';
-import * as Speech from 'expo-speech';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import { useApp } from '../contexts/AppContext';
-import { BackgroundLogo } from '../components/BackgroundLogo';
-import Constants from 'expo-constants';
-import { AppTheme, getThemeConfig } from '../../constants/theme';
 let Clipboard: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -86,6 +86,12 @@ const ReminderScreen: React.FC = () => {
   const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
   const styles = useMemo(() => createStyles(theme), [theme]);
 
+  // Helper to speak with voice announcements check
+  const speakText = (text: string) => {
+    if (!state.voiceAnnouncementsEnabled) return;
+    speakText(text);
+  };
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeIn, { toValue: 1, duration: 450, useNativeDriver: true }),
@@ -93,7 +99,9 @@ const ReminderScreen: React.FC = () => {
     ]).start();
      // Announce screen load
     setTimeout(() => {
-      Speech.speak('You are on the Reminders page. Here you can create, view, and manage your reminders.');
+      if (state.voiceAnnouncementsEnabled) {
+        speakText('You are on the Reminders page. Here you can create, view, and manage your reminders.');
+      }
     }, 500);
   }, []);
 
@@ -212,11 +220,11 @@ const ReminderScreen: React.FC = () => {
   const presentAlert = (rem: Reminder) => {
     setAlertReminder(rem);
     try { Speech.stop(); } catch {}
-    Speech.speak(buildSpokenMessage(rem.title, rem.description));
+    speakText(buildSpokenMessage(rem.title, rem.description));
     if (speakIntervalRef.current) clearInterval(speakIntervalRef.current);
     speakIntervalRef.current = setInterval(() => {
       // repeat speech every 7 seconds until user responds
-      Speech.speak(buildSpokenMessage(rem.title, rem.description));
+      speakText(buildSpokenMessage(rem.title, rem.description));
     }, 7000);
   };
 
@@ -329,7 +337,7 @@ const ReminderScreen: React.FC = () => {
       scheduleRecurringReminders(newReminder);
     }
     setModalVisible(false);
-    Speech.speak(`Reminder "${title.trim()}" created successfully`);
+    speakText(`Reminder "${title.trim()}" created successfully`);
   };
 
   const scheduleRecurringReminders = async (reminder: Reminder) => {
@@ -371,7 +379,7 @@ const ReminderScreen: React.FC = () => {
         style: 'destructive', 
         onPress: () => {
           setReminders(prev => prev.filter(r => r.id !== id));
-          Speech.speak('Reminder deleted');
+          speakText('Reminder deleted');
         }
       },
     ]);
@@ -442,7 +450,7 @@ const ReminderScreen: React.FC = () => {
       activeOpacity={0.7}
       onPress={() => {
         const msg = `${item.title}. ${item.description || ''}. Scheduled for ${formatPreview(item.datetime)}`;
-        Speech.speak(msg);
+        speakText(msg);
       }}
     >
       <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(item.priority) }]}/>
