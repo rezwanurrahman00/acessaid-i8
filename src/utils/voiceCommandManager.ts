@@ -48,6 +48,7 @@ export class VoiceCommandManager {
       return false; // ignore triggers during cooldown to prevent instant jumps
     }
     const normalizedInput = input.toLowerCase().trim();
+    console.log('🎤 Voice command recognized:', normalizedInput);
     
     for (const cmd of this.commands) {
       const hasKeyword = cmd.keywords.some(keyword => 
@@ -55,6 +56,7 @@ export class VoiceCommandManager {
       );
       
       if (hasKeyword) {
+        console.log('✅ Executing command:', cmd.keywords[0]);
         cmd.action();
         this.cooldownUntil = Date.now() + this.cooldownMs;
         // Don't announce the command execution - let the action handle any speech
@@ -63,6 +65,7 @@ export class VoiceCommandManager {
       }
     }
   
+    console.log('❌ Command not recognized');
     this.speak('Command not recognized. Try saying "help" for available commands.');
     return false;
   }
@@ -114,6 +117,7 @@ export class VoiceCommandManager {
       if (!this.listenersInitialized) {
 
         ExpoSpeechRecognitionModule.addListener('start', () => {
+          console.log('🎙️ Voice recording started');
           this.recognizing = true;
           this.speak('Listening');
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -128,6 +132,9 @@ export class VoiceCommandManager {
           const transcript = event.results?.[0]?.transcript;
           const isFinal = event.isFinal;
           
+          if (transcript && !isFinal) {
+            console.log('🎤 Recording...', transcript);
+          }
           
           if (transcript && isFinal && this.isListening) {
             this.processVoiceInput(transcript);

@@ -206,7 +206,12 @@ const HomeScreen = () => {
         const transcript = event.results?.[0]?.transcript;
         const isFinal = event.isFinal;
         
+        if (transcript && !isFinal) {
+          console.log('🎤 Voice input recording...', transcript);
+        }
+        
         if (transcript && isFinal) {
+          console.log('✅ Voice input complete:', transcript);
           setTtsText(prev => prev ? `${prev} ${transcript}` : transcript);
           setIsVoiceInputMode(false);
           subscription.remove();
