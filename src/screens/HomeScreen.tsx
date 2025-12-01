@@ -1,31 +1,31 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystemLegacy from 'expo-file-system/legacy';
+import * as Haptics from 'expo-haptics';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Speech from 'expo-speech';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
+  ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   ScrollView,
-  Animated,
-  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
-import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
-import Constants from 'expo-constants';
-import * as FileSystemLegacy from 'expo-file-system/legacy';
-import { Ionicons } from '@expo/vector-icons';
-import { useApp } from '../contexts/AppContext';
+import { AppTheme, getThemeConfig } from '../../constants/theme';
 import { AccessAidLogo } from '../components/AccessAidLogo';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
+import { useApp } from '../contexts/AppContext';
 import { voiceManager } from '../utils/voiceCommandManager';
-import { AppTheme, getThemeConfig } from '../../constants/theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallScreen = screenWidth < 375;
@@ -53,10 +53,20 @@ const HomeScreen = () => {
       useNativeDriver: true,
     }).start();
 
+    // Clear previous commands
+    voiceManager.removeCommand(['read text', 'speak text', 'read aloud']);
+    voiceManager.removeCommand(['go to profile', 'profile', 'settings']);
+    voiceManager.removeCommand(['go to reminders', 'reminders', 'show reminders']);
+    voiceManager.removeCommand(['help', 'commands', 'what can I say']);
+    voiceManager.removeCommand(['enable voice', 'voice on', 'start voice']);
+    voiceManager.removeCommand(['disable voice', 'voice off', 'stop voice']);
+
     // Set up voice commands for home screen
     voiceManager.addCommand({
       keywords: ['read text', 'speak text', 'read aloud'],
-      action: () => speakText(ttsText),
+      action: () => {
+        speakText("Executing text-to-speech command." + ttsText);
+      },
       description: 'Read the text in the input field',
       category: 'general'
     });
@@ -131,10 +141,13 @@ const HomeScreen = () => {
   }, [ttsText]);
 
   const speakText = (text: string) => {
+    console.log('speakText called with text:', text);
     if (!text.trim()) {
+      console.log('speakText: No text to read');
       Alert.alert('No Text', 'Please enter some text to read aloud.');
       return;
     }
+    console.log('speakText: Speaking text');
     try { Speech.stop(); } catch {}
     try {
       const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));

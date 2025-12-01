@@ -45,6 +45,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-dev-client",
       [
         "expo-camera",
         {
@@ -59,7 +60,14 @@
         }
       ],
       "expo-document-picker",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow AccessAid to use the microphone for voice commands.",
+          "speechRecognitionPermission": "Allow AccessAid to recognize speech for voice commands."
+        }
+      ]
     ],
     "experiments": {
       "tsconfigPaths": true
