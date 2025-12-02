@@ -195,46 +195,21 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
 **Completed**:
 
 #### 📸 Camera Reader Module (OCR + TTS)
-- Enhanced camera integration for capturing text from real-world scenarios
-- Users can take photos of text from:
-  - Menus and restaurant signs
-  - Street signs and wayfinding markers
-  - Documents and printed materials
-- OCR text extraction and display in large, readable font for better visibility
-- **Safety checks and quality validation**:
-  - Low-light image detection with user prompts
-  - Blurry image detection and "Retake Photo" suggestions
-  - Quality assurance before processing
+- Enhanced camera integration for capturing text from photos
+- OCR text extraction and display in large, readable font
+- Safety checks for low-light and blurry images with "Retake Photo" prompts
 - Seamless integration with Text-to-Speech system
-- Extracted text automatically read aloud to users
-- Improved accessibility for users with visual impairments
 
 #### 🎙️ Speech-to-Text (Voice Input)
 - Comprehensive voice input capabilities across the application
-- Users can speak instead of typing for:
-  - **Reminder text** - Create reminders using voice commands
-  - **Form fields** - Fill out any form field using voice
-  - **General input** - Voice input available throughout the app
-- Significant accessibility improvement for users with:
-  - Motor challenges or dexterity difficulties
-  - Small-keyboard navigation challenges
-  - Prefer voice interaction over typing
-- Enhanced user experience with hands-free operation
+- Users can speak instead of typing for reminders, form fields, and general input
+- Enhanced accessibility for users with motor challenges or keyboard difficulties
 
 #### 🔊 Voice Announcement Toggle (Global TTS Switch)
 - Centralized control for all Text-to-Speech features
-- Users can toggle voice announcements for:
-  - **Screen titles** - Automatic reading of screen names
-  - **Button labels** - Voice feedback for button interactions
-  - **OCR-extracted text** - Control whether extracted text is read aloud
-- **Smart audio management**:
-  - Prevents audio conflicts between STT (Speech-to-Text) and TTS
-  - Avoids overlapping voice feedback
-  - Better control over when audio is active
-- **Persistent preferences**:
-  - User settings saved across app sessions
-  - Personalized accessibility experience
-  - Respects user preferences for voice interactions
+- Toggle voice announcements for screen titles, button labels, and OCR-extracted text
+- Smart audio management to prevent conflicts between STT and TTS
+- Persistent user preferences saved across app sessions
 
 ---
 
