@@ -4,8 +4,10 @@ AccessAid is a comprehensive React Native application designed to enhance daily 
 
 ## ✨ Key Features
 
-🎤 **Voice Control** - Basic voice command framework with screen announcements and TTS feedback   
-📸 **Camera OCR** - Camera integration ready (OCR API configuration required)  
+🎤 **Voice Control** - Comprehensive voice command framework with screen announcements and TTS feedback   
+📸 **Camera OCR** - Enhanced camera reader module with OCR text extraction, safety checks (low-light/blurry detection), large readable font display, and integrated TTS  
+🎙️ **Speech-to-Text** - Voice input capability for reminders, forms, and general text entry throughout the app  
+🔊 **Voice Announcement Toggle** - Global TTS switch to control screen titles, button labels, and OCR text reading with persistent preferences  
 ⏰ **Smart Reminders** - Full featured reminder system with categories, priorities, recurrence, and real-time alerts  
 ♿ **Accessibility First** - Complete dynamic text scaling, brightness control, and screen reader support  
 🎨 **Adaptive UI** - Full dark mode, high contrast, and customizable interface elements  
@@ -186,6 +188,56 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
 
 ---
 
+### Sprint 3: Major Feature Implementations ✅
+
+**Goal**: Implement advanced accessibility features including enhanced camera OCR with safety checks, comprehensive speech-to-text capabilities, and global voice announcement controls for improved user experience.
+
+**Completed**:
+
+#### 📸 Camera Reader Module (OCR + TTS)
+- Enhanced camera integration for capturing text from real-world scenarios
+- Users can take photos of text from:
+  - Menus and restaurant signs
+  - Street signs and wayfinding markers
+  - Documents and printed materials
+- OCR text extraction and display in large, readable font for better visibility
+- **Safety checks and quality validation**:
+  - Low-light image detection with user prompts
+  - Blurry image detection and "Retake Photo" suggestions
+  - Quality assurance before processing
+- Seamless integration with Text-to-Speech system
+- Extracted text automatically read aloud to users
+- Improved accessibility for users with visual impairments
+
+#### 🎙️ Speech-to-Text (Voice Input)
+- Comprehensive voice input capabilities across the application
+- Users can speak instead of typing for:
+  - **Reminder text** - Create reminders using voice commands
+  - **Form fields** - Fill out any form field using voice
+  - **General input** - Voice input available throughout the app
+- Significant accessibility improvement for users with:
+  - Motor challenges or dexterity difficulties
+  - Small-keyboard navigation challenges
+  - Prefer voice interaction over typing
+- Enhanced user experience with hands-free operation
+
+#### 🔊 Voice Announcement Toggle (Global TTS Switch)
+- Centralized control for all Text-to-Speech features
+- Users can toggle voice announcements for:
+  - **Screen titles** - Automatic reading of screen names
+  - **Button labels** - Voice feedback for button interactions
+  - **OCR-extracted text** - Control whether extracted text is read aloud
+- **Smart audio management**:
+  - Prevents audio conflicts between STT (Speech-to-Text) and TTS
+  - Avoids overlapping voice feedback
+  - Better control over when audio is active
+- **Persistent preferences**:
+  - User settings saved across app sessions
+  - Personalized accessibility experience
+  - Respects user preferences for voice interactions
+
+---
+
 ## 🔌 APIs Used
 
 AccessAid integrates with the following APIs to provide its functionality:
@@ -340,7 +392,7 @@ Once the backend is running, visit `http://localhost:8000/docs` for interactive 
 
 ## 📋 Current Status
 
-The app is now functional with all Sprint 2 features implemented. The foundation established in Sprint 1 has been expanded with core accessibility features, authentication, voice commands, and a complete backend API.
+The app is now fully functional with all Sprint 1, 2, and 3 features implemented. The foundation established in Sprint 1 was expanded in Sprint 2 with core accessibility features, authentication, voice commands, and a complete backend API. Sprint 3 added major feature implementations including enhanced Camera Reader Module with OCR and safety checks, comprehensive Speech-to-Text voice input capabilities, and a global Voice Announcement Toggle system for improved accessibility control. The application is production-ready with comprehensive accessibility features for users with disabilities.
 
 ## Scripts
 - `npm start` – Start the Expo dev server (⚠️ Voice features won't work in Expo Go)
