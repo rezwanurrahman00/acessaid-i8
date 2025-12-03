@@ -794,7 +794,7 @@ const HomeScreen = () => {
             <View style={styles.aiReaderButtonsRow}>
               <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapTight]}>
                 <ModernButton
-                  title="📸 Take Picture"
+                  title=" Take Picture"
                   onPress={handleTakePicture}
                   variant="primary"
                   size="medium"
@@ -807,7 +807,7 @@ const HomeScreen = () => {
 
               <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapTight]}>
                 <ModernButton
-                  title="🖼️ Upload Image"
+                  title=" Upload Image"
                   onPress={handleUploadImage}
                   variant="primary"
                   size="medium"
@@ -820,7 +820,7 @@ const HomeScreen = () => {
 
               <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapLast]}>
                 <ModernButton
-                  title="📄 Upload File"
+                  title=" Upload File"
                   onPress={handleUploadFile}
                   variant="primary"
                   size="medium"
