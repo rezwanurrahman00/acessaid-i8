@@ -818,16 +818,18 @@ const HomeScreen = () => {
                 />
               </View>
 
-              <ModernButton
-                title="📄 Upload File"
-                onPress={handleUploadFile}
-                variant="primary"
-                size="medium"
-                disabled={isProcessing}
-                icon={<Ionicons name="document-text" size={20} color="white" />}
-                style={styles.aiReaderButton}
-                accessibilityLabel="Upload a file to extract text"
-              />
+              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapLast]}>
+                <ModernButton
+                  title="📄 Upload File"
+                  onPress={handleUploadFile}
+                  variant="primary"
+                  size="medium"
+                  disabled={isProcessing}
+                  icon={<Ionicons name="document-text" size={20} color="white" />}
+                  style={styles.aiReaderButton}
+                  accessibilityLabel="Upload a file to extract text"
+                />
+              </View>
             </View>
 
             {isProcessing && (
@@ -1130,7 +1132,7 @@ const createStyles = (theme: AppTheme) =>
       marginTop: 4,
     },
     aiReaderContainer: {
-      padding: 20,
+      padding: isSmallScreen ? 18 : 22,
       marginBottom: 20,
       backgroundColor: theme.cardBackground,
       borderRadius: 20,
@@ -1142,40 +1144,86 @@ const createStyles = (theme: AppTheme) =>
       shadowRadius: theme.isDark ? 14 : 8,
       elevation: theme.isDark ? 8 : 3,
     },
+    aiReaderHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+      padding: 12,
+      backgroundColor: theme.accentSoft,
+      borderRadius: 16,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+    },
+    aiReaderBadge: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: theme.inputBackground,
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    aiReaderHeaderText: {
+      flex: 1,
+    },
     sectionDescription: {
       fontSize: 14,
       color: theme.textSecondary,
-      marginBottom: 20,
+      marginTop: 4,
+      marginBottom: 0,
       lineHeight: 20,
     },
-    aiReaderButtons: {
-      flexDirection: 'column',
-      marginBottom: 20,
+    aiReaderButtonsRow: {
+      flexDirection: isSmallScreen ? 'column' : 'row',
+      alignItems: 'stretch',
+      marginBottom: 16,
+    },
+    aiReaderButtonWrap: {
+      flex: 1,
+      marginBottom: isSmallScreen ? 12 : 0,
+    },
+    aiReaderButtonWrapTight: {
+      marginRight: isSmallScreen ? 0 : 12,
+    },
+    aiReaderButtonWrapLast: {
+      marginRight: 0,
+      marginBottom: 0,
     },
     aiReaderButton: {
       width: '100%',
     },
     processingContainer: {
       alignItems: 'center',
-      padding: 20,
+      padding: 18,
+      backgroundColor: theme.accentSoft,
+      borderRadius: 14,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
     },
     processingText: {
-      marginTop: 12,
-      fontSize: 16,
-      color: theme.textSecondary,
-      fontWeight: '600',
+       marginTop: 10,
+       fontSize: 15,
+       color: theme.textPrimary,
+       fontWeight: '700',
     },
     extractedTextContainer: {
-      marginTop: 20,
-      borderTopWidth: 1,
-      borderTopColor: theme.cardBorder,
-      paddingTop: 20,
+      marginTop: 8,
+      padding: 14,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+      borderRadius: 16,
+      backgroundColor: theme.inputBackground,
     },
     extractedTextHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 12,
+      marginBottom: 10,
+      paddingBottom: 8,
+      borderBottomWidth: theme.isDark ? 1 : 0.5,
+      borderBottomColor: theme.cardBorder,
     },
     extractedTextTitle: {
       fontSize: 18,
@@ -1192,9 +1240,10 @@ const createStyles = (theme: AppTheme) =>
       borderRadius: 12,
     },
     extractedTextScrollView: {
-      maxHeight: 300,
-      borderWidth: 1,
-      borderColor: theme.cardBorder,
+      maxHeight: 320,
+      marginTop: 10,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.accentSoft,
       borderRadius: 12,
       backgroundColor: theme.inputBackground,
     },
@@ -1209,3 +1258,4 @@ const createStyles = (theme: AppTheme) =>
   });
 
 export default HomeScreen;
+
