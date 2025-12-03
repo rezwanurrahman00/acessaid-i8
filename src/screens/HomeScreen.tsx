@@ -779,33 +779,44 @@ const HomeScreen = () => {
 
           {/* AI Reader Section */}
           <ModernCard variant="elevated" style={styles.aiReaderContainer}>
-            <Text style={styles.sectionTitle}>AI Reader</Text>
-            <Text style={styles.sectionDescription}>
-              Extract and read text from images or documents
-            </Text>
+            <View style={styles.aiReaderHeaderRow}>
+              <View style={styles.aiReaderBadge}>
+                <Ionicons name="scan" size={18} color={theme.accent} />
+              </View>
+              <View style={styles.aiReaderHeaderText}>
+                <Text style={styles.sectionTitle}>Camera Reader</Text>
+                <Text style={styles.sectionDescription}>
+                  Capture, upload, or drop a file to extract text with better spacing and contrast.
+                </Text>
+              </View>
+            </View>
 
-            <View style={styles.aiReaderButtons}>
-              <ModernButton
-                title="📸 Take Picture"
-                onPress={handleTakePicture}
-                variant="primary"
-                size="medium"
-                disabled={isProcessing}
-                icon={<Ionicons name="camera" size={20} color="white" />}
-                style={[styles.aiReaderButton, { marginBottom: 12 }]}
-                accessibilityLabel="Take a picture to extract text"
-              />
+            <View style={styles.aiReaderButtonsRow}>
+              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapTight]}>
+                <ModernButton
+                  title="📸 Take Picture"
+                  onPress={handleTakePicture}
+                  variant="primary"
+                  size="medium"
+                  disabled={isProcessing}
+                  icon={<Ionicons name="camera" size={20} color="white" />}
+                  style={styles.aiReaderButton}
+                  accessibilityLabel="Take a picture to extract text"
+                />
+              </View>
 
-              <ModernButton
-                title="🖼️ Upload Image"
-                onPress={handleUploadImage}
-                variant="primary"
-                size="medium"
-                disabled={isProcessing}
-                icon={<Ionicons name="image" size={20} color="white" />}
-                style={[styles.aiReaderButton, { marginBottom: 12 }]}
-                accessibilityLabel="Upload an image to extract text"
-              />
+              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapTight]}>
+                <ModernButton
+                  title="🖼️ Upload Image"
+                  onPress={handleUploadImage}
+                  variant="primary"
+                  size="medium"
+                  disabled={isProcessing}
+                  icon={<Ionicons name="image" size={20} color="white" />}
+                  style={styles.aiReaderButton}
+                  accessibilityLabel="Upload an image to extract text"
+                />
+              </View>
 
               <ModernButton
                 title="📄 Upload File"
