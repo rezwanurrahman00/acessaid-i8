@@ -5,13 +5,19 @@ AccessAid is a comprehensive React Native application designed to enhance daily 
 ## ✨ Key Features
 
 🎤 **Voice Control** - Comprehensive voice command framework with screen announcements and TTS feedback   
-📸 **Camera OCR** - Enhanced camera reader module with OCR text extraction, safety checks (low-light/blurry detection), large readable font display, and integrated TTS  
+📸 **Camera Reader OCR** - Polished AI Reader section with clearer spacing/contrast for capture, upload, and file import (OCR API configuration required)  
 🎙️ **Speech-to-Text** - Voice input capability for reminders, forms, and general text entry throughout the app  
 🔊 **Voice Announcement Toggle** - Global TTS switch to control screen titles, button labels, and OCR text reading with persistent preferences  
 ⏰ **Smart Reminders** - Full featured reminder system with categories, priorities, recurrence, and real-time alerts  
 ♿ **Accessibility First** - Complete dynamic text scaling, brightness control, and screen reader support  
 🎨 **Adaptive UI** - Full dark mode, high contrast, and customizable interface elements  
 🔐 **Secure Authentication** - Working email/PIN authentication with local data storage
+
+
+### 📸 Camera Reader quick start
+- Open the Home screen and scroll to **Camera Reader**.
+- Choose **Take Picture**, **Upload Image**, or **Upload File**.
+- Wait for **Processing...**, then the extracted text appears in the **Extracted Text** area and can be read aloud.
 
 ## Welcome to your Expo app 👋
 
