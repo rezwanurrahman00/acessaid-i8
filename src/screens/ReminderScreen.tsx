@@ -89,7 +89,15 @@ const ReminderScreen: React.FC = () => {
   // Helper to speak with voice announcements check
   const speakText = (text: string) => {
     if (!state.voiceAnnouncementsEnabled) return;
-    speakText(text);
+    if (!text?.trim()) return;
+    try { Speech.stop(); } catch {}
+    try {
+      const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
+      Speech.speak(text, {
+        rate: safeRate,
+        pitch: 1.0,
+      });
+    } catch {}
   };
 
   useEffect(() => {
