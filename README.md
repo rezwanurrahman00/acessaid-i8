@@ -14,11 +14,6 @@ AccessAid is a comprehensive React Native application designed to enhance daily 
 🔐 **Secure Authentication** - Working email/PIN authentication with local data storage
 
 
-### 📸 AI Reader quick start
-- Open the Home screen and scroll to **Camera Reader**.
-- Choose **Take Picture**, **Upload Image**, or **Upload File**.
-- Wait for **Processing...**, then the extracted text appears in the **Extracted Text** area and can be read aloud.
-
 ## Welcome to your Expo app 👋
 
 This project was bootstrapped with create-expo-app.
@@ -170,6 +165,11 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
   - Filter and search functionality
 - Settings screen for app configuration
 - Profile screen for user information management
+
+### 📸 AI Reader quick start
+- Open the Home screen and scroll to **AI Reader**.
+- Choose **Take Picture**, **Upload Image**, or **Upload File**.
+- Wait for **Processing...**, then the extracted text appears in the **Extracted Text** area and can be read aloud.
 
 #### ⚙️ Accessibility Features
 - Live screen brightness control (0-100%)
