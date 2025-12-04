@@ -5,17 +5,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    Dimensions,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Animated,
+  Dimensions,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
 import { BackgroundLogo } from '../components/BackgroundLogo';
@@ -135,11 +136,64 @@ const ProfileField: React.FC<ProfileFieldProps> = ({
   );
 };
 
+interface JoinDateModalProps {
+  visible: boolean;
+  onClose: () => void;
+  theme: AppTheme;
+  joinDate: Date | null;
+  formattedJoinDate: string;
+}
+
+const JoinDateModal: React.FC<JoinDateModalProps> = ({ visible, onClose, theme, joinDate, formattedJoinDate }) => (
+  <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+    <View style={styles.modalBackdrop}>
+      <TouchableOpacity style={styles.modalBackdropTouchable} onPress={onClose} accessible={false}>
+        <View />
+      </TouchableOpacity>
+      <View style={[styles.joinDateModal, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+        <View style={styles.modalHeaderRow}>
+          <View style={[styles.calendarBadge, { backgroundColor: theme.accent }]}>
+            <Ionicons name="calendar" size={20} color="white" />
+          </View>
+          <View style={styles.modalHeaderTextWrapper}>
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Membership details</Text>
+            <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>Tap anywhere outside to close</Text>
+          </View>
+          <TouchableOpacity
+            onPress={onClose}
+            accessibilityLabel="Close membership details"
+            accessibilityRole="button"
+          >
+            <Ionicons name="close" size={22} color={theme.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.calendarCard, { backgroundColor: theme.inputBackground, borderColor: theme.cardBorder }]}>
+          <Text style={[styles.calendarMonth, { color: theme.accent }]}>
+            {joinDate ? joinDate.toLocaleString(undefined, { month: 'short' }) : '--'}
+          </Text>
+          <Text style={[styles.calendarDay, { color: theme.textPrimary }]}>
+            {joinDate ? joinDate.getDate() : '--'}
+          </Text>
+          <Text style={[styles.calendarYear, { color: theme.textSecondary }]}>
+            {joinDate ? joinDate.getFullYear() : 'N/A'}
+          </Text>
+        </View>
+
+        <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
+          {joinDate ? `You joined AccessAid on ${formattedJoinDate}.` : 'We could not find your join date yet.'}
+        </Text>
+      </View>
+    </View>
+  </Modal>
+);
+
 // Main Component
 const ProfileScreen = () => {
   const { state, dispatch } = useApp();
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(state.accessibilitySettings.isDarkMode);
+  const [isJoinDateModalVisible, setIsJoinDateModalVisible] = useState(false);
   const [profileData, setProfileData] = useState({
     name: state.user?.name || '',
     email: state.user?.email || '',
@@ -159,7 +213,11 @@ const ProfileScreen = () => {
   const profileScaleAnim = useRef(new Animated.Value(0)).current;
 
   const theme = useMemo(() => getThemeConfig(isDarkMode), [isDarkMode]);
-
+  const joinDate = useMemo(() => (state.user?.joinDate ? new Date(state.user.joinDate) : null), [state.user?.joinDate]);
+  const formattedJoinDate = useMemo(
+    () => joinDate?.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) || 'Join date not available',
+    [joinDate]
+  );
   // Initialize animations and voice commands
   useEffect(() => {
     Animated.parallel([
@@ -378,17 +436,24 @@ const ProfileScreen = () => {
                 {state.user?.email || 'user@example.com'}
               </Text>
             </View>
+          </View>
             <View style={styles.userStatsRow}>
               <View style={[styles.statBadge, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
                 <Ionicons name="shield-checkmark" size={14} color={theme.accent} />
                 <Text style={[styles.statText, { color: theme.textPrimary }]}>Verified</Text>
               </View>
               <View style={[styles.statBadge, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-                <Ionicons name="calendar-outline" size={14} color={theme.accent} />
+              <TouchableOpacity
+                style={[styles.statBadge, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
+                onPress={() => setIsJoinDateModalVisible(true)}
+                accessibilityLabel="Membership status"
+                accessibilityHint="Shows the date you joined"
+              >                <Ionicons name="calendar-outline" size={14} color={theme.accent} />
                 <Text style={[styles.statText, { color: theme.textPrimary }]}>Member</Text>
-              </View>
-            </View>
+            </TouchableOpacity>
+
           </View>
+         </View>
         </Animated.View>
 
         <View style={styles.heroActions}>
@@ -479,14 +544,23 @@ const ProfileScreen = () => {
   );
 
   return (
-    <LinearGradient colors={theme.gradient as any} style={styles.container}>
-      <BackgroundLogo />
-      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          {renderHeroHeader()}
-          {renderStatsCards()}
+    <>
+      <JoinDateModal
+        visible={isJoinDateModalVisible}
+        onClose={() => setIsJoinDateModalVisible(false)}
+        theme={theme}
+        joinDate={joinDate}
+        formattedJoinDate={formattedJoinDate}
+      />
 
-          <ProfileSection title="Profile Information" icon="person-outline">
+      <LinearGradient colors={theme.gradient as any} style={styles.container}>
+        <BackgroundLogo />
+        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+          <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+            {renderHeroHeader()}
+            {renderStatsCards()}
+
+            <ProfileSection title="Profile Information" icon="person-outline">
             <ProfileField
               label="Full Name"
               value={profileData.name}
@@ -665,7 +739,7 @@ const ProfileScreen = () => {
               <View style={styles.infoItem}>
                 <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Account Created</Text>
                 <Text style={[styles.infoValue, { color: theme.textPrimary }]}>
-                  {new Date().toLocaleDateString()}
+                  {formattedJoinDate}
                 </Text>
               </View>
             </View>
@@ -682,6 +756,9 @@ const ProfileScreen = () => {
         </ScrollView>
       </Animated.View>
     </LinearGradient>
+    </>
+
+
   );
 };
 
@@ -713,6 +790,78 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 20,
     paddingVertical: 20,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalBackdropTouchable: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  joinDateModal: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  calendarBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  modalHeaderTextWrapper: {
+    flex: 1,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  calendarCard: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    width: 200,
+    marginBottom: 14,
+  },
+  calendarMonth: {
+    fontSize: 16,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  calendarDay: {
+    fontSize: 44,
+    fontWeight: '800',
+    marginVertical: 6,
+  },
+  calendarYear: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   heroHeader: {
     marginBottom: 20,

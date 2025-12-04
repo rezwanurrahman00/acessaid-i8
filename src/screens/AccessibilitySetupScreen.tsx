@@ -1,13 +1,13 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    StyleSheet,
-    Text,
-    View,
+  Animated,
+  Dimensions,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
 import { AccessAidLogo } from '../components/AccessAidLogo';
@@ -23,7 +23,8 @@ const AccessibilitySetupScreen = () => {
 
   const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const gradientColors = theme.gradient;
+  const gradientColors = theme.gradient as [string, string, ...string[]];
+
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -39,7 +40,6 @@ const AccessibilitySetupScreen = () => {
         {
           rate: state.accessibilitySettings.voiceSpeed,
           pitch: 1.0,
-          quality: Speech.VoiceQuality.Enhanced,
         }
       );
     }
