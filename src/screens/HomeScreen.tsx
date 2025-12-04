@@ -784,52 +784,44 @@ const HomeScreen = () => {
                 <Ionicons name="scan" size={18} color={theme.accent} />
               </View>
               <View style={styles.aiReaderHeaderText}>
-                <Text style={styles.sectionTitle}>Camera Reader</Text>
+                <Text style={styles.sectionTitle}>AI Reader</Text>
                 <Text style={styles.sectionDescription}>
-                  Capture, upload, or drop a file to extract text with better spacing and contrast.
+                  Extract and read text from images or documents.
                 </Text>
               </View>
             </View>
 
-            <View style={styles.aiReaderButtonsRow}>
-              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapTight]}>
-                <ModernButton
-                  title=" Take Picture"
-                  onPress={handleTakePicture}
-                  variant="primary"
-                  size="medium"
-                  disabled={isProcessing}
-                  icon={<Ionicons name="camera" size={20} color="white" />}
-                  style={styles.aiReaderButton}
-                  accessibilityLabel="Take a picture to extract text"
-                />
-              </View>
-
-              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapTight]}>
-                <ModernButton
-                  title=" Upload Image"
-                  onPress={handleUploadImage}
-                  variant="primary"
-                  size="medium"
-                  disabled={isProcessing}
-                  icon={<Ionicons name="image" size={20} color="white" />}
-                  style={styles.aiReaderButton}
-                  accessibilityLabel="Upload an image to extract text"
-                />
-              </View>
-
-              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapLast]}>
-                <ModernButton
-                  title=" Upload File"
-                  onPress={handleUploadFile}
-                  variant="primary"
-                  size="medium"
-                  disabled={isProcessing}
-                  icon={<Ionicons name="document-text" size={20} color="white" />}
-                  style={styles.aiReaderButton}
-                  accessibilityLabel="Upload a file to extract text"
-                />
-              </View>
+             <View style={styles.aiReaderButtonsColumn}>
+              <ModernButton
+                title="Take Picture"
+                onPress={handleTakePicture}
+                variant="primary"
+                size="large"
+                disabled={isProcessing}
+                icon={<Ionicons name="camera" size={22} color="white" />}
+                style={styles.aiReaderFullButton}
+                accessibilityLabel="Take a picture to extract text"
+              />
+              <ModernButton
+                title="Upload Image"
+                onPress={handleUploadImage}
+                variant="primary"
+                size="large"
+                disabled={isProcessing}
+                icon={<Ionicons name="image" size={22} color="white" />}
+                style={styles.aiReaderFullButton}
+                accessibilityLabel="Upload an image to extract text"
+              />
+              <ModernButton
+                title="Upload File"
+                onPress={handleUploadFile}
+                variant="primary"
+                size="large"
+                disabled={isProcessing}
+                icon={<Ionicons name="document-text" size={22} color="white" />}
+                style={[styles.aiReaderFullButton, styles.aiReaderFullButtonLast]}
+                accessibilityLabel="Upload a file to extract text"
+              />
             </View>
 
             {isProcessing && (
@@ -1175,24 +1167,22 @@ const createStyles = (theme: AppTheme) =>
       marginBottom: 0,
       lineHeight: 20,
     },
-    aiReaderButtonsRow: {
-      flexDirection: isSmallScreen ? 'column' : 'row',
+    aiReaderButtonsColumn: {
+      flexDirection: 'column',
       alignItems: 'stretch',
-      marginBottom: 16,
+       
     },
-    aiReaderButtonWrap: {
-      flex: 1,
-      marginBottom: isSmallScreen ? 12 : 0,
-    },
-    aiReaderButtonWrapTight: {
-      marginRight: isSmallScreen ? 0 : 12,
-    },
-    aiReaderButtonWrapLast: {
-      marginRight: 0,
-      marginBottom: 0,
-    },
-    aiReaderButton: {
+    aiReaderFullButton: {
       width: '100%',
+      borderRadius: 18,
+      paddingVertical: 6,
+      marginBottom: 12,
+      shadowOpacity: 0.12,
+      shadowRadius: 10,
+    },
+     aiReaderFullButtonLast: {
+      marginBottom: 0,
+    
     },
     processingContainer: {
       alignItems: 'center',
