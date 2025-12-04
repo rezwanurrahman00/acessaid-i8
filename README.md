@@ -13,6 +13,13 @@ AccessAid is a comprehensive React Native application designed to enhance daily 
 🎨 **Adaptive UI** - Full dark mode, high contrast, and customizable interface elements  
 🔐 **Secure Authentication** - Working email/PIN authentication with local data storage
 
+### 🆕 Latest Addition
+
+- **Quick Voice Announcement Toggle** – Newly added control to instantly pause or resume global TTS announcements while preserving user preferences for future sessions.
+
+### ✅ Recent Testing
+
+- **TC: Voice Announcement Toggle On/Off** – Verified that toggling the global TTS switch immediately stops or resumes announcements (screen titles, buttons, and OCR text) and that the preference persists after navigation.
 
 ## Welcome to your Expo app 👋
 
