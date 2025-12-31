@@ -179,12 +179,6 @@ The database operations are handled through `services/supabaseService.ts`, which
 - Authentication is required for all database operations
 - API keys are safely stored in app configuration
 
-### Repo Conventions
-- Branches: `main` (protected), `dev`, feature branches `feat/<name>`
-- Pull Requests: reviewed before merge
-- Issues: tagged with `feature`, `bug`, `priority`
-- Commits: Conventional Commits (e.g., `feat(ui): add accessibility toggle`)
-
 ---
 
 ## 📅 Sprint Overview
