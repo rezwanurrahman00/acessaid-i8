@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { supabaseService } from '../../services/supabaseService';
 import { AccessibilitySettings, Reminder, User } from '../types';
 import { voiceManager } from '../utils/voiceCommandManager';
 
@@ -92,8 +93,23 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         reminders: [...state.reminders, action.payload],
       };
       console.log('New reminders array length:', newState.reminders.length);
+      
+      // Sync to Supabase in background
+      if (state.user?.id) {
+        supabaseService.createReminder(state.user.id, action.payload).catch(err => {
+          console.log('Background sync: Reminder creation failed (offline mode)', err);
+        });
+      }
+      
       return newState;
     case 'UPDATE_REMINDER':
+      // Sync to Supabase in background
+      if (state.user?.id) {
+        supabaseService.updateReminder(state.user.id, action.payload.id, action.payload).catch(err => {
+          console.log('Background sync: Reminder update failed (offline mode)', err);
+        });
+      }
+      
       return {
         ...state,
         reminders: state.reminders.map(reminder =>
@@ -101,6 +117,13 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         ),
       };
     case 'DELETE_REMINDER':
+      // Sync to Supabase in background
+      if (state.user?.id) {
+        supabaseService.deleteReminder(state.user.id, action.payload).catch(err => {
+          console.log('Background sync: Reminder deletion failed (offline mode)', err);
+        });
+      }
+      
       return {
         ...state,
         reminders: state.reminders.filter(reminder => reminder.id !== action.payload),
@@ -162,7 +185,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadData();
   }, []);
 
-  // Load reminders for the current user when user changes
+  // Load reminders for the current user when user changes (with Supabase sync)
   useEffect(() => {
     const loadUserReminders = async () => {
       try {
@@ -170,32 +193,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           dispatch({ type: 'SET_REMINDERS', payload: [] });
           return;
         }
-        const key = `reminders_${state.user.id}`;
-        const remindersData = await AsyncStorage.getItem(key);
-        if (remindersData) {
-          const parsedReminders = JSON.parse(remindersData).map((reminder: any) => ({
-            ...reminder,
-            date: new Date(reminder.date),
-            time: new Date(reminder.time),
-            createdAt: new Date(reminder.createdAt),
-            updatedAt: new Date(reminder.updatedAt),
-          }));
-          dispatch({ type: 'SET_REMINDERS', payload: parsedReminders });
-        } else {
-          dispatch({ type: 'SET_REMINDERS', payload: [] });
-        }
+
+        // Try to load from Supabase first, fallback to AsyncStorage
+        const reminders = await supabaseService.getReminders(state.user.id);
+        
+        // Convert date strings to Date objects
+        const parsedReminders = reminders.map((reminder: any) => ({
+          ...reminder,
+          date: reminder.date instanceof Date ? reminder.date : new Date(reminder.date),
+          time: reminder.time instanceof Date ? reminder.time : new Date(reminder.time),
+          createdAt: reminder.createdAt instanceof Date ? reminder.createdAt : new Date(reminder.createdAt),
+          updatedAt: reminder.updatedAt instanceof Date ? reminder.updatedAt : new Date(reminder.updatedAt),
+        }));
+
+        dispatch({ type: 'SET_REMINDERS', payload: parsedReminders });
       } catch (error) {
         console.error('Error loading user reminders:', error);
+        // Fallback to local storage
+        try {
+          const key = `reminders_${state.user?.id}`;
+          const remindersData = await AsyncStorage.getItem(key);
+          if (remindersData) {
+            const parsedReminders = JSON.parse(remindersData).map((reminder: any) => ({
+              ...reminder,
+              date: new Date(reminder.date),
+              time: new Date(reminder.time),
+              createdAt: new Date(reminder.createdAt),
+              updatedAt: new Date(reminder.updatedAt),
+            }));
+            dispatch({ type: 'SET_REMINDERS', payload: parsedReminders });
+          }
+        } catch (localError) {
+          console.error('Error loading from local storage:', localError);
+        }
       }
     };
 
     loadUserReminders();
   }, [state.user]);
 
-  // Save data to AsyncStorage when state changes
+  // Save data to AsyncStorage and sync with Supabase when state changes
   useEffect(() => {
     const saveData = async () => {
       try {
+        // Always save to AsyncStorage first (offline cache)
         if (state.user) {
           await AsyncStorage.setItem('user', JSON.stringify(state.user));
           // Also keep a directory of users up to date (by id)
@@ -216,6 +257,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (state.user) {
           const key = `reminders_${state.user.id}`;
           await AsyncStorage.setItem(key, JSON.stringify(state.reminders));
+        }
+
+        // Sync with Supabase (non-blocking, runs in background)
+        if (state.user) {
+          // Sync user profile
+          if (state.user.id) {
+            supabaseService.updateUser(state.user.id, state.user).catch(err => {
+              console.log('Background sync: User update failed (offline mode)', err);
+            });
+          }
+
+          // Sync settings
+          Object.entries(state.accessibilitySettings).forEach(([key, value]) => {
+            supabaseService.updateSetting(state.user!.id, key, value).catch(err => {
+              console.log(`Background sync: Setting ${key} update failed (offline mode)`, err);
+            });
+          });
         }
       } catch (error) {
         console.error('Error saving data:', error);

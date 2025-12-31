@@ -101,11 +101,83 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
 
 ### Tech Stack
 - **Frontend**: React Native (Expo) with TypeScript
-- **Backend**: FastAPI (Python)
-- **Database**: SQLite (with SQLAlchemy ORM)
 - **State Management**: React Context API
-- **Storage**: AsyncStorage for local persistence
+- **Database**: Supabase (PostgreSQL) with offline fallback to AsyncStorage
+- **Storage**: AsyncStorage for local persistence and offline caching
 - **Navigation**: Expo Router with Stack and Tab navigation
+
+### Database
+
+AccessAid uses Supabase as the primary cloud database with AsyncStorage as an offline cache. This hybrid approach ensures the app works seamlessly both online and offline.
+
+**Database Architecture:**
+- **Primary Storage**: Supabase (PostgreSQL) for cloud-based data persistence
+- **Offline Cache**: AsyncStorage for local device storage
+- **Sync Strategy**: Background sync to Supabase when online, automatic fallback to AsyncStorage when offline
+
+**Database Tables:**
+- **users**: User profiles, email, names, profile photos, and accessibility preferences
+- **reminders**: User reminders with title, description, datetime, frequency, priority, category, and completion status
+- **user_settings**: User accessibility settings (brightness, text zoom, voice speed, dark mode)
+- **tts_history**: Text-to-speech usage logs for analytics
+
+**Database Schema:**
+The complete database schema is defined in `supabase-schema.sql`. This includes:
+- Table definitions with proper data types and constraints
+- Foreign key relationships for data integrity
+- Row Level Security (RLS) policies ensuring users can only access their own data
+- Indexes for optimized query performance
+- Triggers for automatic timestamp updates
+
+**Configuration:**
+Supabase credentials should be stored in a `.env` file (not committed to version control) for security:
+```bash
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Alternatively, they can be stored in `app.json` under the `extra` section (not recommended for production):
+```json
+{
+  "extra": {
+    "supabaseUrl": "https://your-project.supabase.co",
+    "supabaseAnonKey": "your-anon-key"
+  }
+}
+```
+
+**Important Security Note**: Never commit API keys to version control. Use environment variables (`.env` file) instead. See `ENV_SETUP.md` and `SECURITY.md` for detailed setup instructions.
+
+**Setup Instructions:**
+1. Create a Supabase account at https://supabase.com
+2. Create a new project in your Supabase dashboard
+3. Get your Project URL and anon/public key from Settings > API
+4. Add credentials to `app.json` as shown above
+5. Run the SQL schema from `supabase-schema.sql` in the Supabase SQL Editor
+6. Restart your Expo development server
+
+**How It Works:**
+- When Supabase is configured and the app is online, all data operations sync to the cloud database
+- Data is always saved to AsyncStorage first for immediate availability
+- Background sync to Supabase happens automatically without blocking the UI
+- If Supabase is unavailable or not configured, the app continues to work using AsyncStorage only
+- On app launch, data is loaded from Supabase if available, otherwise from AsyncStorage
+- This ensures users can access their data even without an internet connection
+
+**Service Layer:**
+The database operations are handled through `services/supabaseService.ts`, which provides:
+- User authentication (sign up, sign in, sign out) with PIN support
+- User profile management (create, read, update)
+- Reminders CRUD operations (create, read, update, delete)
+- Settings management (get, update)
+- TTS history logging
+- Automatic offline fallback for all operations
+
+**Security:**
+- Row Level Security (RLS) is enabled on all tables
+- Users can only access and modify their own data
+- Authentication is required for all database operations
+- API keys are safely stored in app configuration
 
 ### Repo Conventions
 - Branches: `main` (protected), `dev`, feature branches `feat/<name>`
@@ -192,12 +264,20 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
 - Responsive layout for different screen sizes
 - High contrast styling for accessibility
 
-#### 🔧 Backend & API
-- FastAPI backend with RESTful API endpoints
-- SQLite database with SQLAlchemy ORM
-- Complete database models (User, Reminder, Task, Notification, TTSHistory, UserSettings)
+#### API Integration
+- RESTful API service layer with offline fallback support
+- Mock data fallback for offline functionality
 - Full CRUD operations for all entities
 - API health check endpoint
+
+#### Database Integration
+- Supabase cloud database integration for online data storage
+- Automatic background sync to cloud database
+- AsyncStorage offline cache for seamless offline functionality
+- Hybrid storage strategy ensuring data availability in all network conditions
+- User authentication with Supabase Auth
+- Row Level Security (RLS) policies for data protection
+- Complete database schema with tables for users, reminders, settings, and TTS history
 
 ---
 
@@ -254,7 +334,12 @@ OCR.Space is a cloud-based OCR service that allows AccessAid to extract text fro
 - **Language**: English (eng)
 
 **Configuration**:
-The API key is stored in `app.json` under the `extra` section:
+The API key should be stored in a `.env` file (not committed to version control) for security:
+```bash
+EXPO_PUBLIC_OCR_SPACE_API_KEY=your-api-key-here
+```
+
+Alternatively, it can be stored in `app.json` under the `extra` section (not recommended for production):
 ```json
 {
   "extra": {
@@ -267,7 +352,7 @@ The API key is stored in `app.json` under the `extra` section:
 1. Visit [OCR.Space API](https://ocr.space/OCRAPI)
 2. Sign up for a free or paid account
 3. Generate an API key from your dashboard
-4. Add the key to `app.json` as shown above
+4. Add the key to `.env` file (see `ENV_SETUP.md` for details)
 5. Restart the Expo development server
 
 **Rate Limits**:
@@ -284,19 +369,75 @@ The API key is stored in `app.json` under the `extra` section:
 
 ---
 
-### 2. AccessAid Custom Backend API (Internal FastAPI)
+### 2. Supabase Database (Cloud Database)
 
-**Purpose**: Backend service for user data management, reminders, settings, and TTS history storage.
+**Purpose**: Cloud-based PostgreSQL database for user data, reminders, settings, and TTS history with automatic sync and offline support.
 
 **Description**:
-A custom RESTful API built with FastAPI (Python) that handles all backend operations for AccessAid. The API manages user data, reminders, accessibility preferences, and maintains a history of TTS usage for analytics.
+Supabase provides a fully managed PostgreSQL database with real-time capabilities, authentication, and Row Level Security. AccessAid uses Supabase for cloud data storage while maintaining full offline functionality through AsyncStorage caching.
+
+**Database Features**:
+- PostgreSQL database with automatic backups
+- Real-time data synchronization
+- Row Level Security (RLS) for data protection
+- Built-in authentication system
+- RESTful API auto-generated from database schema
+- Automatic indexing for query optimization
+
+**Database Operations**:
+All database operations are handled through `services/supabaseService.ts`:
+- User authentication (sign up, sign in, sign out) with email and PIN
+- User profile management (create, read, update)
+- Reminders CRUD operations (create, read, update, delete)
+- Settings management (get, update individual settings)
+- TTS history logging and retrieval
+
+**Offline Support**:
+The app implements a hybrid storage strategy:
+- All data operations first save to AsyncStorage (immediate availability)
+- Background sync to Supabase when online (non-blocking)
+- Automatic fallback to AsyncStorage when Supabase is unavailable
+- Data syncs automatically when connection is restored
+- Users can access all features without internet connection
+
+**Configuration**:
+Supabase credentials are stored in `app.json`:
+```json
+{
+  "extra": {
+    "supabaseUrl": "https://your-project.supabase.co",
+    "supabaseAnonKey": "your-anon-key"
+  }
+}
+```
+
+**Database Schema**:
+The complete schema is defined in `supabase-schema.sql`:
+- Tables: users, reminders, user_settings, tts_history
+- Foreign key relationships for data integrity
+- RLS policies for security
+- Indexes for performance
+- Triggers for automatic timestamp updates
+
+**Code Locations**:
+- Supabase Client: `services/supabase.ts`
+- Database Service: `services/supabaseService.ts`
+- Database Schema: `supabase-schema.sql`
+- Integration: `src/contexts/AppContext.tsx`
+
+### 3. AccessAid API Service (Frontend)
+
+**Purpose**: API service layer for user data management, reminders, settings, and TTS history with offline support.
+
+**Description**:
+A TypeScript API service that handles all backend communication for AccessAid. The service includes offline fallback mechanisms using mock data when the backend is unavailable.
 
 **Base URL**: `http://192.168.0.220:8000/api` (configurable via `services/api.ts`)
 
 **API Endpoints**:
 
 #### Health Check
-- **GET** `/` - API health check endpoint
+- **GET** `/health` - API health check endpoint
   - Returns: `{ "message": "AccessAid API is running!", "status": "healthy" }`
 
 #### User Endpoints
@@ -321,42 +462,14 @@ A custom RESTful API built with FastAPI (Python) that handles all backend operat
 - **GET** `/api/users/{user_id}/tts-history` - Get TTS usage history
 - **POST** `/api/users/{user_id}/tts-history` - Log TTS usage
 
-**Database Models**:
-- `User` - User accounts and profiles
-- `Reminder` - Reminder entries with categories and priorities
-- `Task` - Task management
-- `Notification` - Notification tracking
-- `TTSHistory` - Text-to-speech usage logs
-- `UserSettings` - User accessibility preferences
-- `DeviceSync` - Device synchronization data
-
-**Technology Stack**:
-- **Framework**: FastAPI 0.104.1
-- **Database**: SQLite with SQLAlchemy ORM 2.0.23
-- **Server**: Uvicorn ASGI server
-- **Authentication**: Python-JOSE with bcrypt
-- **CORS**: Enabled for React Native frontend
-
 **Offline Support**:
 The frontend includes offline fallback mechanisms. When the backend API is unavailable:
 - Mock data is used automatically
-- User operations continue with local storage
-- Data syncs when connection is restored
+- User operations continue with local storage (AsyncStorage)
+- Data persists locally until connection is restored
 
-**Code Locations**:
-- Backend API: `backend/main.py`
+**Code Location**:
 - Frontend API Service: `services/api.ts`
-- Database Models: `backend/database/models.py`
-- Database Setup: `backend/database/database.py`
-
-**Running the Backend**:
-```bash
-cd backend
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-**API Documentation**:
-Once the backend is running, visit `http://localhost:8000/docs` for interactive Swagger/OpenAPI documentation.
 
 ---
 
@@ -364,8 +477,9 @@ Once the backend is running, visit `http://localhost:8000/docs` for interactive 
 
 | API | Type | Purpose | Status |
 |-----|------|---------|--------|
-| OCR.Space | External | Text extraction from images/PDFs | ✅ Active |
-| AccessAid Backend | Internal | User data & app features | ✅ Active |
+| OCR.Space | External | Text extraction from images/PDFs | Active |
+| Supabase | Cloud Database | User data, reminders, settings storage | Active |
+| AccessAid API Service | Frontend | User data & app features | Active |
 
 **Note**: Ensure both APIs are properly configured before deploying to production. The OCR.Space API key must be secured and not exposed in version control.
 
