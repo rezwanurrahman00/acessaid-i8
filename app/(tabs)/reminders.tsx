@@ -24,6 +24,22 @@ try {
   );
 }
 
+// --- Mapping spoken numbers to digits ---
+const SPOKEN_NUMBERS: Record<string, string> = {
+  one: "1",
+  two: "2",
+  three: "3",
+  four: "4",
+  five: "5",
+  six: "6",
+  seven: "7",
+  eight: "8",
+  nine: "9",
+  ten: "10",
+  eleven: "11",
+  twelve: "12",
+};
+
 export default function RemindersScreen() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,38 +100,25 @@ export default function RemindersScreen() {
     }
   };
 
+  // ------------------ Normalize spoken times ------------------
   const normalizeSpokenTime = (spokenTime: string): string | null => {
-    const value = spokenTime.trim().toLowerCase();
-    const words: Record<string, string> = {
-      one: "1",
-      two: "2",
-      three: "3",
-      four: "4",
-      five: "5",
-      six: "6",
-      seven: "7",
-      eight: "8",
-      nine: "9",
-      ten: "10",
-      eleven: "11",
-      twelve: "12",
-    };
+    let value = spokenTime.toLowerCase().trim();
 
-    const normalized = value.replace(
+    // Replace words with digits: "five" -> "5"
+    value = value.replace(
       /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/g,
-      (m) => words[m]
+      (m) => SPOKEN_NUMBERS[m]
     );
 
-    const normalizedTime = normalized.replace(/\b([ap])\s*m\b/gi, "$1m").trim();
-    const match = normalizedTime.match(
-      /^(\d{1,2})(?::(\d{2})|\s(\d{2}))?\s*(am|pm)?$/i
-    );
+    // Remove dots in "p.m." / "a.m."
+    value = value.replace(/\./g, "").trim();
 
+    const match = value.match(/^(\d{1,2}):?(\d{0,2})\s*(am|pm)?$/i);
     if (!match) return null;
 
     let hours = parseInt(match[1], 10);
-    const minutes = parseInt(match[2] ?? match[3] ?? "0", 10);
-    const suffix = match[4];
+    const minutes = parseInt(match[2] || "0", 10);
+    const suffix = match[3];
 
     if (minutes > 59) return null;
 
@@ -129,6 +132,7 @@ export default function RemindersScreen() {
       "0"
     )}`;
   };
+  // -------------------------------------------------------------
 
   const createReminder = async (
     title: string,
@@ -202,12 +206,15 @@ export default function RemindersScreen() {
   const handleVoiceCommand = async (text: string) => {
     const sanitized = text
       .toLowerCase()
-      .replace(/\./g, "") // remove dots
-      .replace(/\b([ap])\s*m\b/gi, "$1m") // normalize am/pm
-      .replace(/[^\w\s:]/g, "") // remove extra chars
-      .replace(/\s+/g, " ")
+      .replace(/\blog\b/g, "")
+      .replace(/voice command recognized:/g, "")
+      .replace(/recording/g, "")
+      .replace(/[^\w\s:]/g, "")
+      .replace(/\s+/g, " ")        // collapse multiple spaces
+      .replace(/\s*(am|pm)\b/gi, "$1") // remove space before am/pm
       .trim();
 
+    console.log("sanitized voice command:", JSON.stringify(sanitized));
     setLastVoiceCommand(text);
 
     if (sanitized.includes("read my reminders")) {
@@ -215,36 +222,29 @@ export default function RemindersScreen() {
       return;
     }
 
-    let title: string | null = null;
-    let time: string | null = null;
-
-    // 1️⃣ TIME first: "for 7:30 am for call mom"
-    let match = sanitized.match(
-      /(?:create|add|set)(?: a)? reminder\s+(?:for|at)\s+([\d]{1,2}:\d{2}(?:am|pm)?)\s+for\s+(.+)/i
+    // TITLE first: match "set reminder for <title> at <time>"
+    const match = sanitized.match(
+      /(?:create|add|set)(?: a)? reminder\s+(?:for\s+)?(.+?)\s+(?:at|for)\s+([\d\w\s]+(?:am|pm)?)/i
     );
 
-    if (match) {
-      time = normalizeSpokenTime(match[1]);
-      title = match[2].trim();
-    } else {
-      // 2️⃣ TITLE first: "for call at 7:30 am"
-      match = sanitized.match(
-        /(?:create|add|set)(?: a)? reminder\s+(?:for\s+)?(.+)\s+(?:at|for)\s+([\d]{1,2}:\d{2}(?:am|pm)?)/i
-      );
-
-      if (match) {
-        title = match[1].trim();
-        time = normalizeSpokenTime(match[2]);
-      }
-    }
-
-    if (!title || !time) {
+    if (!match) {
       speakIfEnabled("Command not recognized.");
       return;
     }
 
+    const titleCandidate = match[1].trim();
+    const timeCandidate = match[2].trim();
+
+    const time = normalizeSpokenTime(timeCandidate);
+    if (!titleCandidate || !time) {
+      speakIfEnabled("Command not recognized.");
+      return;
+    }
+
+    // Auto-fill the form and add reminder
+    setNewReminder({ title: titleCandidate, description: "", time });
     setIsAddingReminder(true);
-    await createReminder(title, "", time, { closeForm: false });
+    await createReminder(titleCandidate, "", time, { closeForm: false });
   };
   // -------------------------------------------------------------
 
