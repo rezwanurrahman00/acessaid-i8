@@ -1,0 +1,83 @@
+{
+  "expo": {
+    "name": "AccessAid",
+    "slug": "accessaid",
+    "scheme": "accessaid",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.accessaid.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "AccessAid uses the camera to capture images for AI text reading.",
+        "NSPhotoLibraryUsageDescription": "AccessAid needs access to your photo library to pick images for text extraction.",
+        "NSPhotoLibraryAddUsageDescription": "AccessAid saves processed images to your photo library.",
+        "NSMicrophoneUsageDescription": "AccessAid uses the microphone for voice commands and accessibility features."
+      }
+    },
+    "android": {
+      "package": "com.accessaid.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO"
+      ],
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#0F172A"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-dev-client",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow AccessAid to capture images for text extraction."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow AccessAid to access your photos for text extraction.",
+          "cameraPermission": "Allow AccessAid to use the camera for capturing text."
+        }
+      ],
+      "expo-document-picker",
+      "expo-notifications",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow AccessAid to use the microphone for voice commands.",
+          "speechRecognitionPermission": "Allow AccessAid to recognize speech for voice commands."
+        }
+      ]
+    ],
+    "experiments": {
+      "tsconfigPaths": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": ""
+      },
+      "OCR_SPACE_API_KEY": "K84158925888957",
+      "appDisplayName": "AccessAid"
+    }
+  }
+}
