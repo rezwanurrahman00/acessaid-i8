@@ -2,7 +2,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { apiService, Reminder } from "@/services/api";
 import { speakIfEnabled } from "@/services/ttsService";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -106,12 +106,16 @@ export default function RemindersScreen() {
       (m) => words[m]
     );
 
-    const match = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+    const normalizedTime = normalized.replace(/\b([ap])\s*m\b/gi, "$1m").trim();
+    const match = normalizedTime.match(
+      /^(\d{1,2})(?::(\d{2})|\s(\d{2}))?\s*(am|pm)?$/i
+    );
+
     if (!match) return null;
 
     let hours = parseInt(match[1], 10);
-    const minutes = parseInt(match[2] ?? "0", 10);
-    const suffix = match[3];
+    const minutes = parseInt(match[2] ?? match[3] ?? "0", 10);
+    const suffix = match[4];
 
     if (minutes > 59) return null;
 
@@ -194,40 +198,55 @@ export default function RemindersScreen() {
     speakIfEnabled(speech);
   };
 
+  // ------------------- VOICE COMMAND HANDLER -------------------
   const handleVoiceCommand = async (text: string) => {
-  const command = text
-    .toLowerCase()
-    .replace(/\./g, "")     // remove dots → p.m. → pm
-    .replace(/\s+/g, " ")   // clean extra spaces
-    .trim();
+    const sanitized = text
+      .toLowerCase()
+      .replace(/\./g, "") // remove dots
+      .replace(/\b([ap])\s*m\b/gi, "$1m") // normalize am/pm
+      .replace(/[^\w\s:]/g, "") // remove extra chars
+      .replace(/\s+/g, " ")
+      .trim();
 
-  setLastVoiceCommand(text);
+    setLastVoiceCommand(text);
 
-
-    if (command.includes("read my reminders")) {
+    if (sanitized.includes("read my reminders")) {
       await readRemindersOutLoud();
       return;
     }
 
-    const match = command.match(
-  /create(?: a)? reminder\s+(?:for\s+)?(.+?)\s+(?:at|for)\s+([\w: ]+(?:am|pm)?)/
+    let title: string | null = null;
+    let time: string | null = null;
+
+    // 1️⃣ TIME first: "for 7:30 am for call mom"
+    let match = sanitized.match(
+      /(?:create|add|set)(?: a)? reminder\s+(?:for|at)\s+([\d]{1,2}:\d{2}(?:am|pm)?)\s+for\s+(.+)/i
     );
 
-
     if (match) {
-      const title = match[1].trim();
-      const time = normalizeSpokenTime(match[2]);
-      if (!time) {
-        speakIfEnabled("Time not recognized.");
-        return;
+      time = normalizeSpokenTime(match[1]);
+      title = match[2].trim();
+    } else {
+      // 2️⃣ TITLE first: "for call at 7:30 am"
+      match = sanitized.match(
+        /(?:create|add|set)(?: a)? reminder\s+(?:for\s+)?(.+)\s+(?:at|for)\s+([\d]{1,2}:\d{2}(?:am|pm)?)/i
+      );
+
+      if (match) {
+        title = match[1].trim();
+        time = normalizeSpokenTime(match[2]);
       }
-      setIsAddingReminder(true);
-      await createReminder(title, "", time, { closeForm: false });
+    }
+
+    if (!title || !time) {
+      speakIfEnabled("Command not recognized.");
       return;
     }
 
-    speakIfEnabled("Command not recognized.");
+    setIsAddingReminder(true);
+    await createReminder(title, "", time, { closeForm: false });
   };
+  // -------------------------------------------------------------
 
   const startVoiceListening = async () => {
     if (!ExpoSpeechRecognitionModule) {
