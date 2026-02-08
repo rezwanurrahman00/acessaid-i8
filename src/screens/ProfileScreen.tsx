@@ -188,6 +188,7 @@ const JoinDateModal: React.FC<JoinDateModalProps> = ({ visible, onClose, theme, 
   </Modal>
 );
 
+
 // Main Component
 const ProfileScreen = () => {
   const { state, dispatch } = useApp();
@@ -218,6 +219,7 @@ const ProfileScreen = () => {
     () => joinDate?.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) || 'Join date not available',
     [joinDate]
   );
+
   // Initialize animations and voice commands
   useEffect(() => {
     Animated.parallel([
@@ -436,24 +438,25 @@ const ProfileScreen = () => {
                 {state.user?.email || 'user@example.com'}
               </Text>
             </View>
-          </View>
             <View style={styles.userStatsRow}>
               <View style={[styles.statBadge, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
                 <Ionicons name="shield-checkmark" size={14} color={theme.accent} />
                 <Text style={[styles.statText, { color: theme.textPrimary }]}>Verified</Text>
               </View>
-              <View style={[styles.statBadge, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
               <TouchableOpacity
                 style={[styles.statBadge, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
                 onPress={() => setIsJoinDateModalVisible(true)}
                 accessibilityLabel="Membership status"
                 accessibilityHint="Shows the date you joined"
-              >                <Ionicons name="calendar-outline" size={14} color={theme.accent} />
+              >
+                <Ionicons name="calendar-outline" size={14} color={theme.accent} />
                 <Text style={[styles.statText, { color: theme.textPrimary }]}>Member</Text>
             </TouchableOpacity>
 
           </View>
          </View>
+
+    
         </Animated.View>
 
         <View style={styles.heroActions}>
@@ -757,9 +760,8 @@ const ProfileScreen = () => {
       </Animated.View>
     </LinearGradient>
     </>
-
-
   );
+  
 };
 
 export default ProfileScreen;

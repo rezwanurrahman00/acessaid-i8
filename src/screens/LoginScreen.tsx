@@ -36,7 +36,7 @@ const LoginScreen = () => {
 
   const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const gradientColors = theme.gradient;
+  const gradientColors = theme.gradient as [string, string, ...string[]];
   const placeholderColor = theme.placeholder;
 
   useEffect(() => {
@@ -96,7 +96,18 @@ const LoginScreen = () => {
         setIsLoading(false);
         return;
       }
-      dispatch({ type: 'LOGIN', payload: found as User });
+      const updatedUser: User = found.joinDate
+        ? found
+        : { ...found, joinDate: new Date().toISOString() };
+
+      if (!found.joinDate) {
+        const refreshedUsers = users.map(u =>
+          u.email === updatedUser.email ? updatedUser : u
+        );
+        await AsyncStorage.setItem('users', JSON.stringify(refreshedUsers));
+      }
+
+      dispatch({ type: 'LOGIN', payload: updatedUser });
       speakText('Login successful! Welcome to AccessAid.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {

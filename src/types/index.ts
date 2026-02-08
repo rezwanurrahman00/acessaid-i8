@@ -3,6 +3,7 @@ export interface User {
   email: string;
   pin: string;
   name: string;
+  joinDate?: string;
   bio?: string;
   weight?: string;
   height?: string;

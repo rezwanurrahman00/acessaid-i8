@@ -70,6 +70,7 @@ const ReminderScreen: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState<ReminderCategory | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [fadeIn] = useState(new Animated.Value(0));
   const [slideUp] = useState(new Animated.Value(40));
   const intervalRef = useRef<any>(null);
@@ -135,7 +136,7 @@ const ReminderScreen: React.FC = () => {
   }, [state.user?.id]);
 
   useEffect(() => {
-    const key = storageKey(state.user?.id);
+    const key = storageKey(state.user?.id);    
     AsyncStorage.setItem(
       key,
       JSON.stringify(reminders.map(r => ({ ...r, datetime: r.datetime.toISOString(), createdAt: r.createdAt.toISOString() })))
@@ -708,17 +709,41 @@ const ReminderScreen: React.FC = () => {
               <Text style={styles.sectionLabel}>Date & Time</Text>
               {DateTimePicker ? (
                 <View style={styles.datePickerContainer}>
-                  <DateTimePicker
-                    value={date}
-                    mode="datetime"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(_: any, selected?: Date) => {
-                      if (selected) setDate(selected);
-                    }}
-                    minimumDate={new Date()}
-                    textColor={theme.textPrimary}
-                    style={styles.datePicker}
-                  />
+                  {Platform.OS === 'ios' ? (
+                    <DateTimePicker
+                      value={date}
+                      mode="datetime"
+                      display="spinner"
+                      onChange={(_: any, selected?: Date) => {
+                        if (selected) setDate(selected);
+                      }}
+                      minimumDate={new Date()}
+                      textColor={theme.textPrimary}
+                      style={styles.datePicker}
+                    />
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => setShowPicker(true)}
+                      >
+                        <Text style={styles.actionButtonText}>Pick date & time</Text>
+                      </TouchableOpacity>
+                      {showPicker && (
+                        <DateTimePicker
+                          value={date}
+                          mode="datetime"
+                          display="default"
+                          onChange={(event: any, selected?: Date) => {
+                            setShowPicker(false);
+                            if (event?.type === 'dismissed') return;
+                            if (selected) setDate(selected);
+                          }}
+                          minimumDate={new Date()}
+                        />
+                      )}
+                    </>
+                  )}
                 </View>
               ) : (
                 <View style={{ marginTop: 8 }}>
