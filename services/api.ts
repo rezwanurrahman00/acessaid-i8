@@ -3,12 +3,17 @@
  * Handles all backend communication with offline fallback support
  */
 
-const API_BASE_URL = 'http://192.168.0.220:8000/api';
+// Update this to your machine's IP address or use localhost for web
+// For Android device: use your machine's IP (192.168.1.71)
+// For Android emulator: use 10.0.2.2
+// For iOS simulator: use localhost
+const API_BASE_URL = 'http://192.168.1.71:8000/api';
 
 // Types
 export interface User {
   user_id: number;
   email: string;
+  name?: string;
   first_name: string;
   last_name: string;
   accessibility_preferences: {
@@ -22,6 +27,17 @@ export interface User {
   timezone: string;
   is_active: boolean;
   created_at: string;
+}
+
+export interface UserRegistration {
+  email: string;
+  pin: string;
+  name: string;
+}
+
+export interface UserLogin {
+  email: string;
+  pin: string;
 }
 
 export interface Reminder {
@@ -114,6 +130,40 @@ class ApiService {
     this.baseUrl = baseUrl;
   }
 
+  // Authentication methods
+  async register(userData: UserRegistration): Promise<User> {
+    const response = await fetch(`${this.baseUrl}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Registration failed' }));
+      throw new Error(error.detail || 'Registration failed');
+    }
+
+    return await response.json();
+  }
+
+  async login(loginData: UserLogin): Promise<User> {
+    console.log('Attempting login with data:', loginData);
+    const response = await fetch(`${this.baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginData),
+    });
+
+    console.log('Login response status:', response.status);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Login failed' }));
+      throw new Error(error.detail || 'Invalid email or PIN');
+    }
+
+    return await response.json();
+  }
+
   async getUsers(): Promise<User[]> {
     return tryFetch(`${this.baseUrl}/users`, {}, [mockUser]);
   }
@@ -124,6 +174,26 @@ class ApiService {
 
   async getUserReminders(userId: number): Promise<Reminder[]> {
     return tryFetch(`${this.baseUrl}/users/${userId}/reminders`, {}, mockReminders);
+  }
+
+  async createReminder(userId: number, reminderData: {
+    title: string;
+    description?: string;
+    reminder_datetime: string;
+    frequency?: string;
+    priority?: string;
+  }): Promise<Reminder> {
+    console.log('Creating reminder with data:', reminderData);
+    const response = await fetch(`${this.baseUrl}/users/${userId}/reminders?title=${encodeURIComponent(reminderData.title)}&description=${encodeURIComponent(reminderData.description || '')}&reminder_datetime=${encodeURIComponent(reminderData.reminder_datetime)}&frequency=${reminderData.frequency || 'once'}&priority=${reminderData.priority || 'medium'}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create reminder');
+    }
+
+    return await response.json();
   }
 
   async updateReminder(reminderId: number, updateData: Partial<Reminder>): Promise<{ message: string }> {

@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
+import { apiService } from '../../services/api';
 import { AccessAidLogo } from '../components/AccessAidLogo';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import { ModernButton } from '../components/ModernButton';
@@ -81,39 +82,70 @@ const LoginScreen = () => {
     setIsLoading(true);
     
     try {
+      // Try to login with backend API first
+      console.log('Attempting backend login with email:', email);
+      const user = await apiService.login({
+        email: email.toLowerCase().trim(),
+        pin: pin,
+      });
+
+      console.log('Logged in user from API:', user);
+
+      // Convert API user to app user format
+      const appUser: User = {
+        id: user.user_id.toString(),
+        email: user.email,
+        pin: pin, // Keep PIN locally for offline mode
+        name: user.name || `${user.first_name} ${user.last_name}`.trim(),
+        joinDate: user.created_at,
+      };
+
+      // Save to AsyncStorage for offline mode
       const usersRaw = await AsyncStorage.getItem('users');
       const users: Array<User & { pin: string }> = usersRaw ? JSON.parse(usersRaw) : [];
-      const found = users.find(u => u.email === email.toLowerCase().trim());
-      if (!found) {
-        Alert.alert('No account', 'This email is not registered. Please sign up.');
-        speakText('This email is not registered. Please sign up.');
-        setIsLoading(false);
-        return;
+      const userIndex = users.findIndex(u => u.email === appUser.email);
+      
+      if (userIndex >= 0) {
+        users[userIndex] = appUser;
+      } else {
+        users.push(appUser);
       }
-      if (found.pin !== pin) {
-        Alert.alert('Invalid PIN', 'The PIN you entered is incorrect.');
-        speakText('The PIN you entered is incorrect');
-        setIsLoading(false);
-        return;
-      }
-      const updatedUser: User = found.joinDate
-        ? found
-        : { ...found, joinDate: new Date().toISOString() };
+      await AsyncStorage.setItem('users', JSON.stringify(users));
 
-      if (!found.joinDate) {
-        const refreshedUsers = users.map(u =>
-          u.email === updatedUser.email ? updatedUser : u
-        );
-        await AsyncStorage.setItem('users', JSON.stringify(refreshedUsers));
-      }
-
-      dispatch({ type: 'LOGIN', payload: updatedUser });
+      dispatch({ type: 'LOGIN', payload: appUser });
       speakText('Login successful! Welcome to AccessAid.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      Alert.alert('Login Failed', 'Please check your credentials and try again.');
-      speakText('Login failed. Please check your credentials and try again.');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } catch (error: any) {
+      // Fallback to offline mode with AsyncStorage
+      console.log('Backend login failed, trying offline mode:', error.message);
+      
+      try {
+        const usersRaw = await AsyncStorage.getItem('users');
+        const users: Array<User & { pin: string }> = usersRaw ? JSON.parse(usersRaw) : [];
+        const found = users.find(u => u.email === email.toLowerCase().trim());
+        
+        if (!found) {
+          Alert.alert('Login Failed', 'No account found. Please check your internet connection or sign up.');
+          speakText('No account found. Please check your internet connection or sign up.');
+          setIsLoading(false);
+          return;
+        }
+        
+        if (found.pin !== pin) {
+          Alert.alert('Invalid PIN', 'The PIN you entered is incorrect.');
+          speakText('The PIN you entered is incorrect');
+          setIsLoading(false);
+          return;
+        }
+
+        dispatch({ type: 'LOGIN', payload: found });
+        speakText('Login successful! Welcome to AccessAid in offline mode.');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (offlineError) {
+        Alert.alert('Login Failed', 'Please check your credentials and try again.');
+        speakText('Login failed. Please check your credentials and try again.');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -141,29 +173,40 @@ const LoginScreen = () => {
     setIsLoading(true);
     
     try {
+      // Try to register with backend API
+      const user = await apiService.register({
+        email: email.toLowerCase().trim(),
+        pin: pin,
+        name: name.trim(),
+      });
+
+      // Convert API user to app user format
+      const appUser: User = {
+        id: user.user_id.toString(),
+        email: user.email,
+        pin: pin, // Keep PIN locally for offline mode
+        name: user.name || `${user.first_name} ${user.last_name}`.trim(),
+        joinDate: user.created_at,
+      };
+
+      // Save to AsyncStorage for offline mode
       const usersRaw = await AsyncStorage.getItem('users');
       const users: Array<User & { pin: string }> = usersRaw ? JSON.parse(usersRaw) : [];
-      const exists = users.some(u => u.email === email.toLowerCase().trim());
-      if (exists) {
-        Alert.alert('Email In Use', 'This email is already registered. Please sign in.');
-        speakText('This email is already registered. Please sign in.');
-        setIsLoading(false);
-        return;
-      }
-      const newUser: User = {
-        id: Date.now().toString(),
-        email: email.toLowerCase().trim(),
-        pin,
-        name: name.trim(),
-      };
-      const nextUsers = [newUser, ...users];
+      const nextUsers = [appUser, ...users.filter(u => u.email !== appUser.email)];
       await AsyncStorage.setItem('users', JSON.stringify(nextUsers));
-      dispatch({ type: 'LOGIN', payload: newUser });
+
+      dispatch({ type: 'LOGIN', payload: appUser });
       speakText('Account created successfully! Welcome to AccessAid.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      Alert.alert('Sign Up Failed', 'Could not create account. Please try again.');
-      speakText('Could not create account. Please try again.');
+    } catch (error: any) {
+      // If email already exists in backend or network error, show appropriate message
+      if (error.message && error.message.includes('already registered')) {
+        Alert.alert('Email In Use', 'This email is already registered. Please sign in.');
+        speakText('This email is already registered. Please sign in.');
+      } else {
+        Alert.alert('Sign Up Failed', error.message || 'Could not create account. Please try again.');
+        speakText('Could not create account. Please try again.');
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsLoading(false);

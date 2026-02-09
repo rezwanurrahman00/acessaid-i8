@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
+import { apiService } from '../../services/api';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import { useApp } from '../contexts/AppContext';
 import { voiceManager } from '../utils/voiceCommandManager'; // ADDED: Import voice manager
@@ -500,25 +501,47 @@ const ReminderScreen: React.FC = () => {
       Alert.alert('Invalid time', 'Please select a future date and time.');
       return;
     }
-    const newReminder: Reminder = {
-      id: `rem_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      title: title.trim(),
-      description: description.trim() || undefined,
-      datetime: date,
-      isCompleted: false,
-      createdAt: new Date(),
-      category,
-      priority,
-      recurrence,
-    };
-    setReminders(prev => [...prev, newReminder]);
-    await scheduleNative(newReminder);
+
+    try {
+      // Get current user ID
+      const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
+      
+      // Call backend API to create reminder
+      const backendReminder = await apiService.createReminder(currentUserId, {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        reminder_datetime: date.toISOString(),
+        frequency: recurrence,
+        priority: priority,
+      });
+
+      // Create local reminder with backend data
+      const newReminder: Reminder = {
+        id: backendReminder.reminder_id.toString(),
+        title: backendReminder.title,
+        description: backendReminder.description,
+        datetime: new Date(backendReminder.reminder_datetime),
+        isCompleted: backendReminder.is_completed,
+        createdAt: backendReminder.created_at ? new Date(backendReminder.created_at) : new Date(),
+        category,
+        priority,
+        recurrence,
+      };
+
+      setReminders(prev => [...prev, newReminder]);
+      await scheduleNative(newReminder);
+      
       // Schedule recurring reminders
-    if (recurrence !== 'once') {
-      scheduleRecurringReminders(newReminder);
+      if (recurrence !== 'once') {
+        scheduleRecurringReminders(newReminder);
+      }
+      
+      setModalVisible(false);
+      speakText(`Reminder "${title.trim()}" created successfully`);
+    } catch (error) {
+      console.error('Failed to create reminder:', error);
+      Alert.alert('Error', 'Failed to create reminder. Please try again.');
     }
-    setModalVisible(false);
-    speakText(`Reminder "${title.trim()}" created successfully`);
   };
 
   const scheduleRecurringReminders = async (reminder: Reminder) => {
@@ -549,7 +572,7 @@ const ReminderScreen: React.FC = () => {
   };
 
   // ADDED: Handle natural language reminder creation
-  const handleNaturalLanguageReminder = (transcript: string) => {
+  const handleNaturalLanguageReminder = async (transcript: string) => {
     try {
       console.log('📝 Parsing natural language:', transcript);
       
@@ -566,15 +589,34 @@ const ReminderScreen: React.FC = () => {
         speakText(`I extracted "${parsed.title}" but couldn't understand the time. Try saying the time more clearly.`);
         return;
       }
+
+      // Ensure datetime is valid
+      const reminderDatetime = parsed.datetime || new Date(Date.now() + 60 * 60 * 1000);
+      if (isNaN(reminderDatetime.getTime()) || reminderDatetime.getTime() <= Date.now()) {
+        speakText("The date or time seems invalid. Please try again with a future time.");
+        return;
+      }
+
+      // Get current user ID
+      const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
       
-      // Create the reminder directly from parsed data
-      const newReminder: Reminder = {
-        id: `rem_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // Call backend API to create reminder
+      const backendReminder = await apiService.createReminder(currentUserId, {
         title: parsed.title,
         description: parsed.description,
-        datetime: parsed.datetime || new Date(Date.now() + 60 * 60 * 1000), // Default 1 hour from now
-        isCompleted: false,
-        createdAt: new Date(),
+        reminder_datetime: reminderDatetime.toISOString(),
+        frequency: 'once',
+        priority: parsed.priority || 'medium',
+      });
+      
+      // Create local reminder with backend data
+      const newReminder: Reminder = {
+        id: backendReminder.reminder_id.toString(),
+        title: backendReminder.title,
+        description: backendReminder.description,
+        datetime: new Date(backendReminder.reminder_datetime),
+        isCompleted: backendReminder.is_completed,
+        createdAt: backendReminder.created_at ? new Date(backendReminder.created_at) : new Date(),
         category: parsed.category || 'personal',
         priority: parsed.priority || 'medium',
         recurrence: 'once',
@@ -585,7 +627,7 @@ const ReminderScreen: React.FC = () => {
       setReminders(prev => [...prev, newReminder]);
       
       // Schedule native notification
-      scheduleNative(newReminder);
+      await scheduleNative(newReminder);
       
       // Announce success with details
       const description = describeReminder(parsed);
@@ -963,8 +1005,14 @@ const ReminderScreen: React.FC = () => {
                       value={date}
                       mode="datetime"
                       display="spinner"
-                      onChange={(_: any, selected?: Date) => {
-                        if (selected) setDate(selected);
+                      onChange={(event: any, selectedDate?: Date) => {
+                        try {
+                          if (selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime())) {
+                            setDate(selectedDate);
+                          }
+                        } catch (error) {
+                          console.error('DatePicker error:', error);
+                        }
                       }}
                       minimumDate={new Date()}
                       textColor={theme.textPrimary}
@@ -983,10 +1031,17 @@ const ReminderScreen: React.FC = () => {
                           value={date}
                           mode="datetime"
                           display="default"
-                          onChange={(event: any, selected?: Date) => {
-                            setShowPicker(false);
-                            if (event?.type === 'dismissed') return;
-                            if (selected) setDate(selected);
+                          onChange={(event: any, selectedDate?: Date) => {
+                            try {
+                              setShowPicker(false);
+                              // Only update if a valid date was provided
+                              if (selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime())) {
+                                setDate(selectedDate);
+                              }
+                            } catch (error) {
+                              console.error('DatePicker error:', error);
+                              setShowPicker(false);
+                            }
                           }}
                           minimumDate={new Date()}
                         />

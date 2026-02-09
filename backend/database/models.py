@@ -16,7 +16,7 @@ class User(Base):
     __tablename__ = "users"
     
     # Primary key
-    user_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     
     # Login information
     email = Column(String(100), unique=True, index=True, nullable=False)
@@ -56,8 +56,8 @@ class Task(Base):
     """Task model for managing user tasks and activities."""
     __tablename__ = "tasks"
     
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(Text)
     priority = Column(String(20), default="medium")  # low, medium, high, urgent
@@ -81,10 +81,10 @@ class Reminder(Base):
     __tablename__ = "reminders"
     
     # Primary key
-    reminder_id = Column(Integer, primary_key=True, index=True)
+    reminder_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     
     # Foreign key to User
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     
     # Reminder details
     title = Column(String(200), nullable=False)
@@ -109,8 +109,8 @@ class AccessibilityLog(Base):
     """Log model for tracking accessibility feature usage and user behavior."""
     __tablename__ = "accessibility_logs"
     
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     feature_used = Column(String(50), nullable=False)  # tts, voice_nav, high_contrast, etc.
     action = Column(String(100), nullable=False)  # specific action taken
     timestamp = Column(DateTime, default=datetime.utcnow)
@@ -126,11 +126,11 @@ class Notification(Base):
     __tablename__ = "notifications"
     
     # Primary key
-    notification_id = Column(Integer, primary_key=True, index=True)
+    notification_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     
     # Foreign keys
-    reminder_id = Column(Integer, ForeignKey("reminders.reminder_id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    reminder_id = Column(Integer, ForeignKey("reminders.reminder_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     
     # Notification details
     notification_type = Column(String(50), nullable=False)  # SMS, email, voice, push
@@ -154,10 +154,10 @@ class TTSHistory(Base):
     __tablename__ = "tts_history"
     
     # Primary key
-    tts_id = Column(Integer, primary_key=True, index=True)
+    tts_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     
     # Foreign key to User
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     
     # TTS details
     content = Column(Text, nullable=False)  # The text spoken
@@ -179,10 +179,10 @@ class UserSettings(Base):
     __tablename__ = "user_settings"
     
     # Primary key
-    setting_id = Column(Integer, primary_key=True, index=True)
+    setting_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     
     # Foreign key to User
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     
     # Setting details
     setting_name = Column(String(100), nullable=False)  # e.g., "notification_sound", "dark_mode"
@@ -198,10 +198,10 @@ class DeviceSync(Base):
     __tablename__ = "device_sync"
     
     # Primary key
-    sync_id = Column(Integer, primary_key=True, index=True)
+    sync_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     
     # Foreign key to User
-    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     
     # Device and sync details
     device_identifier = Column(String(100), nullable=False)  # Unique device identifier
@@ -224,7 +224,7 @@ class MLModel(Base):
     """Model for storing ML model information and user learning data."""
     __tablename__ = "ml_models"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     model_name = Column(String(100), nullable=False)
     model_type = Column(String(50), nullable=False)  # reminder_priority, task_suggestion, etc.
     version = Column(String(20), default="1.0")

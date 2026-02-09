@@ -8,11 +8,37 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
+from pydantic import BaseModel, EmailStr
 import uvicorn
+import hashlib
 
 from database import get_db, create_tables
 from database.models import User, Task, Reminder, Notification, TTSHistory, UserSettings, DeviceSync
 from database.seed_data import seed_database
+
+# Pydantic models for request/response validation
+class UserRegistration(BaseModel):
+    email: EmailStr
+    pin: str
+    name: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    pin: str
+
+class UserResponse(BaseModel):
+    user_id: int
+    email: str
+    name: str
+    first_name: str
+    last_name: str
+    accessibility_preferences: dict
+    timezone: str
+    is_active: bool
+    created_at: Optional[str]
+
+    class Config:
+        from_attributes = True
 
 # Create FastAPI app
 app = FastAPI(
@@ -42,6 +68,106 @@ async def startup_event():
 async def root():
     """Health check endpoint."""
     return {"message": "AccessAid API is running!", "status": "healthy"}
+
+# Helper function to hash PIN
+def hash_pin(pin: str) -> str:
+    """Hash a PIN using SHA-256."""
+    return hashlib.sha256(pin.encode()).hexdigest()
+
+# Authentication endpoints
+@app.post("/api/auth/register", response_model=UserResponse)
+async def register_user(user_data: UserRegistration, db: Session = Depends(get_db)):
+    """Register a new user."""
+    # Check if email already exists
+    existing_user = db.query(User).filter(User.email == user_data.email.lower()).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    # Validate PIN format (4 digits)
+    if not user_data.pin.isdigit() or len(user_data.pin) != 4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PIN must be exactly 4 digits"
+        )
+    
+    # Split name into first and last name
+    name_parts = user_data.name.strip().split(maxsplit=1)
+    first_name = name_parts[0]
+    last_name = name_parts[1] if len(name_parts) > 1 else ""
+    
+    # Create new user with hashed PIN
+    new_user = User(
+        email=user_data.email.lower(),
+        password_hash=hash_pin(user_data.pin),
+        first_name=first_name,
+        last_name=last_name,
+        accessibility_preferences={
+            "voice_speed": 1.0,
+            "high_contrast": False,
+            "large_text": False,
+            "voice_navigation": True,
+            "reminder_frequency": "normal",
+            "preferred_voice": "default"
+        },
+        timezone="UTC",
+        is_active=True
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    return UserResponse(
+        user_id=new_user.user_id,
+        email=new_user.email,
+        name=f"{new_user.first_name} {new_user.last_name}".strip(),
+        first_name=new_user.first_name,
+        last_name=new_user.last_name,
+        accessibility_preferences=new_user.accessibility_preferences,
+        timezone=new_user.timezone,
+        is_active=new_user.is_active,
+        created_at=new_user.created_at.isoformat() if new_user.created_at else None
+    )
+
+@app.post("/api/auth/login", response_model=UserResponse)
+async def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
+    """Login a user with email and PIN."""
+    # Find user by email
+    user = db.query(User).filter(User.email == login_data.email.lower()).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or PIN"
+        )
+    
+    # Verify PIN
+    if user.password_hash != hash_pin(login_data.pin):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or PIN"
+        )
+    
+    # Check if user is active
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is inactive"
+        )
+    
+    return UserResponse(
+        user_id=user.user_id,
+        email=user.email,
+        name=f"{user.first_name} {user.last_name}".strip(),
+        first_name=user.first_name,
+        last_name=user.last_name,
+        accessibility_preferences=user.accessibility_preferences,
+        timezone=user.timezone,
+        is_active=user.is_active,
+        created_at=user.created_at.isoformat() if user.created_at else None
+    )
 
 # User endpoints
 @app.get("/api/users", response_model=List[dict])
@@ -143,6 +269,7 @@ async def create_reminder(
         "priority": reminder.priority,
         "is_active": reminder.is_active,
         "is_completed": reminder.is_completed,
+        "created_at": reminder.created_at.isoformat() if reminder.created_at else None,
     }
 
 @app.put("/api/reminders/{reminder_id}", response_model=dict)

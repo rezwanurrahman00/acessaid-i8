@@ -2,6 +2,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { apiService, Reminder } from "@/services/api";
 import { speakIfEnabled } from "@/services/ttsService";
+import { useApp } from "@/src/contexts/AppContext";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -41,9 +42,12 @@ const SPOKEN_NUMBERS: Record<string, string> = {
 };
 
 export default function RemindersScreen() {
+  const { state } = useApp();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUserId] = useState(1);
+  
+  // Get current user ID from logged-in user
+  const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
 
   const [newReminder, setNewReminder] = useState({
     title: "",
@@ -149,29 +153,28 @@ export default function RemindersScreen() {
     const [h, m] = time.split(":");
     today.setHours(parseInt(h), parseInt(m), 0, 0);
 
-    const reminder: Reminder = {
-      reminder_id: Math.floor(Math.random() * 10000),
-      title,
-      description,
-      reminder_datetime: today.toISOString(),
-      frequency: "once",
-      priority: "medium",
-      is_active: true,
-      is_completed: false,
-      created_at: new Date().toISOString(),
-    };
-
     try {
-      await apiService.updateReminder(reminder.reminder_id, reminder);
-    } catch {}
+      // Call backend API to create reminder
+      const reminder = await apiService.createReminder(currentUserId, {
+        title,
+        description,
+        reminder_datetime: today.toISOString(),
+        frequency: "once",
+        priority: "medium",
+      });
 
-    setReminders((prev) => [...prev, reminder]);
+      // Add to local state
+      setReminders((prev) => [...prev, reminder]);
 
-    if (options?.closeForm ?? true) {
-      setIsAddingReminder(false);
+      if (options?.closeForm ?? true) {
+        setIsAddingReminder(false);
+      }
+
+      speakIfEnabled(`Reminder added: ${title} at ${time}`);
+    } catch (error) {
+      console.error('Failed to create reminder:', error);
+      Alert.alert('Error', 'Failed to create reminder. Please try again.');
     }
-
-    speakIfEnabled(`Reminder added: ${title} at ${time}`);
   };
 
   const addReminder = async () => {
