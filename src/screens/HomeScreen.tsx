@@ -70,6 +70,7 @@ const HomeScreen = () => {
     voiceManager.removeCommand(['read text', 'speak text', 'read aloud']);
     voiceManager.removeCommand(['go to profile', 'profile', 'settings']);
     voiceManager.removeCommand(['go to reminders', 'reminders', 'show reminders']);
+    voiceManager.removeCommand(['add reminder', 'create reminder', 'set reminder', 'remind me to', 'new reminder']);
     voiceManager.removeCommand(['help', 'commands', 'what can I say']);
     voiceManager.removeCommand(['enable voice', 'voice on', 'start voice']);
     voiceManager.removeCommand(['disable voice', 'voice off', 'stop voice']);
@@ -110,10 +111,21 @@ const HomeScreen = () => {
     });
 
     voiceManager.addCommand({
+      keywords: ['add reminder', 'create reminder', 'set reminder', 'remind me to', 'new reminder'],
+      action: () => {
+        setIsListening(false);
+        navigation.navigate('Reminders');
+        speakText('Opening reminders to add a new one. You can say the reminder details naturally.');
+      },
+      description: 'Create a new reminder',
+      category: 'reminder'
+    });
+
+    voiceManager.addCommand({
       keywords: ['help', 'commands', 'what can I say'],
       action: () => {
         setIsListening(false);
-        speakText('You can say: Read text, Go to reminders, Go to profile, or Help');
+        speakText('You can say: Read text, Add reminder, Go to reminders, Go to profile, or Help');
       },
       description: 'Show available voice commands',
       category: 'general'
@@ -146,6 +158,7 @@ const HomeScreen = () => {
       voiceManager.removeCommand(['read text', 'speak text', 'read aloud']);
       voiceManager.removeCommand(['go to profile', 'profile', 'settings']);
       voiceManager.removeCommand(['go to reminders', 'reminders', 'show reminders']);
+      voiceManager.removeCommand(['add reminder', 'create reminder', 'set reminder', 'remind me to', 'new reminder']);
       voiceManager.removeCommand(['help', 'commands', 'what can I say']);
       voiceManager.removeCommand(['enable voice', 'voice on', 'start voice']);
       voiceManager.removeCommand(['disable voice', 'voice off', 'stop voice']);

@@ -123,6 +123,7 @@ const ReminderScreen: React.FC = () => {
     // Clear previous reminder commands
     voiceManager.removeCommand(['set reminder', 'remind me to', 'create reminder']);
     voiceManager.removeCommand(['show reminders', 'list reminders', 'view reminders']);
+    voiceManager.removeCommand(['read reminders', 'read my reminders', 'what reminders do i have']);
     voiceManager.removeCommand(['reminder help', 'help with reminders']);
 
     // NLP-POWERED VOICE COMMAND - Supports natural language
@@ -154,6 +155,41 @@ const ReminderScreen: React.FC = () => {
       category: 'reminder'
     });
 
+    // Read reminders with details
+    voiceManager.addCommand({
+      keywords: ['read reminders', 'read my reminders', 'what reminders do i have'],
+      action: () => {
+        const activeReminders = reminders.filter(r => !r.isCompleted);
+        
+        if (activeReminders.length === 0) {
+          speakText('You have no active reminders');
+          return;
+        }
+
+        // Build the announcement
+        let announcement = `You have ${activeReminders.length} active reminder${activeReminders.length > 1 ? 's' : ''}. `;
+        
+        activeReminders.forEach((reminder, index) => {
+          const time = reminder.datetime.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            hour12: true 
+          });
+          const date = reminder.datetime.toLocaleDateString('en-US', { 
+            weekday: 'long',
+            month: 'long', 
+            day: 'numeric' 
+          });
+          
+          announcement += `${index + 1}. ${reminder.title} at ${time} on ${date}. `;
+        });
+
+        speakText(announcement);
+      },
+      description: 'Read all active reminders with times',
+      category: 'reminder'
+    });
+
     // Help command
     voiceManager.addCommand({
       keywords: ['reminder help', 'help with reminders', 'how to create reminder'],
@@ -168,6 +204,7 @@ const ReminderScreen: React.FC = () => {
     return () => {
       voiceManager.removeCommand(['set reminder', 'remind me to', 'create reminder']);
       voiceManager.removeCommand(['show reminders', 'list reminders', 'view reminders']);
+      voiceManager.removeCommand(['read reminders', 'read my reminders', 'what reminders do i have']);
       voiceManager.removeCommand(['reminder help', 'help with reminders']);
     };
   }, [reminders]);

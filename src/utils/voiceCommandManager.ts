@@ -238,7 +238,7 @@ export class VoiceCommandManager {
       if (this.recognizing) {
         
         if (Platform.OS !== 'web') {
-          ExpoSpeechRecognitionModule.stop();
+          ExpoSpeechRecognitionModule?.stop();
         } else if (this.recognition) {
           this.recognition.stop();
         }
@@ -286,5 +286,16 @@ export class VoiceCommandManager {
   }
 }
 
-// Global voice command manager
-export const voiceManager = new VoiceCommandManager();
+// Create singleton instance
+let voiceManagerInstance: VoiceCommandManager | null = null;
+
+// Factory function to get the voice manager instance
+export function getVoiceManager(): VoiceCommandManager {
+  if (!voiceManagerInstance) {
+    voiceManagerInstance = new VoiceCommandManager();
+  }
+  return voiceManagerInstance;
+}
+
+// Global voice command manager - use factory for safer initialization
+export const voiceManager = getVoiceManager();
