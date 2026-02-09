@@ -257,6 +257,9 @@ export const REMINDER_EXAMPLES = [
   "Set work reminder project deadline Friday at 3 pm",
   "Remind me to take medicine at 8 pm",
   "Create shopping reminder groceries tomorrow",
+  "Set reminder for doctor appointment Feb 15 at 10 am",
+  "Remind me to pay bills day after tomorrow at 3 pm",
+  "Create reminder workout March 10 at 6 am",
 ];
 
 /**
@@ -269,8 +272,16 @@ export function getReminderHelpText(): string {
 • "Remind me to [task] [when]"
 • "Create [priority] reminder [task] [when]"
 
-Examples:
+Time examples:
+• "at 5 pm" or "at 3:30 pm"
+• "today", "tomorrow", "day after tomorrow"
+• "next Monday" or any day of the week
+• "Feb 8", "March 15", "December 25"
+• "in 2 hours" or "in 30 minutes"
+
+Full examples:
 • "Set reminder for food at 5 pm"
-• "Remind me to buy milk tomorrow"
-• "Create urgent reminder meeting in 2 hours"`;
+• "Remind me to buy milk tomorrow at 9 am"
+• "Create reminder for doctor Feb 15 at 10 am"
+• "Set reminder workout day after tomorrow at 6 am"`;
 }

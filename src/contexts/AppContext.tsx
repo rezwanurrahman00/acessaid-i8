@@ -233,7 +233,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync voice announcements setting with voiceManager
   useEffect(() => {
-    voiceManager.setVoiceAnnouncementsEnabled(state.voiceAnnouncementsEnabled);
+    // Add null check to prevent crash if voiceManager is not initialized
+    if (voiceManager && typeof voiceManager.setVoiceAnnouncementsEnabled === 'function') {
+      voiceManager.setVoiceAnnouncementsEnabled(state.voiceAnnouncementsEnabled);
+    }
   }, [state.voiceAnnouncementsEnabled]);
 
   return (

@@ -36,14 +36,16 @@ export function parseDateTime(text: string, referenceDate: Date = new Date()): P
 
 /**
  * Parse specific date + time combinations
- * Examples: "tomorrow at 9 am", "next Monday at 3 pm", "Jan 15 at 2:30 pm"
+ * Examples: "tomorrow at 9 am", "next Monday at 3 pm", "Feb 8 at 2:30 pm", "day after tomorrow at 5 pm"
  */
 function parseSpecificDateTime(text: string, referenceDate: Date): ParsedDateTime | null {
   // Pattern: [date phrase] at [time]
   const patterns = [
     /(?:tomorrow|tmrw)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+    /(?:day after tomorrow|overmorrow)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
     /(?:today)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
     /(?:next\s+)?(?:monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+    /(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
   ];
 
   for (const pattern of patterns) {
@@ -53,10 +55,19 @@ function parseSpecificDateTime(text: string, referenceDate: Date): ParsedDateTim
       const dateResult = parseDateOnly(text, referenceDate);
       if (!dateResult) continue;
 
-      // Extract time part
-      const hour = parseInt(match[1]);
-      const minute = match[2] ? parseInt(match[2]) : 0;
-      const isPM = match[3]?.toLowerCase() === 'pm';
+      // For month-day patterns, extract time from different positions
+      let hour, minute, isPM;
+      if (match[0].match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i)) {
+        // Month-day pattern: match groups are [fullMatch, month, day, hour, minute?, ampm]
+        hour = parseInt(match[3]);
+        minute = match[4] ? parseInt(match[4]) : 0;
+        isPM = match[5]?.toLowerCase() === 'pm';
+      } else {
+        // Other patterns: match groups are [fullMatch, hour, minute?, ampm]
+        hour = parseInt(match[1]);
+        minute = match[2] ? parseInt(match[2]) : 0;
+        isPM = match[3]?.toLowerCase() === 'pm';
+      }
       
       const finalHour = isPM && hour !== 12 ? hour + 12 : (!isPM && hour === 12 ? 0 : hour);
       
@@ -150,7 +161,7 @@ function parseTimeOnly(text: string, referenceDate: Date): ParsedDateTime | null
 
 /**
  * Parse date-only phrases (assumes 9 AM default time)
- * Examples: "tomorrow", "next Monday", "next week"
+ * Examples: "tomorrow", "next Monday", "next week", "day after tomorrow", "Feb 8", "February 29"
  */
 function parseDateOnly(text: string, referenceDate: Date): ParsedDateTime | null {
   const resultDate = new Date(referenceDate);
@@ -174,6 +185,16 @@ function parseDateOnly(text: string, referenceDate: Date): ParsedDateTime | null
       matched: 'tomorrow'
     };
   }
+
+  // Day after tomorrow
+  if (/\b(?:day after tomorrow|overmorrow)\b/i.test(text)) {
+    resultDate.setDate(resultDate.getDate() + 2);
+    return {
+      date: resultDate,
+      confidence: 0.9,
+      matched: 'day after tomorrow'
+    };
+  }
   
   // Next week
   if (/\bnext\s+week\b/i.test(text)) {
@@ -183,6 +204,32 @@ function parseDateOnly(text: string, referenceDate: Date): ParsedDateTime | null
       confidence: 0.75,
       matched: 'next week'
     };
+  }
+
+  // Specific month and day (e.g., "Feb 8", "February 29", "March 15")
+  const monthDayMatch = text.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})\b/i);
+  if (monthDayMatch) {
+    const monthName = monthDayMatch[1].toLowerCase();
+    const day = parseInt(monthDayMatch[2]);
+    const month = getMonthNumber(monthName);
+    
+    if (month !== -1 && day >= 1 && day <= 31) {
+      const targetDate = new Date(referenceDate);
+      targetDate.setMonth(month);
+      targetDate.setDate(day);
+      targetDate.setHours(9, 0, 0, 0);
+      
+      // If the date has already passed this year, set it for next year
+      if (targetDate < referenceDate) {
+        targetDate.setFullYear(targetDate.getFullYear() + 1);
+      }
+      
+      return {
+        date: targetDate,
+        confidence: 0.9,
+        matched: monthDayMatch[0]
+      };
+    }
   }
   
   // Day of week
@@ -209,6 +256,28 @@ function parseDateOnly(text: string, referenceDate: Date): ParsedDateTime | null
   }
   
   return null;
+}
+
+/**
+ * Convert month name to number (0-11)
+ */
+function getMonthNumber(monthName: string): number {
+  const months: { [key: string]: number } = {
+    'jan': 0, 'january': 0,
+    'feb': 1, 'february': 1,
+    'mar': 2, 'march': 2,
+    'apr': 3, 'april': 3,
+    'may': 4,
+    'jun': 5, 'june': 5,
+    'jul': 6, 'july': 6,
+    'aug': 7, 'august': 7,
+    'sep': 8, 'september': 8,
+    'oct': 9, 'october': 9,
+    'nov': 10, 'november': 10,
+    'dec': 11, 'december': 11,
+  };
+  
+  return months[monthName.toLowerCase()] ?? -1;
 }
 
 /**
