@@ -20,6 +20,10 @@ import {
 import { AppTheme, getThemeConfig } from '../../constants/theme';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import { useApp } from '../contexts/AppContext';
+import { voiceManager } from '../utils/voiceCommandManager'; // ADDED: Import voice manager
+// ADDED: NLP imports for natural language reminder creation
+import { describeReminder, getReminderHelpText, isValidParsedReminder, parseReminderFromSpeech } from '../utils/nlpParser';
+
 // BlurView fallback for environments without expo-blur
 const BlurViewComponent: any = (() => {
   try {
@@ -36,6 +40,15 @@ try {
 } catch {
   Clipboard = { setStringAsync: async (_: string) => {} };
 }
+
+// ADDED: Conditional import for voice input
+let ExpoSpeechRecognitionModule: any = null;
+try {
+  ExpoSpeechRecognitionModule = require('expo-speech-recognition').ExpoSpeechRecognitionModule;
+} catch (e) {
+  console.log('⚠️ Voice input not available (Expo Go). Use development build for voice features.');
+}
+
 type ReminderCategory = 'personal' | 'work' | 'health' | 'finance' | 'shopping' | 'other';
 type ReminderPriority = 'low' | 'medium' | 'high';
 type ReminderRecurrence = 'once' | 'daily' | 'weekly' | 'monthly';
@@ -70,6 +83,7 @@ const ReminderScreen: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState<ReminderCategory | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [fadeIn] = useState(new Animated.Value(0));
   const [slideUp] = useState(new Animated.Value(40));
   const intervalRef = useRef<any>(null);
@@ -79,6 +93,10 @@ const ReminderScreen: React.FC = () => {
   const speakIntervalRef = useRef<any>(null);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [sendingTest, setSendingTest] = useState(false);
+
+  // ADDED: Voice input states
+  const [isVoiceInputMode, setIsVoiceInputMode] = useState(false);
+  const [voiceField, setVoiceField] = useState<'title' | 'description' | null>(null);
 
   // Optional import of DateTimePicker; fallback on web
   const DateTimePicker: any = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
@@ -100,6 +118,97 @@ const ReminderScreen: React.FC = () => {
     } catch {}
   };
 
+  // ADDED: Voice command registration with NLP support
+  useEffect(() => {
+    // Clear previous reminder commands
+    voiceManager.removeCommand(['set reminder', 'remind me to', 'create reminder']);
+    voiceManager.removeCommand(['show reminders', 'list reminders', 'view reminders']);
+    voiceManager.removeCommand(['read reminders', 'read my reminders', 'what reminders do i have']);
+    voiceManager.removeCommand(['reminder help', 'help with reminders']);
+
+    // NLP-POWERED VOICE COMMAND - Supports natural language
+    voiceManager.addCommand({
+      keywords: ['set reminder', 'remind me to', 'create reminder', 'add reminder', 'make reminder'],
+      action: (fullTranscript) => {
+        if (fullTranscript) {
+          console.log('🎯 Processing natural language reminder:', fullTranscript);
+          handleNaturalLanguageReminder(fullTranscript);
+        } else {
+          // Fallback: just open modal
+          speakText('Opening reminder creation');
+          openModal();
+        }
+      },
+      description: 'Create reminder from natural language',
+      category: 'reminder',
+      captureFullTranscript: true // IMPORTANT: Capture full transcript for NLP
+    });
+
+    // Show reminders count
+    voiceManager.addCommand({
+      keywords: ['show reminders', 'list reminders', 'view reminders', 'my reminders'],
+      action: () => {
+        const activeCount = reminders.filter(r => !r.isCompleted).length;
+        speakText(`You have ${activeCount} active reminders out of ${reminders.length} total`);
+      },
+      description: 'Announce reminder count',
+      category: 'reminder'
+    });
+
+    // Read reminders with details
+    voiceManager.addCommand({
+      keywords: ['read reminders', 'read my reminders', 'what reminders do i have'],
+      action: () => {
+        const activeReminders = reminders.filter(r => !r.isCompleted);
+        
+        if (activeReminders.length === 0) {
+          speakText('You have no active reminders');
+          return;
+        }
+
+        // Build the announcement
+        let announcement = `You have ${activeReminders.length} active reminder${activeReminders.length > 1 ? 's' : ''}. `;
+        
+        activeReminders.forEach((reminder, index) => {
+          const time = reminder.datetime.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            hour12: true 
+          });
+          const date = reminder.datetime.toLocaleDateString('en-US', { 
+            weekday: 'long',
+            month: 'long', 
+            day: 'numeric' 
+          });
+          
+          announcement += `${index + 1}. ${reminder.title} at ${time} on ${date}. `;
+        });
+
+        speakText(announcement);
+      },
+      description: 'Read all active reminders with times',
+      category: 'reminder'
+    });
+
+    // Help command
+    voiceManager.addCommand({
+      keywords: ['reminder help', 'help with reminders', 'how to create reminder'],
+      action: () => {
+        speakText(getReminderHelpText());
+      },
+      description: 'Get help with voice commands',
+      category: 'reminder'
+    });
+
+    // Cleanup on unmount
+    return () => {
+      voiceManager.removeCommand(['set reminder', 'remind me to', 'create reminder']);
+      voiceManager.removeCommand(['show reminders', 'list reminders', 'view reminders']);
+      voiceManager.removeCommand(['read reminders', 'read my reminders', 'what reminders do i have']);
+      voiceManager.removeCommand(['reminder help', 'help with reminders']);
+    };
+  }, [reminders]);
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeIn, { toValue: 1, duration: 450, useNativeDriver: true }),
@@ -108,7 +217,8 @@ const ReminderScreen: React.FC = () => {
      // Announce screen load
     setTimeout(() => {
       if (state.voiceAnnouncementsEnabled) {
-        speakText('You are on the Reminders page. Here you can create, view, and manage your reminders.');
+        voiceManager.announceScreenChange('reminders');
+        speakText('You are on the Reminders page. You can say things like: Set reminder for food at 5 pm, or just say "create reminder" to add manually.');
       }
     }, 500);
   }, []);
@@ -135,7 +245,7 @@ const ReminderScreen: React.FC = () => {
   }, [state.user?.id]);
 
   useEffect(() => {
-    const key = storageKey(state.user?.id);
+    const key = storageKey(state.user?.id);    
     AsyncStorage.setItem(
       key,
       JSON.stringify(reminders.map(r => ({ ...r, datetime: r.datetime.toISOString(), createdAt: r.createdAt.toISOString() })))
@@ -313,6 +423,69 @@ const ReminderScreen: React.FC = () => {
     }
   };
 
+  // ADDED: Voice input handler for title and description
+  const handleVoiceInput = async (field: 'title' | 'description') => {
+    if (!ExpoSpeechRecognitionModule) {
+      Alert.alert(
+        'Feature Not Available',
+        'Voice input requires a development build. Please run:\n\nnpx expo run:android --device'
+      );
+      return;
+    }
+
+    try {
+      // Stop any ongoing TTS first
+      await Speech.stop();
+      
+      setVoiceField(field);
+      setIsVoiceInputMode(true);
+      
+      // Request permissions
+      const permissionResult = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Microphone permission is needed for voice input');
+        setIsVoiceInputMode(false);
+        return;
+      }
+
+      speakText(`Speak ${field} now`);
+
+      // Set up one-time listener for the result
+      const resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
+        const transcript = event.results?.[0]?.transcript;
+        const isFinal = event.isFinal;
+        
+        if (transcript && isFinal) {
+          if (field === 'title') {
+            setTitle(transcript);
+          } else {
+            setDescription(transcript);
+          }
+          speakText(`${field} set to: ${transcript}`);
+          setIsVoiceInputMode(false);
+          setVoiceField(null);
+          
+          // Remove the listener
+          resultListener.remove();
+        }
+      });
+
+      // Start recognition
+      await ExpoSpeechRecognitionModule.start({
+        lang: 'en-US',
+        interimResults: false,
+        maxAlternatives: 1,
+        continuous: false,
+      });
+
+    } catch (error) {
+      console.error('Voice input error:', error);
+      Alert.alert('Voice Error', 'Could not process voice input');
+      setIsVoiceInputMode(false);
+      setVoiceField(null);
+    }
+  };
+
   const saveReminder = async () => {
     if (!title.trim()) {
       Alert.alert('Missing title', 'Please enter a reminder title.');
@@ -372,6 +545,57 @@ const ReminderScreen: React.FC = () => {
           trigger: ({ date: nextDate } as unknown) as Notifications.NotificationTriggerInput,
         });
       }
+    }
+  };
+
+  // ADDED: Handle natural language reminder creation
+  const handleNaturalLanguageReminder = (transcript: string) => {
+    try {
+      console.log('📝 Parsing natural language:', transcript);
+      
+      // Parse the transcript using NLP
+      const parsed = parseReminderFromSpeech(transcript);
+      
+      if (!parsed) {
+        speakText("I couldn't understand that. Try saying: Set reminder for task at time");
+        return;
+      }
+      
+      // Validate the parsed reminder
+      if (!isValidParsedReminder(parsed)) {
+        speakText(`I extracted "${parsed.title}" but couldn't understand the time. Try saying the time more clearly.`);
+        return;
+      }
+      
+      // Create the reminder directly from parsed data
+      const newReminder: Reminder = {
+        id: `rem_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        title: parsed.title,
+        description: parsed.description,
+        datetime: parsed.datetime || new Date(Date.now() + 60 * 60 * 1000), // Default 1 hour from now
+        isCompleted: false,
+        createdAt: new Date(),
+        category: parsed.category || 'personal',
+        priority: parsed.priority || 'medium',
+        recurrence: 'once',
+        hasFired: false,
+      };
+      
+      // Add to reminders list
+      setReminders(prev => [...prev, newReminder]);
+      
+      // Schedule native notification
+      scheduleNative(newReminder);
+      
+      // Announce success with details
+      const description = describeReminder(parsed);
+      speakText(`Reminder created: ${description}`);
+      
+      console.log('✅ Natural language reminder created:', newReminder);
+      
+    } catch (error) {
+      console.error('❌ Error processing natural language reminder:', error);
+      speakText("Sorry, I had trouble creating that reminder. Please try again.");
     }
   };
 
@@ -597,7 +821,7 @@ const ReminderScreen: React.FC = () => {
             <Text style={styles.emptyText}>
               {searchQuery || filterCategory !== 'all' || filterStatus !== 'all' 
                 ? 'No reminders match your filters' 
-                : 'No reminders yet. Tap + to add one.'}
+                : 'No reminders yet. Say "Set reminder for [task] at [time]" or tap + to add manually.'}
             </Text>
           </View>
         }
@@ -615,26 +839,52 @@ const ReminderScreen: React.FC = () => {
               <Text style={styles.sheetTitle}>⏰ Create Reminder</Text>
               
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '80%' }}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Reminder Title *"
-                  placeholderTextColor={theme.placeholder}
-                  value={title}
-                  onChangeText={setTitle}
-                  returnKeyType="done"
-                />
+                {/* ADDED: Title with Voice Input */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Reminder Title *"
+                    placeholderTextColor={theme.placeholder}
+                    value={title}
+                    onChangeText={setTitle}
+                    returnKeyType="done"
+                  />
+                  <TouchableOpacity 
+                    style={styles.voiceButton}
+                    onPress={() => handleVoiceInput('title')}
+                    disabled={isVoiceInputMode}
+                  >
+                    <Ionicons 
+                      name={isVoiceInputMode && voiceField === 'title' ? 'mic' : 'mic-outline'} 
+                      size={24} 
+                      color={isVoiceInputMode && voiceField === 'title' ? theme.accent : theme.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
                 
-                
-              
-              <TextInput
-                style={[styles.input, { marginTop: 8, minHeight: 60 }]}
-                placeholder="Description (optional)"
-                placeholderTextColor={theme.placeholder}
-                value={description}
-                onChangeText={setDescription}
-                multiline
-                numberOfLines={3}
-              />
+                {/* ADDED: Description with Voice Input */}
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 8 }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, minHeight: 60 }]}
+                    placeholder="Description (optional)"
+                    placeholderTextColor={theme.placeholder}
+                    value={description}
+                    onChangeText={setDescription}
+                    multiline
+                    numberOfLines={3}
+                  />
+                  <TouchableOpacity 
+                    style={styles.voiceButton}
+                    onPress={() => handleVoiceInput('description')}
+                    disabled={isVoiceInputMode}
+                  >
+                    <Ionicons 
+                      name={isVoiceInputMode && voiceField === 'description' ? 'mic' : 'mic-outline'} 
+                      size={24} 
+                      color={isVoiceInputMode && voiceField === 'description' ? theme.accent : theme.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
 
               {/* Category Selector */}
               <Text style={styles.sectionLabel}>Category</Text>
@@ -708,17 +958,41 @@ const ReminderScreen: React.FC = () => {
               <Text style={styles.sectionLabel}>Date & Time</Text>
               {DateTimePicker ? (
                 <View style={styles.datePickerContainer}>
-                  <DateTimePicker
-                    value={date}
-                    mode="datetime"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(_: any, selected?: Date) => {
-                      if (selected) setDate(selected);
-                    }}
-                    minimumDate={new Date()}
-                    textColor={theme.textPrimary}
-                    style={styles.datePicker}
-                  />
+                  {Platform.OS === 'ios' ? (
+                    <DateTimePicker
+                      value={date}
+                      mode="datetime"
+                      display="spinner"
+                      onChange={(_: any, selected?: Date) => {
+                        if (selected) setDate(selected);
+                      }}
+                      minimumDate={new Date()}
+                      textColor={theme.textPrimary}
+                      style={styles.datePicker}
+                    />
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => setShowPicker(true)}
+                      >
+                        <Text style={styles.actionButtonText}>Pick date & time</Text>
+                      </TouchableOpacity>
+                      {showPicker && (
+                        <DateTimePicker
+                          value={date}
+                          mode="datetime"
+                          display="default"
+                          onChange={(event: any, selected?: Date) => {
+                            setShowPicker(false);
+                            if (event?.type === 'dismissed') return;
+                            if (selected) setDate(selected);
+                          }}
+                          minimumDate={new Date()}
+                        />
+                      )}
+                    </>
+                  )}
                 </View>
               ) : (
                 <View style={{ marginTop: 8 }}>
@@ -1115,6 +1389,30 @@ const createStyles = (theme: AppTheme) =>
     recurrenceChipTextActive: {
       color: theme.textInverted,
       fontWeight: '600',
+    },
+
+    // ADDED: Voice button style
+    voiceButton: {
+      padding: 12,
+      backgroundColor: theme.inputBackground,
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.inputBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 12,
+    },
+
+    actionButton: {
+      backgroundColor: theme.accent,
+      paddingVertical: 12,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+    actionButtonText: {
+      color: theme.textInverted,
+      fontWeight: '600',
+      fontSize: 15,
     },
 
     previewBox: {

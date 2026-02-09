@@ -70,6 +70,7 @@ const HomeScreen = () => {
     voiceManager.removeCommand(['read text', 'speak text', 'read aloud']);
     voiceManager.removeCommand(['go to profile', 'profile', 'settings']);
     voiceManager.removeCommand(['go to reminders', 'reminders', 'show reminders']);
+    voiceManager.removeCommand(['add reminder', 'create reminder', 'set reminder', 'remind me to', 'new reminder']);
     voiceManager.removeCommand(['help', 'commands', 'what can I say']);
     voiceManager.removeCommand(['enable voice', 'voice on', 'start voice']);
     voiceManager.removeCommand(['disable voice', 'voice off', 'stop voice']);
@@ -110,10 +111,21 @@ const HomeScreen = () => {
     });
 
     voiceManager.addCommand({
+      keywords: ['add reminder', 'create reminder', 'set reminder', 'remind me to', 'new reminder'],
+      action: () => {
+        setIsListening(false);
+        navigation.navigate('Reminders');
+        speakText('Opening reminders to add a new one. You can say the reminder details naturally.');
+      },
+      description: 'Create a new reminder',
+      category: 'reminder'
+    });
+
+    voiceManager.addCommand({
       keywords: ['help', 'commands', 'what can I say'],
       action: () => {
         setIsListening(false);
-        speakText('You can say: Read text, Go to reminders, Go to profile, or Help');
+        speakText('You can say: Read text, Add reminder, Go to reminders, Go to profile, or Help');
       },
       description: 'Show available voice commands',
       category: 'general'
@@ -146,6 +158,7 @@ const HomeScreen = () => {
       voiceManager.removeCommand(['read text', 'speak text', 'read aloud']);
       voiceManager.removeCommand(['go to profile', 'profile', 'settings']);
       voiceManager.removeCommand(['go to reminders', 'reminders', 'show reminders']);
+      voiceManager.removeCommand(['add reminder', 'create reminder', 'set reminder', 'remind me to', 'new reminder']);
       voiceManager.removeCommand(['help', 'commands', 'what can I say']);
       voiceManager.removeCommand(['enable voice', 'voice on', 'start voice']);
       voiceManager.removeCommand(['disable voice', 'voice off', 'stop voice']);
@@ -254,13 +267,14 @@ const HomeScreen = () => {
    * Get OCR API key from various possible locations
    */
   const getOCRAPIKey = (): string => {
+    // Try multiple ways to access the API key (for different Expo versions)
     const manifestExtra = (Constants.manifest as { extra?: { OCR_SPACE_API_KEY?: string } } | null)?.extra;
     const manifest2Extra = (Constants.manifest2 as { extra?: { OCR_SPACE_API_KEY?: string } } | undefined)?.extra;
-    // Try multiple ways to access the API key (for different Expo versions)
+
     const key =
       Constants.expoConfig?.extra?.OCR_SPACE_API_KEY ||
-      manifestExtra?.OCR_SPACE_API_KEY ||
-      manifest2Extra?.OCR_SPACE_API_KEY ||
+       manifestExtra?.OCR_SPACE_API_KEY ||
+       manifest2Extra?.OCR_SPACE_API_KEY ||
       (process.env as any)?.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
       '';
 
@@ -382,7 +396,8 @@ const HomeScreen = () => {
 
       const { size } = info as FileSystemLegacy.FileInfo & { size?: number };
 
-      if (size && size > 1024 * 1024) {        throw new Error('File size exceeds 1 MB limit. Please choose a smaller file.');
+      if (size && size > 1024 * 1024) {
+        throw new Error('File size exceeds 1 MB limit. Please choose a smaller file.');
       }
 
       return await FileSystemLegacy.readAsStringAsync(uri, { encoding: 'base64' });
@@ -790,44 +805,52 @@ const HomeScreen = () => {
                 <Ionicons name="scan" size={18} color={theme.accent} />
               </View>
               <View style={styles.aiReaderHeaderText}>
-                <Text style={styles.sectionTitle}>AI Reader</Text>
+                <Text style={styles.sectionTitle}>Camera Reader</Text>
                 <Text style={styles.sectionDescription}>
-                  Extract and read text from images or documents.
+                  Capture, upload, or drop a file to extract text with better spacing and contrast.
                 </Text>
               </View>
             </View>
 
-             <View style={styles.aiReaderButtonsColumn}>
-              <ModernButton
-                title="Take Picture"
-                onPress={handleTakePicture}
-                variant="primary"
-                size="large"
-                disabled={isProcessing}
-                icon={<Ionicons name="camera" size={22} color="white" />}
-                style={styles.aiReaderFullButton}
-                accessibilityLabel="Take a picture to extract text"
-              />
-              <ModernButton
-                title="Upload Image"
-                onPress={handleUploadImage}
-                variant="primary"
-                size="large"
-                disabled={isProcessing}
-                icon={<Ionicons name="image" size={22} color="white" />}
-                style={styles.aiReaderFullButton}
-                accessibilityLabel="Upload an image to extract text"
-              />
-              <ModernButton
-                title="Upload File"
-                onPress={handleUploadFile}
-                variant="primary"
-                size="large"
-                disabled={isProcessing}
-                icon={<Ionicons name="document-text" size={22} color="white" />}
-                style={[styles.aiReaderFullButton, styles.aiReaderFullButtonLast]}
-                accessibilityLabel="Upload a file to extract text"
-              />
+            <View style={styles.aiReaderButtonsRow}>
+              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapTight]}>
+                <ModernButton
+                  title=" Take Picture"
+                  onPress={handleTakePicture}
+                  variant="primary"
+                  size="medium"
+                  disabled={isProcessing}
+                  icon={<Ionicons name="camera" size={20} color="white" />}
+                  style={styles.aiReaderButton}
+                  accessibilityLabel="Take a picture to extract text"
+                />
+              </View>
+
+              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapTight]}>
+                <ModernButton
+                  title=" Upload Image"
+                  onPress={handleUploadImage}
+                  variant="primary"
+                  size="medium"
+                  disabled={isProcessing}
+                  icon={<Ionicons name="image" size={20} color="white" />}
+                  style={styles.aiReaderButton}
+                  accessibilityLabel="Upload an image to extract text"
+                />
+              </View>
+
+              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapLast]}>
+                <ModernButton
+                  title=" Upload File"
+                  onPress={handleUploadFile}
+                  variant="primary"
+                  size="medium"
+                  disabled={isProcessing}
+                  icon={<Ionicons name="document-text" size={20} color="white" />}
+                  style={styles.aiReaderButton}
+                  accessibilityLabel="Upload a file to extract text"
+                />
+              </View>
             </View>
 
             {isProcessing && (
@@ -1173,22 +1196,24 @@ const createStyles = (theme: AppTheme) =>
       marginBottom: 0,
       lineHeight: 20,
     },
-    aiReaderButtonsColumn: {
-      flexDirection: 'column',
+    aiReaderButtonsRow: {
+      flexDirection: isSmallScreen ? 'column' : 'row',
       alignItems: 'stretch',
-       
+      marginBottom: 16,
     },
-    aiReaderFullButton: {
-      width: '100%',
-      borderRadius: 18,
-      paddingVertical: 6,
-      marginBottom: 12,
-      shadowOpacity: 0.12,
-      shadowRadius: 10,
+    aiReaderButtonWrap: {
+      flex: 1,
+      marginBottom: isSmallScreen ? 12 : 0,
     },
-     aiReaderFullButtonLast: {
+    aiReaderButtonWrapTight: {
+      marginRight: isSmallScreen ? 0 : 12,
+    },
+    aiReaderButtonWrapLast: {
+      marginRight: 0,
       marginBottom: 0,
-    
+    },
+    aiReaderButton: {
+      width: '100%',
     },
     processingContainer: {
       alignItems: 'center',

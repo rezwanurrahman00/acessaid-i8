@@ -145,8 +145,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const settingsData = await AsyncStorage.getItem('accessibilitySettings');
         const setupData = await AsyncStorage.getItem('hasCompletedSetup');
 
-        if (userData) {
-          dispatch({ type: 'LOGIN', payload: JSON.parse(userData) });
+        if (userData) {      
+         const parsedUser = JSON.parse(userData);
+         const userWithJoinDate = parsedUser.joinDate ? parsedUser : { ...parsedUser, joinDate: new Date().toISOString() };
+         dispatch({ type: 'LOGIN', payload: userWithJoinDate });
+
+         if (!parsedUser.joinDate) {
+            await AsyncStorage.setItem('user', JSON.stringify(userWithJoinDate));
+          }
         }
         if (settingsData) {
           dispatch({ type: 'UPDATE_ACCESSIBILITY_SETTINGS', payload: JSON.parse(settingsData) });
@@ -227,7 +233,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync voice announcements setting with voiceManager
   useEffect(() => {
-    voiceManager.setVoiceAnnouncementsEnabled(state.voiceAnnouncementsEnabled);
+    // Add null check to prevent crash if voiceManager is not initialized
+    if (voiceManager && typeof voiceManager.setVoiceAnnouncementsEnabled === 'function') {
+      voiceManager.setVoiceAnnouncementsEnabled(state.voiceAnnouncementsEnabled);
+    }
   }, [state.voiceAnnouncementsEnabled]);
 
   return (

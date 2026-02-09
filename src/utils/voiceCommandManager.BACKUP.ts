@@ -10,13 +10,11 @@ try {
   console.log('⚠️ Voice recognition not available (Expo Go). Use development build for voice features.');
 }
 
-// UPDATED: Voice command interface now supports full transcript
 export interface VoiceCommand {
   keywords: string[];
-  action: (fullTranscript?: string) => void; // CHANGED: Now receives full transcript
+  action: () => void;
   description: string;
   category: 'navigation' | 'accessibility' | 'reminder' | 'general';
-  captureFullTranscript?: boolean; // NEW: If true, passes full transcript to action
 }
 
 export class VoiceCommandManager {
@@ -49,7 +47,6 @@ export class VoiceCommandManager {
     );
   }
 
-  // UPDATED: Now passes full transcript to commands that need it
   processVoiceInput(input: string): boolean {
     const now = Date.now();
     if (now < this.cooldownUntil) {
@@ -65,14 +62,7 @@ export class VoiceCommandManager {
       
       if (hasKeyword) {
         console.log('✅ Executing command:', cmd.keywords[0]);
-        
-        // CHANGED: Pass full transcript if command wants it
-        if (cmd.captureFullTranscript) {
-          cmd.action(input); // Pass original input (not normalized)
-        } else {
-          cmd.action(); // Legacy behavior - no transcript
-        }
-        
+        cmd.action();
         this.cooldownUntil = Date.now() + this.cooldownMs;
         // Don't announce the command execution - let the action handle any speech
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -238,7 +228,7 @@ export class VoiceCommandManager {
       if (this.recognizing) {
         
         if (Platform.OS !== 'web') {
-          ExpoSpeechRecognitionModule?.stop();
+          ExpoSpeechRecognitionModule.stop();
         } else if (this.recognition) {
           this.recognition.stop();
         }
@@ -286,16 +276,5 @@ export class VoiceCommandManager {
   }
 }
 
-// Create singleton instance
-let voiceManagerInstance: VoiceCommandManager | null = null;
-
-// Factory function to get the voice manager instance
-export function getVoiceManager(): VoiceCommandManager {
-  if (!voiceManagerInstance) {
-    voiceManagerInstance = new VoiceCommandManager();
-  }
-  return voiceManagerInstance;
-}
-
-// Global voice command manager - use factory for safer initialization
-export const voiceManager = getVoiceManager();
+// Global voice command manager
+export const voiceManager = new VoiceCommandManager();
