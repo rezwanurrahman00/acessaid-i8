@@ -1,22 +1,34 @@
 """
 Database configuration and session management for AccessAid.
-This module handles SQLite database setup and session management.
+This module handles MySQL database setup and session management.
 """
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Database configuration
-DATABASE_URL = "sqlite:///./acessaid.db"
+# MySQL connection string format: mysql+pymysql://user:password@host:port/database
+MYSQL_USER = os.getenv("MYSQL_USER", "root")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
+MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
+MYSQL_PORT = os.getenv("MYSQL_PORT", "3306")
+MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "accessaid")
 
-# Create engine with SQLite-specific configurations
+DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}?charset=utf8mb4"
+
+# Create engine with MySQL-specific configurations
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},  # SQLite specific
-    poolclass=StaticPool,  # For SQLite
-    echo=True  # Set to False in production
+    pool_pre_ping=True,  # Verify connections before using
+    pool_recycle=3600,   # Recycle connections after 1 hour
+    pool_size=10,        # Connection pool size
+    max_overflow=20,     # Max connections beyond pool_size
+    echo=True            # Set to False in production
 )
 
 # Create session factory
