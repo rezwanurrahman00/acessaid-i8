@@ -102,6 +102,29 @@ async def root():
     """Health check endpoint."""
     return {"message": "AccessAid API is running!", "status": "healthy"}
 
+@app.get("/api/health/database")
+async def database_health_check(db: Session = Depends(get_db)):
+    """Check database connection and table status."""
+    try:
+        # Test database connection
+        user_count = db.query(User).count()
+        reminder_count = db.query(Reminder).count()
+        
+        return {
+            "database_connection": "✅ Connected",
+            "tables": {
+                "users": user_count,
+                "reminders": reminder_count
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        return {
+            "database_connection": f"❌ Error: {str(e)}",
+            "error_type": type(e).__name__,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
 # Helper functions for PIN hashing and verification
 def hash_pin(pin: str) -> str:
     """Hash a PIN using bcrypt."""
@@ -290,40 +313,67 @@ async def create_reminder(
     db: Session = Depends(get_db)
 ):
     """Create a new reminder for a user."""
-    # Parse datetime if provided
-    parsed_datetime = None
-    if reminder_data.reminder_datetime:
-        try:
-            parsed_datetime = datetime.fromisoformat(reminder_data.reminder_datetime.replace('Z', '+00:00'))
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid datetime format")
-    
-    reminder = Reminder(
-        user_id=user_id,
-        title=reminder_data.title,
-        description=reminder_data.description,
-        reminder_datetime=parsed_datetime or datetime.utcnow() + timedelta(hours=1),
-        frequency=reminder_data.frequency,
-        priority=reminder_data.priority,
-        is_active=True,
-        is_completed=False
-    )
-    
-    db.add(reminder)
-    db.commit()
-    db.refresh(reminder)
-    
-    return {
-        "reminder_id": reminder.reminder_id,
-        "title": reminder.title,
-        "description": reminder.description,
-        "reminder_datetime": reminder.reminder_datetime.isoformat(),
-        "frequency": reminder.frequency,
-        "priority": reminder.priority,
-        "is_active": reminder.is_active,
-        "is_completed": reminder.is_completed,
-        "created_at": reminder.created_at.isoformat() if reminder.created_at else None,
-    }
+    try:
+        # Check if user exists first
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Parse datetime if provided
+        parsed_datetime = None
+        if reminder_data.reminder_datetime:
+            try:
+                parsed_datetime = datetime.fromisoformat(reminder_data.reminder_datetime.replace('Z', '+00:00'))
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail="Invalid datetime format")
+        else:
+            parsed_datetime = datetime.utcnow() + timedelta(hours=1)
+        
+        reminder = Reminder(
+            user_id=user_id,
+            title=reminder_data.title,
+            description=reminder_data.description,
+            reminder_datetime=parsed_datetime,
+            frequency=reminder_data.frequency,
+            priority=reminder_data.priority,
+            is_active=True,
+            is_completed=False
+        )
+        
+        db.add(reminder)
+        db.commit()
+        db.refresh(reminder)
+        
+        return {
+            "reminder_id": reminder.reminder_id,
+            "title": reminder.title,
+            "description": reminder.description,
+            "reminder_datetime": reminder.reminder_datetime.isoformat(),
+            "frequency": reminder.frequency,
+            "priority": reminder.priority,
+            "is_active": reminder.is_active,
+            "is_completed": reminder.is_completed,
+            "created_at": reminder.created_at.isoformat() if reminder.created_at else None,
+        }
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (like user not found)
+        raise
+    except Exception as e:
+        # Import traceback for more detailed error info
+        import traceback
+        print('❌ Full traceback:')
+        traceback.print_exc()
+        
+        # Rollback the transaction explicitly
+        db.rollback()
+        print('🔄 Transaction rolled back explicitly')
+        
+        # Raise a proper HTTP exception
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error creating reminder: {type(e).__name__}: {str(e)}"
+        )
 
 @app.put("/api/reminders/{reminder_id}", response_model=dict)
 async def update_reminder(
@@ -336,8 +386,6 @@ async def update_reminder(
     reminder = db.query(Reminder).filter(Reminder.reminder_id == reminder_id).first()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
-    
-    print('✏️✏️✏️ Updating reminder with ID:', reminder_id, 'Data received:', update_data.dict(exclude_unset=True))
     
     # Update fields if provided
     if update_data.title is not None:
