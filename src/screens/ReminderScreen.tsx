@@ -551,9 +551,8 @@ const ReminderScreen: React.FC = () => {
 
       if (editingReminderId) {
         console.log('Updating reminder with ID in ReminderScreen.tsx:', editingReminderId);
-        // Handle updating existing reminder (not implemented in this snippet)
-        Alert.alert('Edit Reminder', 'Editing existing reminders is not implemented in this version.');
-        const backendReminder = await apiService.updateReminder(currentUserId, parseInt(editingReminderId), {
+        
+        await apiService.updateReminder(currentUserId, parseInt(editingReminderId), {
           reminder_id: parseInt(editingReminderId),
           title: title.trim(),
           description: description.trim() || undefined,
@@ -562,13 +561,14 @@ const ReminderScreen: React.FC = () => {
           priority: priority,
         });
 
-
-
+        // Refresh reminders from database
+        await fetchReminders();
+        
         setModalVisible(false);
         setEditingReminderId(null);
+        speakText(`Reminder "${title.trim()}" updated successfully`);
         return;
       }
-
 
       // Call backend API to create reminder
       const backendReminder = await apiService.createReminder(currentUserId, {
@@ -580,7 +580,10 @@ const ReminderScreen: React.FC = () => {
       });
 
 
-      // Create local reminder with backend data
+      // Refresh reminders from database
+      await fetchReminders();
+
+      // Get the newly created reminder for scheduling
       const newReminder: Reminder = {
         id: backendReminder.reminder_id.toString(),
         title: backendReminder.title,
@@ -593,7 +596,6 @@ const ReminderScreen: React.FC = () => {
         recurrence,
       };
 
-      setReminders(prev => [...prev, newReminder]);
       await scheduleNative(newReminder);
 
       // Schedule recurring reminders
@@ -674,7 +676,10 @@ const ReminderScreen: React.FC = () => {
         priority: parsed.priority || 'medium',
       });
 
-      // Create local reminder with backend data
+      // Refresh reminders from database
+      await fetchReminders();
+
+      // Get the newly created reminder for scheduling
       const newReminder: Reminder = {
         id: backendReminder.reminder_id.toString(),
         title: backendReminder.title,
@@ -687,9 +692,6 @@ const ReminderScreen: React.FC = () => {
         recurrence: 'once',
         hasFired: false,
       };
-
-      // Add to reminders list
-      setReminders(prev => [...prev, newReminder]);
 
       // Schedule native notification
       await scheduleNative(newReminder);
@@ -711,16 +713,21 @@ const ReminderScreen: React.FC = () => {
     if (!reminder) return;
 
     const newCompletedStatus = !reminder.isCompleted;
+    const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
 
     // Update locally first for immediate feedback
     setReminders(prev => prev.map(r => (r.id === id ? { ...r, isCompleted: newCompletedStatus } : r)));
 
     // Sync with backend
     try {
-      await apiService.updateReminder(parseInt(id),parseInt(id), {
+      await apiService.updateReminder(currentUserId, parseInt(id), {
         is_completed: newCompletedStatus,
         is_active: !newCompletedStatus, // If completed, mark as inactive
       } as any);
+      
+      // Refresh reminders from database
+      await fetchReminders();
+      
       speakText(newCompletedStatus ? 'Reminder marked as completed' : 'Reminder marked as active');
     } catch (error) {
       console.error('Failed to update reminder on backend:', error);
@@ -763,10 +770,15 @@ const ReminderScreen: React.FC = () => {
           // Sync with backend
           try {
             await apiService.deleteReminder(parseInt(id));
+            
+            // Refresh reminders from database
+            await fetchReminders();
+            
             console.log('Reminder deleted from backend:', id);
           } catch (error) {
             console.error('Failed to delete reminder from backend:', error);
-            // Note: We don't revert the local deletion since the user already got feedback
+            // Refresh to ensure consistency even if delete fails
+            await fetchReminders();
           }
         }
       },
