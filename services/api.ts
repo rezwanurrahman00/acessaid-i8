@@ -208,6 +208,16 @@ class ApiService {
     );
   }
 
+  async deleteReminder(reminderId: number): Promise<{ message: string }> {
+    return tryFetch(
+      `${this.baseUrl}/reminders/${reminderId}`,
+      {
+        method: "DELETE",
+      },
+      { message: "Reminder deleted locally (offline mode)" }
+    );
+  }
+
   async getUserSettings(userId: number): Promise<UserSetting[]> {
     return tryFetch(`${this.baseUrl}/users/${userId}/settings`, {}, mockSettings);
   }

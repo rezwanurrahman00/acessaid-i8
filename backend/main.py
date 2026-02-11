@@ -277,6 +277,9 @@ async def update_reminder(
     reminder_id: int,
     title: Optional[str] = None,
     description: Optional[str] = None,
+    reminder_datetime: Optional[str] = None,
+    frequency: Optional[str] = "once",
+    priority: Optional[str] = "medium",
     is_active: Optional[bool] = None,
     is_completed: Optional[bool] = None,
     db: Session = Depends(get_db)
