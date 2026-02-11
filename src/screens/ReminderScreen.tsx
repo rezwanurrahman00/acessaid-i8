@@ -39,7 +39,7 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   Clipboard = require('expo-clipboard');
 } catch {
-  Clipboard = { setStringAsync: async (_: string) => {} };
+  Clipboard = { setStringAsync: async (_: string) => { } };
 }
 
 // ADDED: Conditional import for voice input
@@ -94,6 +94,7 @@ const ReminderScreen: React.FC = () => {
   const speakIntervalRef = useRef<any>(null);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [sendingTest, setSendingTest] = useState(false);
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
 
   // ADDED: Voice input states
   const [isVoiceInputMode, setIsVoiceInputMode] = useState(false);
@@ -109,14 +110,14 @@ const ReminderScreen: React.FC = () => {
   const speakText = (text: string) => {
     if (!state.voiceAnnouncementsEnabled) return;
     if (!text?.trim()) return;
-    try { Speech.stop(); } catch {}
+    try { Speech.stop(); } catch { }
     try {
       const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
       Speech.speak(text, {
         rate: safeRate,
         pitch: 1.0,
       });
-    } catch {}
+    } catch { }
   };
 
   // ADDED: Voice command registration with NLP support
@@ -161,7 +162,7 @@ const ReminderScreen: React.FC = () => {
       keywords: ['read reminders', 'read my reminders', 'what reminders do i have'],
       action: () => {
         const activeReminders = reminders.filter(r => !r.isCompleted);
-        
+
         if (activeReminders.length === 0) {
           speakText('You have no active reminders');
           return;
@@ -169,19 +170,19 @@ const ReminderScreen: React.FC = () => {
 
         // Build the announcement
         let announcement = `You have ${activeReminders.length} active reminder${activeReminders.length > 1 ? 's' : ''}. `;
-        
+
         activeReminders.forEach((reminder, index) => {
-          const time = reminder.datetime.toLocaleTimeString('en-US', { 
-            hour: 'numeric', 
+          const time = reminder.datetime.toLocaleTimeString('en-US', {
+            hour: 'numeric',
             minute: '2-digit',
-            hour12: true 
+            hour12: true
           });
-          const date = reminder.datetime.toLocaleDateString('en-US', { 
+          const date = reminder.datetime.toLocaleDateString('en-US', {
             weekday: 'long',
-            month: 'long', 
-            day: 'numeric' 
+            month: 'long',
+            day: 'numeric'
           });
-          
+
           announcement += `${index + 1}. ${reminder.title} at ${time} on ${date}. `;
         });
 
@@ -215,17 +216,54 @@ const ReminderScreen: React.FC = () => {
       Animated.timing(fadeIn, { toValue: 1, duration: 450, useNativeDriver: true }),
       Animated.timing(slideUp, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start();
-     // Announce screen load
+    // Announce screen load
     setTimeout(() => {
       if (state.voiceAnnouncementsEnabled) {
         voiceManager.announceScreenChange('reminders');
         speakText('You are on the Reminders page. You can say things like: Set reminder for food at 5 pm, or just say "create reminder" to add manually.');
       }
     }, 500);
+
+
   }, []);
 
-  useEffect(() => {
-    (async () => {
+  // Reusable function to fetch reminders from backend
+  const fetchReminders = async () => {
+    try {
+      const userId = state.user?.id ? parseInt(state.user.id) : 1;
+
+      // Fetch reminders from backend
+      const backendReminders = await apiService.getUserReminders(userId);
+
+      // Convert backend reminders to local format
+      const localReminders: Reminder[] = backendReminders.map((r) => ({
+        id: r.reminder_id.toString(),
+        title: r.title,
+        description: r.description,
+        datetime: new Date(r.reminder_datetime),
+        isCompleted: r.is_completed,
+        createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+        category: 'personal' as ReminderCategory, // Default category
+        priority: (r.priority?.toLowerCase() || 'medium') as ReminderPriority,
+        recurrence: (r.frequency?.toLowerCase() || 'once') as ReminderRecurrence,
+      }));
+
+      setReminders(localReminders);
+
+      // Also save to AsyncStorage as cache
+      const key = storageKey(state.user?.id);
+      await AsyncStorage.setItem(
+        key,
+        JSON.stringify(localReminders.map(r => ({
+          ...r,
+          datetime: r.datetime.toISOString(),
+          createdAt: r.createdAt.toISOString()
+        })))
+      );
+    } catch (e) {
+      console.warn('Failed to load reminders from backend, trying AsyncStorage fallback:', e);
+
+      // Fallback to AsyncStorage if backend fails
       try {
         const key = storageKey(state.user?.id);
         const stored = await AsyncStorage.getItem(key);
@@ -239,18 +277,23 @@ const ReminderScreen: React.FC = () => {
         } else {
           setReminders([]);
         }
-      } catch (e) {
-        console.warn('Failed to load reminders');
+      } catch (fallbackError) {
+        console.warn('Failed to load reminders from AsyncStorage too');
+        setReminders([]);
       }
-    })();
+    }
+  };
+
+  useEffect(() => {
+    fetchReminders();
   }, [state.user?.id]);
 
   useEffect(() => {
-    const key = storageKey(state.user?.id);    
+    const key = storageKey(state.user?.id);
     AsyncStorage.setItem(
       key,
       JSON.stringify(reminders.map(r => ({ ...r, datetime: r.datetime.toISOString(), createdAt: r.createdAt.toISOString() })))
-    ).catch(() => {});
+    ).catch(() => { });
   }, [reminders, state.user?.id]);
 
   useEffect(() => {
@@ -261,7 +304,7 @@ const ReminderScreen: React.FC = () => {
         const projectId = (Constants as any).expoConfig?.extra?.eas?.projectId || (Constants as any).easConfig?.projectId || (Constants as any).expoConfig?.projectId;
         const tokenResp = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined as any);
         if (tokenResp?.data) setPushToken(tokenResp.data);
-      } catch {}
+      } catch { }
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('reminders', {
           name: 'Reminders',
@@ -286,7 +329,7 @@ const ReminderScreen: React.FC = () => {
 
       // Foreground listener to speak on receipt (iOS/Android)
       if (notifSubRef.current) {
-        try { (Notifications as any).removeNotificationSubscription?.(notifSubRef.current); } catch {}
+        try { (Notifications as any).removeNotificationSubscription?.(notifSubRef.current); } catch { }
       }
       notifSubRef.current = Notifications.addNotificationReceivedListener((notification) => {
         const { title: notifTitle, body, data } = notification.request.content as any;
@@ -332,13 +375,13 @@ const ReminderScreen: React.FC = () => {
         },
         trigger: null,
       });
-    } catch (_) {}
+    } catch (_) { }
     presentAlert(rem);
   };
 
   const presentAlert = (rem: Reminder) => {
     setAlertReminder(rem);
-    try { Speech.stop(); } catch {}
+    try { Speech.stop(); } catch { }
     speakText(buildSpokenMessage(rem.title, rem.description));
     if (speakIntervalRef.current) clearInterval(speakIntervalRef.current);
     speakIntervalRef.current = setInterval(() => {
@@ -348,7 +391,7 @@ const ReminderScreen: React.FC = () => {
   };
 
   const handleAlertYes = () => {
-    try { Speech.stop(); } catch {}
+    try { Speech.stop(); } catch { }
     if (speakIntervalRef.current) clearInterval(speakIntervalRef.current);
     if (alertReminder) {
       setReminders(prev => prev.map(r => r.id === alertReminder.id ? { ...r, hasFired: true } : r));
@@ -357,7 +400,7 @@ const ReminderScreen: React.FC = () => {
   };
 
   const handleAlertNo = async () => {
-    try { Speech.stop(); } catch {}
+    try { Speech.stop(); } catch { }
     if (speakIntervalRef.current) clearInterval(speakIntervalRef.current);
     if (alertReminder) {
       // Reschedule in +5 minutes
@@ -437,10 +480,10 @@ const ReminderScreen: React.FC = () => {
     try {
       // Stop any ongoing TTS first
       await Speech.stop();
-      
+
       setVoiceField(field);
       setIsVoiceInputMode(true);
-      
+
       // Request permissions
       const permissionResult = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
       if (!permissionResult.granted) {
@@ -455,7 +498,7 @@ const ReminderScreen: React.FC = () => {
       const resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
         const transcript = event.results?.[0]?.transcript;
         const isFinal = event.isFinal;
-        
+
         if (transcript && isFinal) {
           if (field === 'title') {
             setTitle(transcript);
@@ -465,7 +508,7 @@ const ReminderScreen: React.FC = () => {
           speakText(`${field} set to: ${transcript}`);
           setIsVoiceInputMode(false);
           setVoiceField(null);
-          
+
           // Remove the listener
           resultListener.remove();
         }
@@ -505,7 +548,28 @@ const ReminderScreen: React.FC = () => {
     try {
       // Get current user ID
       const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
-      
+
+      if (editingReminderId) {
+        console.log('Updating reminder with ID in ReminderScreen.tsx:', editingReminderId);
+        
+        await apiService.updateReminder(currentUserId, parseInt(editingReminderId), {
+          reminder_id: parseInt(editingReminderId),
+          title: title.trim(),
+          description: description.trim() || undefined,
+          reminder_datetime: date.toISOString(),
+          frequency: recurrence,
+          priority: priority,
+        });
+
+        // Refresh reminders from database
+        await fetchReminders();
+        
+        setModalVisible(false);
+        setEditingReminderId(null);
+        speakText(`Reminder "${title.trim()}" updated successfully`);
+        return;
+      }
+
       // Call backend API to create reminder
       const backendReminder = await apiService.createReminder(currentUserId, {
         title: title.trim(),
@@ -515,7 +579,11 @@ const ReminderScreen: React.FC = () => {
         priority: priority,
       });
 
-      // Create local reminder with backend data
+
+      // Refresh reminders from database
+      await fetchReminders();
+
+      // Get the newly created reminder for scheduling
       const newReminder: Reminder = {
         id: backendReminder.reminder_id.toString(),
         title: backendReminder.title,
@@ -528,14 +596,13 @@ const ReminderScreen: React.FC = () => {
         recurrence,
       };
 
-      setReminders(prev => [...prev, newReminder]);
       await scheduleNative(newReminder);
-      
+
       // Schedule recurring reminders
       if (recurrence !== 'once') {
         scheduleRecurringReminders(newReminder);
       }
-      
+
       setModalVisible(false);
       speakText(`Reminder "${title.trim()}" created successfully`);
     } catch (error) {
@@ -556,14 +623,14 @@ const ReminderScreen: React.FC = () => {
       } else if (reminder.recurrence === 'monthly') {
         nextDate.setMonth(nextDate.getMonth() + i);
       }
-      
+
       if (Platform.OS !== 'web' && nextDate.getTime() > Date.now()) {
         await Notifications.scheduleNotificationAsync({
-          content: { 
-            title: '⏰ Recurring Reminder', 
-            body: reminder.title, 
-            sound: true, 
-            data: { reminderId: reminder.id } 
+          content: {
+            title: '⏰ Recurring Reminder',
+            body: reminder.title,
+            sound: true,
+            data: { reminderId: reminder.id }
           },
           trigger: ({ date: nextDate } as unknown) as Notifications.NotificationTriggerInput,
         });
@@ -575,15 +642,15 @@ const ReminderScreen: React.FC = () => {
   const handleNaturalLanguageReminder = async (transcript: string) => {
     try {
       console.log('📝 Parsing natural language:', transcript);
-      
+
       // Parse the transcript using NLP
       const parsed = parseReminderFromSpeech(transcript);
-      
+
       if (!parsed) {
         speakText("I couldn't understand that. Try saying: Set reminder for task at time");
         return;
       }
-      
+
       // Validate the parsed reminder
       if (!isValidParsedReminder(parsed)) {
         speakText(`I extracted "${parsed.title}" but couldn't understand the time. Try saying the time more clearly.`);
@@ -599,7 +666,7 @@ const ReminderScreen: React.FC = () => {
 
       // Get current user ID
       const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
-      
+
       // Call backend API to create reminder
       const backendReminder = await apiService.createReminder(currentUserId, {
         title: parsed.title,
@@ -608,8 +675,11 @@ const ReminderScreen: React.FC = () => {
         frequency: 'once',
         priority: parsed.priority || 'medium',
       });
-      
-      // Create local reminder with backend data
+
+      // Refresh reminders from database
+      await fetchReminders();
+
+      // Get the newly created reminder for scheduling
       const newReminder: Reminder = {
         id: backendReminder.reminder_id.toString(),
         title: backendReminder.title,
@@ -622,38 +692,94 @@ const ReminderScreen: React.FC = () => {
         recurrence: 'once',
         hasFired: false,
       };
-      
-      // Add to reminders list
-      setReminders(prev => [...prev, newReminder]);
-      
+
       // Schedule native notification
       await scheduleNative(newReminder);
-      
+
       // Announce success with details
       const description = describeReminder(parsed);
       speakText(`Reminder created: ${description}`);
-      
+
       console.log('✅ Natural language reminder created:', newReminder);
-      
+
     } catch (error) {
       console.error('❌ Error processing natural language reminder:', error);
       speakText("Sorry, I had trouble creating that reminder. Please try again.");
     }
   };
 
-  const toggleComplete = (id: string) => {
-    setReminders(prev => prev.map(r => (r.id === id ? { ...r, isCompleted: !r.isCompleted } : r)));
+  const toggleComplete = async (id: string) => {
+    const reminder = reminders.find(r => r.id === id);
+    if (!reminder) return;
+
+    const newCompletedStatus = !reminder.isCompleted;
+    const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
+
+    // Update locally first for immediate feedback
+    setReminders(prev => prev.map(r => (r.id === id ? { ...r, isCompleted: newCompletedStatus } : r)));
+
+    // Sync with backend
+    try {
+      await apiService.updateReminder(currentUserId, parseInt(id), {
+        is_completed: newCompletedStatus,
+        is_active: !newCompletedStatus, // If completed, mark as inactive
+      } as any);
+      
+      // Refresh reminders from database
+      await fetchReminders();
+      
+      speakText(newCompletedStatus ? 'Reminder marked as completed' : 'Reminder marked as active');
+    } catch (error) {
+      console.error('Failed to update reminder on backend:', error);
+      // Revert the change if backend update fails
+      setReminders(prev => prev.map(r => (r.id === id ? { ...r, isCompleted: !newCompletedStatus } : r)));
+      speakText('Failed to update reminder');
+    }
   };
+
+  const showEditModal = (id: string) => {
+    console.log('✏️ Edit reminder:', id);
+    const reminder = reminders.find(r => r.id === id);
+    setEditingReminderId(id);
+    if (!reminder) return;
+
+    setTitle(reminder.title);
+    setDescription(reminder.description || '');
+    // setDate(reminder.datetime);
+    setCategory(reminder.category || 'personal');
+    setPriority(reminder.priority || 'medium');
+    setRecurrence(reminder.recurrence || 'once');
+
+    setModalVisible(true);
+
+    // After saving, we would need to handle updating the existing reminder instead of creating a new one.
+    // This would require additional logic in the saveReminder function to check if we're editing an existing reminder.
+  }
 
   const removeReminder = (id: string) => {
     Alert.alert('Delete Reminder', 'Are you sure you want to delete this reminder?', [
       { text: 'Cancel', style: 'cancel' },
-      { 
-        text: 'Delete', 
-        style: 'destructive', 
-        onPress: () => {
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          // Remove locally first for immediate feedback
           setReminders(prev => prev.filter(r => r.id !== id));
           speakText('Reminder deleted');
+
+          // Sync with backend
+          try {
+            await apiService.deleteReminder(parseInt(id));
+            
+            // Refresh reminders from database
+            await fetchReminders();
+            
+            console.log('Reminder deleted from backend:', id);
+          } catch (error) {
+            console.error('Failed to delete reminder from backend:', error);
+            // Refresh to ensure consistency even if delete fails
+            await fetchReminders();
+          }
         }
       },
     ]);
@@ -693,7 +819,7 @@ const ReminderScreen: React.FC = () => {
 
     // Search filter
     if (searchQuery.trim()) {
-      filtered = filtered.filter(r => 
+      filtered = filtered.filter(r =>
         r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (r.description && r.description.toLowerCase().includes(searchQuery.toLowerCase()))
       );
@@ -716,7 +842,7 @@ const ReminderScreen: React.FC = () => {
 
 
   const renderItem = ({ item }: { item: Reminder }) => (
-     <TouchableOpacity 
+    <TouchableOpacity
       style={[
         styles.card,
         item.isCompleted && styles.cardCompleted
@@ -727,9 +853,9 @@ const ReminderScreen: React.FC = () => {
         speakText(msg);
       }}
     >
-      <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(item.priority) }]}/>
+      <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(item.priority) }]} />
       <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
           <Text style={{ fontSize: 20, marginRight: 8 }}>{getCategoryIcon(item.category)}</Text>
           <Text style={[styles.cardTitle, item.isCompleted && styles.cardTitleCompleted]} numberOfLines={2}>
             {item.title}
@@ -744,38 +870,45 @@ const ReminderScreen: React.FC = () => {
         </View>
       </View>
       <View style={styles.cardActions}>
-        <TouchableOpacity 
-          onPress={() => toggleComplete(item.id)} 
-          style={styles.actionBtn} 
+        <TouchableOpacity
+          onPress={() => toggleComplete(item.id)}
+          style={styles.actionBtn}
           accessibilityLabel={item.isCompleted ? 'Mark as active' : 'Mark as completed'}
         >
-          <Ionicons 
-            name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'} 
-            size={24} 
-            color={item.isCompleted ? theme.success : theme.textMuted} 
+          <Ionicons
+            name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
+            size={24}
+            color={item.isCompleted ? theme.success : theme.textMuted}
           />
         </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => removeReminder(item.id)} 
-          style={styles.actionBtn} 
+        <TouchableOpacity
+          onPress={() => showEditModal(item.id)}
+          style={styles.actionBtn}
+          accessibilityLabel="Edit reminder"
+        >
+          <Ionicons name="create-outline" size={22} color={theme.accent} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => removeReminder(item.id)}
+          style={styles.actionBtn}
           accessibilityLabel="Delete reminder"
         >
           <Ionicons name="trash" size={22} color={theme.danger} />
         </TouchableOpacity>
       </View>
-    
+
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
       <BackgroundLogo />
-      <Animated.View style={[styles.header, { opacity: fadeIn, transform: [{ translateY: slideUp }] }]}> 
-      <Text style={styles.headerTitle}>✨ Reminders</Text>
-      <Text style={styles.headerSubtitle}>
+      <Animated.View style={[styles.header, { opacity: fadeIn, transform: [{ translateY: slideUp }] }]}>
+        <Text style={styles.headerTitle}>✨ Reminders</Text>
+        <Text style={styles.headerSubtitle}>
           {filteredReminders.filter(r => !r.isCompleted).length} Active • {reminders.length}/50 Total
-      </Text>
-        
+        </Text>
+
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color={theme.textMuted} style={{ marginRight: 8 }} />
@@ -794,8 +927,8 @@ const ReminderScreen: React.FC = () => {
         </View>
 
         {/* Filter Button */}
-        <TouchableOpacity 
-          style={styles.filterButton} 
+        <TouchableOpacity
+          style={styles.filterButton}
           onPress={() => setShowFilters(!showFilters)}
         >
           <Ionicons name="filter" size={18} color={theme.textInverted} />
@@ -848,7 +981,7 @@ const ReminderScreen: React.FC = () => {
 
             </View>
           </View>
-          
+
         )}
       </Animated.View>
 
@@ -861,8 +994,8 @@ const ReminderScreen: React.FC = () => {
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📝</Text>
             <Text style={styles.emptyText}>
-              {searchQuery || filterCategory !== 'all' || filterStatus !== 'all' 
-                ? 'No reminders match your filters' 
+              {searchQuery || filterCategory !== 'all' || filterStatus !== 'all'
+                ? 'No reminders match your filters'
                 : 'No reminders yet. Say "Set reminder for [task] at [time]" or tap + to add manually.'}
             </Text>
           </View>
@@ -877,9 +1010,9 @@ const ReminderScreen: React.FC = () => {
         <View style={styles.modalBackdrop}>
           <BlurViewComponent intensity={40} tint={Platform.OS === 'ios' ? 'systemThinMaterial' : 'light'} style={styles.blurFill} />
           <View style={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}>
-            <Animated.View style={[styles.sheet, { opacity: fadeIn }]}> 
+            <Animated.View style={[styles.sheet, { opacity: fadeIn }]}>
               <Text style={styles.sheetTitle}>⏰ Create Reminder</Text>
-              
+
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '80%' }}>
                 {/* ADDED: Title with Voice Input */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -891,19 +1024,19 @@ const ReminderScreen: React.FC = () => {
                     onChangeText={setTitle}
                     returnKeyType="done"
                   />
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.voiceButton}
                     onPress={() => handleVoiceInput('title')}
                     disabled={isVoiceInputMode}
                   >
-                    <Ionicons 
-                      name={isVoiceInputMode && voiceField === 'title' ? 'mic' : 'mic-outline'} 
-                      size={24} 
+                    <Ionicons
+                      name={isVoiceInputMode && voiceField === 'title' ? 'mic' : 'mic-outline'}
+                      size={24}
                       color={isVoiceInputMode && voiceField === 'title' ? theme.accent : theme.textMuted}
                     />
                   </TouchableOpacity>
                 </View>
-                
+
                 {/* ADDED: Description with Voice Input */}
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 8 }}>
                   <TextInput
@@ -915,162 +1048,162 @@ const ReminderScreen: React.FC = () => {
                     multiline
                     numberOfLines={3}
                   />
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.voiceButton}
                     onPress={() => handleVoiceInput('description')}
                     disabled={isVoiceInputMode}
                   >
-                    <Ionicons 
-                      name={isVoiceInputMode && voiceField === 'description' ? 'mic' : 'mic-outline'} 
-                      size={24} 
+                    <Ionicons
+                      name={isVoiceInputMode && voiceField === 'description' ? 'mic' : 'mic-outline'}
+                      size={24}
                       color={isVoiceInputMode && voiceField === 'description' ? theme.accent : theme.textMuted}
                     />
                   </TouchableOpacity>
                 </View>
 
-              {/* Category Selector */}
-              <Text style={styles.sectionLabel}>Category</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                {(['personal', 'work', 'health', 'finance', 'shopping', 'other'] as ReminderCategory[]).map(cat => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[
-                      styles.categoryChip,
-                      category === cat && styles.categoryChipActive
-                    ]}
-                    onPress={() => setCategory(cat)}
-                  >
-                    <Text style={{ fontSize: 18 }}>{getCategoryIcon(cat)}</Text>
-                    <Text style={[
-                      styles.categoryChipText,
-                      category === cat && styles.categoryChipTextActive
-                    ]}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                {/* Category Selector */}
+                <Text style={styles.sectionLabel}>Category</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                  {(['personal', 'work', 'health', 'finance', 'shopping', 'other'] as ReminderCategory[]).map(cat => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        styles.categoryChip,
+                        category === cat && styles.categoryChipActive
+                      ]}
+                      onPress={() => setCategory(cat)}
+                    >
+                      <Text style={{ fontSize: 18 }}>{getCategoryIcon(cat)}</Text>
+                      <Text style={[
+                        styles.categoryChipText,
+                        category === cat && styles.categoryChipTextActive
+                      ]}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-              {/* Priority Selector */}
-              <Text style={styles.sectionLabel}>Priority</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                {(['low', 'medium', 'high'] as ReminderPriority[]).map(pri => (
-                  <TouchableOpacity
-                    key={pri}
-                    style={[
-                      styles.priorityChip,
-                      { borderColor: getPriorityColor(pri) },
-                      priority === pri && { backgroundColor: getPriorityColor(pri) }
-                    ]}
-                    onPress={() => setPriority(pri)}
-                  >
-                    <Text style={[
-                      styles.priorityChipText,
-                      { color: priority === pri ? '#FFF' : getPriorityColor(pri) }
-                    ]}>
-                      {pri.charAt(0).toUpperCase() + pri.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                {/* Priority Selector */}
+                <Text style={styles.sectionLabel}>Priority</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  {(['low', 'medium', 'high'] as ReminderPriority[]).map(pri => (
+                    <TouchableOpacity
+                      key={pri}
+                      style={[
+                        styles.priorityChip,
+                        { borderColor: getPriorityColor(pri) },
+                        priority === pri && { backgroundColor: getPriorityColor(pri) }
+                      ]}
+                      onPress={() => setPriority(pri)}
+                    >
+                      <Text style={[
+                        styles.priorityChipText,
+                        { color: priority === pri ? '#FFF' : getPriorityColor(pri) }
+                      ]}>
+                        {pri.charAt(0).toUpperCase() + pri.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-              {/* Recurrence Selector */}
-              <Text style={styles.sectionLabel}>Repeat</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                {(['once', 'daily', 'weekly', 'monthly'] as ReminderRecurrence[]).map(rec => (
-                  <TouchableOpacity
-                    key={rec}
-                    style={[
-                      styles.recurrenceChip,
-                      recurrence === rec && styles.recurrenceChipActive
-                    ]}
-                    onPress={() => setRecurrence(rec)}
-                  >
-                    <Text style={[
-                      styles.recurrenceChipText,
-                      recurrence === rec && styles.recurrenceChipTextActive
-                    ]}>
-                      {rec === 'once' ? 'Once' : rec.charAt(0).toUpperCase() + rec.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                {/* Recurrence Selector */}
+                <Text style={styles.sectionLabel}>Repeat</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  {(['once', 'daily', 'weekly', 'monthly'] as ReminderRecurrence[]).map(rec => (
+                    <TouchableOpacity
+                      key={rec}
+                      style={[
+                        styles.recurrenceChip,
+                        recurrence === rec && styles.recurrenceChipActive
+                      ]}
+                      onPress={() => setRecurrence(rec)}
+                    >
+                      <Text style={[
+                        styles.recurrenceChipText,
+                        recurrence === rec && styles.recurrenceChipTextActive
+                      ]}>
+                        {rec === 'once' ? 'Once' : rec.charAt(0).toUpperCase() + rec.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-              {/* Date Time Picker */}
-              <Text style={styles.sectionLabel}>Date & Time</Text>
-              {DateTimePicker ? (
-                <View style={styles.datePickerContainer}>
-                  {Platform.OS === 'ios' ? (
-                    <DateTimePicker
-                      value={date}
-                      mode="datetime"
-                      display="spinner"
-                      onChange={(event: any, selectedDate?: Date) => {
-                        try {
-                          if (selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime())) {
-                            setDate(selectedDate);
-                          }
-                        } catch (error) {
-                          console.error('DatePicker error:', error);
-                        }
-                      }}
-                      minimumDate={new Date()}
-                      textColor={theme.textPrimary}
-                      style={styles.datePicker}
-                    />
-                  ) : (
-                    <>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => setShowPicker(true)}
-                      >
-                        <Text style={styles.actionButtonText}>Pick date & time</Text>
-                      </TouchableOpacity>
-                      {showPicker && (
-                        <DateTimePicker
-                          value={date}
-                          mode="datetime"
-                          display="default"
-                          onChange={(event: any, selectedDate?: Date) => {
-                            try {
-                              setShowPicker(false);
-                              // Only update if a valid date was provided
-                              if (selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime())) {
-                                setDate(selectedDate);
-                              }
-                            } catch (error) {
-                              console.error('DatePicker error:', error);
-                              setShowPicker(false);
+                {/* Date Time Picker */}
+                <Text style={styles.sectionLabel}>Date & Time</Text>
+                {DateTimePicker ? (
+                  <View style={styles.datePickerContainer}>
+                    {Platform.OS === 'ios' ? (
+                      <DateTimePicker
+                        value={date}
+                        mode="datetime"
+                        display="spinner"
+                        onChange={(event: any, selectedDate?: Date) => {
+                          try {
+                            if (selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime())) {
+                              setDate(selectedDate);
                             }
-                          }}
-                          minimumDate={new Date()}
-                        />
-                      )}
-                    </>
+                          } catch (error) {
+                            console.error('DatePicker error:', error);
+                          }
+                        }}
+                        minimumDate={new Date()}
+                        textColor={theme.textPrimary}
+                        style={styles.datePicker}
+                      />
+                    ) : (
+                      <>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => setShowPicker(true)}
+                        >
+                          <Text style={styles.actionButtonText}>Pick date & time</Text>
+                        </TouchableOpacity>
+                        {showPicker && (
+                          <DateTimePicker
+                            value={date}
+                            mode="datetime"
+                            display="default"
+                            onChange={(event: any, selectedDate?: Date) => {
+                              try {
+                                setShowPicker(false);
+                                // Only update if a valid date was provided
+                                if (selectedDate && selectedDate instanceof Date && !isNaN(selectedDate.getTime())) {
+                                  setDate(selectedDate);
+                                }
+                              } catch (error) {
+                                console.error('DatePicker error:', error);
+                                setShowPicker(false);
+                              }
+                            }}
+                            minimumDate={new Date()}
+                          />
+                        )}
+                      </>
+                    )}
+                  </View>
+                ) : (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={styles.preview}>Pickers not supported on web. Enter ISO date-time:</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="YYYY-MM-DD HH:MM"
+                      placeholderTextColor={theme.placeholder}
+                      value={formatISOInput(date)}
+                      onChangeText={(t) => {
+                        const parsed = parseISOInput(t);
+                        if (parsed) setDate(parsed);
+                      }}
+                    />
+                  </View>
+                )}
+
+                <View style={styles.previewBox}>
+                  <Text style={styles.preview}>🔔 {formatPreview(date)}</Text>
+                  {!!description && (
+                    <Text style={[styles.preview, { marginTop: 4 }]} numberOfLines={2}>📝 {description}</Text>
                   )}
                 </View>
-              ) : (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={styles.preview}>Pickers not supported on web. Enter ISO date-time:</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="YYYY-MM-DD HH:MM"
-                    placeholderTextColor={theme.placeholder}
-                    value={formatISOInput(date)}
-                    onChangeText={(t) => {
-                      const parsed = parseISOInput(t);
-                      if (parsed) setDate(parsed);
-                    }}
-                  />
-                </View>
-              )}
-
-              <View style={styles.previewBox}>
-                <Text style={styles.preview}>🔔 {formatPreview(date)}</Text>
-                {!!description && (
-                  <Text style={[styles.preview, { marginTop: 4 }]} numberOfLines={2}>📝 {description}</Text>
-                )}
-              </View>
               </ScrollView>
 
               <View style={styles.actionsRow}>
@@ -1082,15 +1215,11 @@ const ReminderScreen: React.FC = () => {
                   onPress={saveReminder}
                   disabled={!title.trim()}
                 >
-                  <Text style={[styles.btnText, { color: theme.textInverted }]}>Create Reminder</Text>
+                  <Text style={[styles.btnText, { color: theme.textInverted }]}>{editingReminderId ? 'Update Reminder' : 'Create Reminder'}</Text>
                 </TouchableOpacity>
               </View>
             </Animated.View>
           </View>
-          
-
-
-            
         </View>
       </Modal>
 
@@ -1098,7 +1227,7 @@ const ReminderScreen: React.FC = () => {
       <Modal visible={!!alertReminder} transparent animationType="fade" onRequestClose={handleAlertYes}>
         <View style={styles.modalBackdrop}>
           <BlurViewComponent intensity={50} tint={Platform.OS === 'ios' ? 'systemChromeMaterial' : 'light'} style={styles.blurFill} />
-          <Animated.View style={[styles.sheet, { opacity: fadeIn }]}> 
+          <Animated.View style={[styles.sheet, { opacity: fadeIn }]}>
             <Text style={styles.sheetTitle}>🔔 Reminder</Text>
             <Text style={[styles.preview, { marginTop: 8 }]}>{alertReminder?.title}</Text>
             {!!alertReminder?.description && (
@@ -1159,9 +1288,9 @@ const createStyles = (theme: AppTheme) =>
       paddingHorizontal: 20,
       paddingBottom: 16,
     },
-       headerTitle: { fontSize: 32, fontWeight: '700', color: theme.textPrimary },
+    headerTitle: { fontSize: 32, fontWeight: '700', color: theme.textPrimary },
     headerSubtitle: { marginTop: 4, color: theme.textSecondary, fontSize: 15 },
-    
+
     // Search & Filters
     searchContainer: {
       flexDirection: 'row',
@@ -1242,9 +1371,9 @@ const createStyles = (theme: AppTheme) =>
       fontSize: 64,
       marginBottom: 16,
     },
-    emptyText: { 
-      textAlign: 'center', 
-      color: theme.textMuted, 
+    emptyText: {
+      textAlign: 'center',
+      color: theme.textMuted,
       fontSize: 16,
       lineHeight: 24,
     },
@@ -1275,11 +1404,11 @@ const createStyles = (theme: AppTheme) =>
       top: 0,
       bottom: 0,
       width: 4,
-    
+
     },
-    cardTitle: { 
-      fontSize: 17, 
-      fontWeight: '600', 
+    cardTitle: {
+      fontSize: 17,
+      fontWeight: '600',
       color: theme.textPrimary,
       lineHeight: 22,
     },
@@ -1293,9 +1422,9 @@ const createStyles = (theme: AppTheme) =>
       marginTop: 4,
       lineHeight: 20,
     },
-    cardSubtitle: { 
-      fontSize: 13, 
-      color: theme.textSecondary 
+    cardSubtitle: {
+      fontSize: 13,
+      color: theme.textSecondary
     },
     recurrenceBadge: {
       fontSize: 12,
@@ -1325,7 +1454,7 @@ const createStyles = (theme: AppTheme) =>
     modalBackdrop: {
       flex: 1,
       backgroundColor: theme.overlay,
-      
+
     },
     blurFill: { ...StyleSheet.absoluteFillObject, borderRadius: 24 },
     sheet: {
@@ -1342,9 +1471,9 @@ const createStyles = (theme: AppTheme) =>
       borderColor: theme.cardBorder,
       maxHeight: '90%',
     },
-    sheetTitle: { 
-      fontSize: 24, 
-      fontWeight: '700', 
+    sheetTitle: {
+      fontSize: 24,
+      fontWeight: '700',
       color: theme.textPrimary,
       marginBottom: 16,
     },
@@ -1366,7 +1495,7 @@ const createStyles = (theme: AppTheme) =>
       backgroundColor: theme.inputBackground,
       fontSize: 16,
     },
-     // Date Picker Styles
+    // Date Picker Styles
     datePickerContainer: {
       backgroundColor: theme.inputBackground,
       borderRadius: 12,
@@ -1381,7 +1510,7 @@ const createStyles = (theme: AppTheme) =>
       width: '100%',
       height: 200,
     },
-    
+
     // Category Chips
     categoryChip: {
       flexDirection: 'row',
@@ -1476,13 +1605,13 @@ const createStyles = (theme: AppTheme) =>
       padding: 12,
       marginTop: 12,
     },
-    preview: { 
+    preview: {
       color: theme.textSecondary,
       fontSize: 14,
       lineHeight: 20,
     },
     actionsRow: { flexDirection: 'row', marginTop: 20, gap: 12 },
-   
+
     btn: {
       flex: 1,
       paddingVertical: 14,

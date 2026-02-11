@@ -112,7 +112,9 @@ async function tryFetch<T>(url: string, options: RequestInit = {}, fallback: T):
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
+    console.log(`Fetching: ${url} with options:`, options);
     const response = await fetch(url, { ...options, signal: controller.signal });
+    console.log(`Response from ${url}:`, response);
     clearTimeout(timeout);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
@@ -184,9 +186,10 @@ class ApiService {
     priority?: string;
   }): Promise<Reminder> {
     console.log('Creating reminder with data:', reminderData);
-    const response = await fetch(`${this.baseUrl}/users/${userId}/reminders?title=${encodeURIComponent(reminderData.title)}&description=${encodeURIComponent(reminderData.description || '')}&reminder_datetime=${encodeURIComponent(reminderData.reminder_datetime)}&frequency=${reminderData.frequency || 'once'}&priority=${reminderData.priority || 'medium'}`, {
+    const response = await fetch(`${this.baseUrl}/users/${userId}/reminders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reminderData),
     });
 
     if (!response.ok) {
@@ -196,7 +199,8 @@ class ApiService {
     return await response.json();
   }
 
-  async updateReminder(reminderId: number, updateData: Partial<Reminder>): Promise<{ message: string }> {
+  async updateReminder(userId: number, reminderId: number, updateData: Partial<Reminder>): Promise<{ message: string }> {
+    console.log(`✏️ ✏️ Updating reminder with ID api.ts:`, reminderId, 'and data:', updateData);
     return tryFetch(
       `${this.baseUrl}/reminders/${reminderId}`,
       {
@@ -205,6 +209,16 @@ class ApiService {
         body: JSON.stringify(updateData),
       },
       { message: "Reminder updated locally (offline mode)" }
+    );
+  }
+
+  async deleteReminder(reminderId: number): Promise<{ message: string }> {
+    return tryFetch(
+      `${this.baseUrl}/reminders/${reminderId}`,
+      {
+        method: "DELETE",
+      },
+      { message: "Reminder deleted locally (offline mode)" }
     );
   }
 

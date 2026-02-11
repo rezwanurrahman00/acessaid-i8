@@ -40,6 +40,22 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class ReminderUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    reminder_datetime: Optional[str] = None
+    frequency: Optional[str] = None
+    priority: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_completed: Optional[bool] = None
+
+class ReminderCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    reminder_datetime: Optional[str] = None
+    frequency: str = "once"
+    priority: str = "medium"
+
 # Create FastAPI app
 app = FastAPI(
     title="AccessAid API",
@@ -229,29 +245,25 @@ async def get_user_reminders(user_id: int, db: Session = Depends(get_db)):
 @app.post("/api/users/{user_id}/reminders", response_model=dict)
 async def create_reminder(
     user_id: int,
-    title: str,
-    description: Optional[str] = None,
-    reminder_datetime: Optional[str] = None,
-    frequency: str = "once",
-    priority: str = "medium",
+    reminder_data: ReminderCreate,
     db: Session = Depends(get_db)
 ):
     """Create a new reminder for a user."""
     # Parse datetime if provided
     parsed_datetime = None
-    if reminder_datetime:
+    if reminder_data.reminder_datetime:
         try:
-            parsed_datetime = datetime.fromisoformat(reminder_datetime.replace('Z', '+00:00'))
+            parsed_datetime = datetime.fromisoformat(reminder_data.reminder_datetime.replace('Z', '+00:00'))
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid datetime format")
     
     reminder = Reminder(
         user_id=user_id,
-        title=title,
-        description=description,
+        title=reminder_data.title,
+        description=reminder_data.description,
         reminder_datetime=parsed_datetime or datetime.utcnow() + timedelta(hours=1),
-        frequency=frequency,
-        priority=priority,
+        frequency=reminder_data.frequency,
+        priority=reminder_data.priority,
         is_active=True,
         is_completed=False
     )
@@ -275,27 +287,35 @@ async def create_reminder(
 @app.put("/api/reminders/{reminder_id}", response_model=dict)
 async def update_reminder(
     reminder_id: int,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    is_active: Optional[bool] = None,
-    is_completed: Optional[bool] = None,
+    update_data: ReminderUpdate,
     db: Session = Depends(get_db)
 ):
     """Update a reminder."""
+    # Find the reminder
     reminder = db.query(Reminder).filter(Reminder.reminder_id == reminder_id).first()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
     
-    if title is not None:
-        reminder.title = title
-    if description is not None:
-        reminder.description = description
-    if is_active is not None:
-        reminder.is_active = is_active
-    if is_completed is not None:
-        reminder.is_completed = is_completed
-        if is_completed:
-            reminder.completed_at = datetime.utcnow()
+    print('✏️✏️✏️ Updating reminder with ID:', reminder_id, 'Data received:', update_data.dict(exclude_unset=True))
+    
+    # Update fields if provided
+    if update_data.title is not None:
+        reminder.title = update_data.title
+    if update_data.description is not None:
+        reminder.description = update_data.description
+    if update_data.reminder_datetime is not None:
+        try:
+            reminder.reminder_datetime = datetime.fromisoformat(update_data.reminder_datetime.replace('Z', '+00:00'))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid datetime format")
+    if update_data.frequency is not None:
+        reminder.frequency = update_data.frequency
+    if update_data.priority is not None:
+        reminder.priority = update_data.priority
+    if update_data.is_active is not None:
+        reminder.is_active = update_data.is_active
+    if update_data.is_completed is not None:
+        reminder.is_completed = update_data.is_completed
     
     db.commit()
     db.refresh(reminder)
@@ -304,11 +324,12 @@ async def update_reminder(
         "reminder_id": reminder.reminder_id,
         "title": reminder.title,
         "description": reminder.description,
-        "reminder_datetime": reminder.reminder_datetime.isoformat(),
+        "reminder_datetime": reminder.reminder_datetime.isoformat() if reminder.reminder_datetime else None,
         "frequency": reminder.frequency,
         "priority": reminder.priority,
         "is_active": reminder.is_active,
         "is_completed": reminder.is_completed,
+        "created_at": reminder.created_at.isoformat() if reminder.created_at else None,
     }
 
 @app.delete("/api/reminders/{reminder_id}")
