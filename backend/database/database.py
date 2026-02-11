@@ -12,25 +12,36 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database configuration
-# MySQL connection string format: mysql+pymysql://user:password@host:port/database
-MYSQL_USER = os.getenv("MYSQL_USER", "root")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
-MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
-MYSQL_PORT = os.getenv("MYSQL_PORT", "3306")
-MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "accessaid")
+USE_SQLITE = os.getenv("USE_SQLITE", "True").lower() == "true"
 
-DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}?charset=utf8mb4"
+if USE_SQLITE:
+    # SQLite for development
+    DATABASE_URL = "sqlite:///./accessaid.db"
+else:
+    # MySQL connection string format: mysql+pymysql://user:password@host:port/database
+    MYSQL_USER = os.getenv("MYSQL_USER", "root")
+    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
+    MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
+    MYSQL_PORT = os.getenv("MYSQL_PORT", "3306")
+    MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "accessaid")
+    DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}?charset=utf8mb4"
 
 # Create engine with MySQL-specific configurations
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,  # Verify connections before using
-    pool_recycle=3600,   # Recycle connections after 1 hour
-    pool_size=10,        # Connection pool size
-    max_overflow=20,     # Max connections beyond pool_size
-    echo=True            # Set to False in production
-)
-
+if USE_SQLITE:
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        echo=True
+    )
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,  # Verify connections before using
+        pool_recycle=3600,   # Recycle connections after 1 hour
+        pool_size=10,        # Connection pool size
+        max_overflow=20,     # Max connections beyond pool_size
+        echo=True            # Set to False in production
+    )
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
