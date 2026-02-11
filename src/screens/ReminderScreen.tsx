@@ -227,62 +227,65 @@ const ReminderScreen: React.FC = () => {
 
   }, []);
 
-  useEffect(() => {
-    (async () => {
+  // Reusable function to fetch reminders from backend
+  const fetchReminders = async () => {
+    try {
+      const userId = state.user?.id ? parseInt(state.user.id) : 1;
+
+      // Fetch reminders from backend
+      const backendReminders = await apiService.getUserReminders(userId);
+
+      // Convert backend reminders to local format
+      const localReminders: Reminder[] = backendReminders.map((r) => ({
+        id: r.reminder_id.toString(),
+        title: r.title,
+        description: r.description,
+        datetime: new Date(r.reminder_datetime),
+        isCompleted: r.is_completed,
+        createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+        category: 'personal' as ReminderCategory, // Default category
+        priority: (r.priority?.toLowerCase() || 'medium') as ReminderPriority,
+        recurrence: (r.frequency?.toLowerCase() || 'once') as ReminderRecurrence,
+      }));
+
+      setReminders(localReminders);
+
+      // Also save to AsyncStorage as cache
+      const key = storageKey(state.user?.id);
+      await AsyncStorage.setItem(
+        key,
+        JSON.stringify(localReminders.map(r => ({
+          ...r,
+          datetime: r.datetime.toISOString(),
+          createdAt: r.createdAt.toISOString()
+        })))
+      );
+    } catch (e) {
+      console.warn('Failed to load reminders from backend, trying AsyncStorage fallback:', e);
+
+      // Fallback to AsyncStorage if backend fails
       try {
-        const userId = state.user?.id ? parseInt(state.user.id) : 1;
-
-        // Fetch reminders from backend
-        const backendReminders = await apiService.getUserReminders(userId);
-
-        // Convert backend reminders to local format
-        const localReminders: Reminder[] = backendReminders.map((r) => ({
-          id: r.reminder_id.toString(),
-          title: r.title,
-          description: r.description,
-          datetime: new Date(r.reminder_datetime),
-          isCompleted: r.is_completed,
-          createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-          category: 'personal' as ReminderCategory, // Default category
-          priority: (r.priority?.toLowerCase() || 'medium') as ReminderPriority,
-          recurrence: (r.frequency?.toLowerCase() || 'once') as ReminderRecurrence,
-        }));
-
-        setReminders(localReminders);
-
-        // Also save to AsyncStorage as cache
         const key = storageKey(state.user?.id);
-        await AsyncStorage.setItem(
-          key,
-          JSON.stringify(localReminders.map(r => ({
+        const stored = await AsyncStorage.getItem(key);
+        if (stored) {
+          const parsed: Reminder[] = JSON.parse(stored).map((r: any) => ({
             ...r,
-            datetime: r.datetime.toISOString(),
-            createdAt: r.createdAt.toISOString()
-          })))
-        );
-      } catch (e) {
-        console.warn('Failed to load reminders from backend, trying AsyncStorage fallback:', e);
-
-        // Fallback to AsyncStorage if backend fails
-        try {
-          const key = storageKey(state.user?.id);
-          const stored = await AsyncStorage.getItem(key);
-          if (stored) {
-            const parsed: Reminder[] = JSON.parse(stored).map((r: any) => ({
-              ...r,
-              datetime: new Date(r.datetime),
-              createdAt: new Date(r.createdAt),
-            }));
-            setReminders(parsed);
-          } else {
-            setReminders([]);
-          }
-        } catch (fallbackError) {
-          console.warn('Failed to load reminders from AsyncStorage too');
+            datetime: new Date(r.datetime),
+            createdAt: new Date(r.createdAt),
+          }));
+          setReminders(parsed);
+        } else {
           setReminders([]);
         }
+      } catch (fallbackError) {
+        console.warn('Failed to load reminders from AsyncStorage too');
+        setReminders([]);
       }
-    })();
+    }
+  };
+
+  useEffect(() => {
+    fetchReminders();
   }, [state.user?.id]);
 
   useEffect(() => {
@@ -547,31 +550,34 @@ const ReminderScreen: React.FC = () => {
       const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
 
       if (editingReminderId) {
+        console.log('Updating reminder with ID in ReminderScreen.tsx:', editingReminderId);
         // Handle updating existing reminder (not implemented in this snippet)
         Alert.alert('Edit Reminder', 'Editing existing reminders is not implemented in this version.');
-        const backendReminder = await apiService.updateReminder(currentUserId, {
+        const backendReminder = await apiService.updateReminder(currentUserId, parseInt(editingReminderId), {
           reminder_id: parseInt(editingReminderId),
-        title: title.trim(),
-          description: description.trim() || undefined,
-          reminder_datetime: date.toISOString(),
-          frequency: recurrence,
-          priority: priority,
-        });
-        
-        setModalVisible(false);
-        setEditingReminderId(null);
-        return;
-      }
-      
-      
-      // Call backend API to create reminder
-        const backendReminder = await apiService.createReminder(currentUserId, {
           title: title.trim(),
           description: description.trim() || undefined,
           reminder_datetime: date.toISOString(),
           frequency: recurrence,
           priority: priority,
         });
+
+
+
+        setModalVisible(false);
+        setEditingReminderId(null);
+        return;
+      }
+
+
+      // Call backend API to create reminder
+      const backendReminder = await apiService.createReminder(currentUserId, {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        reminder_datetime: date.toISOString(),
+        frequency: recurrence,
+        priority: priority,
+      });
 
 
       // Create local reminder with backend data
@@ -711,7 +717,7 @@ const ReminderScreen: React.FC = () => {
 
     // Sync with backend
     try {
-      await apiService.updateReminder(parseInt(id), {
+      await apiService.updateReminder(parseInt(id),parseInt(id), {
         is_completed: newCompletedStatus,
         is_active: !newCompletedStatus, // If completed, mark as inactive
       } as any);
@@ -725,13 +731,14 @@ const ReminderScreen: React.FC = () => {
   };
 
   const showEditModal = (id: string) => {
+    console.log('✏️ Edit reminder:', id);
     const reminder = reminders.find(r => r.id === id);
     setEditingReminderId(id);
     if (!reminder) return;
 
     setTitle(reminder.title);
     setDescription(reminder.description || '');
-    setDate(reminder.datetime);
+    // setDate(reminder.datetime);
     setCategory(reminder.category || 'personal');
     setPriority(reminder.priority || 'medium');
     setRecurrence(reminder.recurrence || 'once');
