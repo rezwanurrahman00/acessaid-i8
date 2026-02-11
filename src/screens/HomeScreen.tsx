@@ -29,6 +29,15 @@ import { ModernCard } from '../components/ModernCard';
 import { useApp } from '../contexts/AppContext';
 import type { MainTabParamList } from '../types';
 import { voiceManager } from '../utils/voiceCommandManager';
+import { apiService } from '../../services/api';
+
+// Conditional import for clipboard (same pattern as ReminderScreen)
+let Clipboard: any = null;
+try {
+  Clipboard = require('expo-clipboard');
+} catch {
+  Clipboard = { setStringAsync: async (_: string) => {} };
+}
 
 // Conditional import for expo-speech-recognition (not available in Expo Go)
 let ExpoSpeechRecognitionModule: any = null;
@@ -43,7 +52,7 @@ const isSmallScreen = screenWidth < 375;
 const isPhone = screenWidth < 768;
 
 const HomeScreen = () => {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const navigation = useNavigation<NavigationProp<MainTabParamList>>();
   const [ttsText, setTtsText] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -370,7 +379,7 @@ const HomeScreen = () => {
       
       if (!trimmedText) {
         console.warn('⚠️ OCR returned empty text');
-        throw new Error('No text was extracted from the image. Please try with a clearer image or document.');
+        throw new Error('Text not clear. Please retake the photo with better lighting and make sure the text is in focus.');
       }
 
       console.log('✅ OCR Success! Extracted text length:', trimmedText.length);
@@ -504,9 +513,9 @@ const HomeScreen = () => {
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        Alert.alert('No Text Found', 'No readable text was detected in the image. Please try again with a clearer image.');
+        Alert.alert('Text Not Clear', 'Could not read any text. Please retake the photo with better lighting and make sure the text is in focus.');
         if (state.voiceAnnouncementsEnabled) {
-          speakDirect('No text detected. Please try again.');
+          speakDirect('Text not clear. Please retake the photo with better lighting.');
         }
       }
     } catch (error: any) {
@@ -576,8 +585,8 @@ const HomeScreen = () => {
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        Alert.alert('No Text Found', 'No readable text was detected in the image. Please try again with a different image.');
-        speakDirect('No text detected. Please try again.');
+        Alert.alert('Text Not Clear', 'Could not read any text. Please retake the photo with better lighting and make sure the text is in focus.');
+        speakDirect('Text not clear. Please retake the photo with better lighting.');
       }
     } catch (error: any) {
       console.error('Error uploading image:', error);
@@ -707,6 +716,88 @@ const HomeScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  /**
+   * Copy extracted OCR text to clipboard
+   */
+  const handleCopyText = async () => {
+    try {
+      await Clipboard.setStringAsync(aiReaderText);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Copied!', 'Text copied to clipboard.');
+      if (state.voiceAnnouncementsEnabled) {
+        speakDirect('Text copied to clipboard.');
+      }
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+      Alert.alert('Error', 'Failed to copy text. Please try again.');
+    }
+  };
+
+  /**
+   * Save extracted OCR text as a reminder (tries API, falls back to local state)
+   */
+  const handleSaveAsReminder = async () => {
+    try {
+      const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
+      const reminderTitle = aiReaderText.length > 50
+        ? aiReaderText.substring(0, 50) + '...'
+        : aiReaderText;
+
+      // Set reminder for 1 hour from now as a sensible default
+      const reminderDate = new Date(Date.now() + 60 * 60 * 1000);
+
+      let saved = false;
+
+      // Try backend API first
+      try {
+        await apiService.createReminder(currentUserId, {
+          title: reminderTitle,
+          description: aiReaderText,
+          reminder_datetime: reminderDate.toISOString(),
+          priority: 'medium',
+        });
+        saved = true;
+      } catch {
+        // Backend unavailable — save locally via AppContext
+        const localReminder = {
+          id: Date.now().toString(),
+          title: reminderTitle,
+          description: aiReaderText,
+          datetime: reminderDate,
+          isCompleted: false,
+          createdAt: new Date(),
+          category: 'personal' as const,
+          priority: 'medium' as const,
+          recurrence: 'once' as const,
+        };
+        dispatch({ type: 'ADD_REMINDER', payload: localReminder as any });
+        saved = true;
+      }
+
+      if (saved) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Saved!',
+          'Reminder created from scanned text. Opening reminders...',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Reminders'),
+            },
+          ]
+        );
+        if (state.voiceAnnouncementsEnabled) {
+          speakDirect('Reminder saved successfully. Opening reminders.');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save reminder:', error);
+      Alert.alert('Error', 'Failed to save reminder. Please try again.');
+      if (state.voiceAnnouncementsEnabled) {
+        speakDirect('Failed to save reminder. Please try again.');
+      }
+    }
+  };
 
   const FeatureCard = ({ 
     title, 
@@ -812,44 +903,42 @@ const HomeScreen = () => {
               </View>
             </View>
 
-            <View style={styles.aiReaderButtonsRow}>
-              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapTight]}>
-                <ModernButton
-                  title=" Take Picture"
-                  onPress={handleTakePicture}
-                  variant="primary"
-                  size="medium"
-                  disabled={isProcessing}
-                  icon={<Ionicons name="camera" size={20} color="white" />}
-                  style={styles.aiReaderButton}
-                  accessibilityLabel="Take a picture to extract text"
-                />
-              </View>
-
-              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapTight]}>
-                <ModernButton
-                  title=" Upload Image"
-                  onPress={handleUploadImage}
-                  variant="primary"
-                  size="medium"
-                  disabled={isProcessing}
-                  icon={<Ionicons name="image" size={20} color="white" />}
-                  style={styles.aiReaderButton}
-                  accessibilityLabel="Upload an image to extract text"
-                />
-              </View>
-
-              <View style={[styles.aiReaderButtonWrap, styles.aiReaderButtonWrapLast]}>
-                <ModernButton
-                  title=" Upload File"
-                  onPress={handleUploadFile}
-                  variant="primary"
-                  size="medium"
-                  disabled={isProcessing}
-                  icon={<Ionicons name="document-text" size={20} color="white" />}
-                  style={styles.aiReaderButton}
-                  accessibilityLabel="Upload a file to extract text"
-                />
+            <View style={styles.aiReaderButtonsColumn}>
+              <ModernButton
+                title=" Take Picture"
+                onPress={handleTakePicture}
+                variant="primary"
+                size="medium"
+                disabled={isProcessing}
+                icon={<Ionicons name="camera" size={20} color="white" />}
+                style={styles.aiReaderButton}
+                accessibilityLabel="Take a picture to extract text"
+              />
+              <View style={styles.aiReaderButtonsSecondRow}>
+                <View style={styles.aiReaderHalfButton}>
+                  <ModernButton
+                    title=" Upload Image"
+                    onPress={handleUploadImage}
+                    variant="outline"
+                    size="medium"
+                    disabled={isProcessing}
+                    icon={<Ionicons name="image" size={18} color={theme.accent} />}
+                    style={styles.aiReaderButton}
+                    accessibilityLabel="Upload an image to extract text"
+                  />
+                </View>
+                <View style={styles.aiReaderHalfButton}>
+                  <ModernButton
+                    title=" Upload File"
+                    onPress={handleUploadFile}
+                    variant="outline"
+                    size="medium"
+                    disabled={isProcessing}
+                    icon={<Ionicons name="document-text" size={18} color={theme.accent} />}
+                    style={styles.aiReaderButton}
+                    accessibilityLabel="Upload a file to extract text"
+                  />
+                </View>
               </View>
             </View>
 
@@ -884,6 +973,26 @@ const HomeScreen = () => {
                       accessibilityLabel="Stop reading"
                     />
                   </View>
+                </View>
+                <View style={styles.ocrActionRow}>
+                  <ModernButton
+                    title="Copy Text"
+                    onPress={handleCopyText}
+                    variant="outline"
+                    size="small"
+                    icon={<Ionicons name="copy-outline" size={16} color={theme.accent} />}
+                    style={styles.ocrActionButton}
+                    accessibilityLabel="Copy extracted text to clipboard"
+                  />
+                  <ModernButton
+                    title="Save as Reminder"
+                    onPress={handleSaveAsReminder}
+                    variant="primary"
+                    size="small"
+                    icon={<Ionicons name="bookmark-outline" size={16} color="#fff" />}
+                    style={styles.ocrActionButton}
+                    accessibilityLabel="Save extracted text as a reminder"
+                  />
                 </View>
                 <ScrollView
                   style={styles.extractedTextScrollView}
@@ -1196,21 +1305,16 @@ const createStyles = (theme: AppTheme) =>
       marginBottom: 0,
       lineHeight: 20,
     },
-    aiReaderButtonsRow: {
-      flexDirection: isSmallScreen ? 'column' : 'row',
-      alignItems: 'stretch',
+    aiReaderButtonsColumn: {
       marginBottom: 16,
     },
-    aiReaderButtonWrap: {
+    aiReaderButtonsSecondRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 10,
+    },
+    aiReaderHalfButton: {
       flex: 1,
-      marginBottom: isSmallScreen ? 12 : 0,
-    },
-    aiReaderButtonWrapTight: {
-      marginRight: isSmallScreen ? 0 : 12,
-    },
-    aiReaderButtonWrapLast: {
-      marginRight: 0,
-      marginBottom: 0,
     },
     aiReaderButton: {
       width: '100%',
@@ -1258,6 +1362,16 @@ const createStyles = (theme: AppTheme) =>
       minWidth: 40,
       minHeight: 40,
       backgroundColor: theme.accentSoft,
+      borderRadius: 12,
+    },
+    ocrActionRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 10,
+      marginBottom: 4,
+    },
+    ocrActionButton: {
+      flex: 1,
       borderRadius: 12,
     },
     extractedTextScrollView: {
