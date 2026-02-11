@@ -7,14 +7,27 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, EmailStr
 import uvicorn
-import hashlib
+from passlib.context import CryptContext
+from jose import JWTError, jwt
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from database import get_db, create_tables
 from database.models import User, Task, Reminder, Notification, TTSHistory, UserSettings, DeviceSync
-from database.seed_data import seed_database
+from database.seed_data import 
+
+# Password hashing context for bcrypt
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# JWT Configuration
+SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-change-in-production-12345")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("ACCESS_TOKEN_EXPIRE_HOURS", "24"))
 
 # Pydantic models for request/response validation
 class UserRegistration(BaseModel):
@@ -39,6 +52,10 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class UserResponseWithToken(UserResponse):
+    access_token: str
+    token_type: str = "bearer"
 
 class ReminderUpdate(BaseModel):
     title: Optional[str] = None
@@ -85,13 +102,29 @@ async def root():
     """Health check endpoint."""
     return {"message": "AccessAid API is running!", "status": "healthy"}
 
-# Helper function to hash PIN
+# Helper functions for PIN hashing and verification
 def hash_pin(pin: str) -> str:
-    """Hash a PIN using SHA-256."""
-    return hashlib.sha256(pin.encode()).hexdigest()
+      """Hash a PIN using bcrypt."""
+    return pwd_context.hash(pin)
+
+def verify_pin(pin: str, hashed_pin: str) -> bool:
+    """Verify a PIN against its bcrypt hash."""
+    return pwd_context.verify(pin, hashed_pin)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Create JWT access token."""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 # Authentication endpoints
-@app.post("/api/auth/register", response_model=UserResponse)
+@app.post("/api/auth/register", response_model=UserResponseWithToken)
 async def register_user(user_data: UserRegistration, db: Session = Depends(get_db)):
     """Register a new user."""
     # Check if email already exists
@@ -136,7 +169,10 @@ async def register_user(user_data: UserRegistration, db: Session = Depends(get_d
     db.commit()
     db.refresh(new_user)
     
-    return UserResponse(
+    # Create JWT token
+    access_token = create_access_token(data={"sub": str(new_user.user_id), "email": new_user.email})
+    
+    return UserResponseWithToken(
         user_id=new_user.user_id,
         email=new_user.email,
         name=f"{new_user.first_name} {new_user.last_name}".strip(),
@@ -145,10 +181,11 @@ async def register_user(user_data: UserRegistration, db: Session = Depends(get_d
         accessibility_preferences=new_user.accessibility_preferences,
         timezone=new_user.timezone,
         is_active=new_user.is_active,
-        created_at=new_user.created_at.isoformat() if new_user.created_at else None
+        created_at=new_user.created_at.isoformat() if new_user.created_at else None,
+        access_token=access_token
     )
 
-@app.post("/api/auth/login", response_model=UserResponse)
+@app.post("/api/auth/login", response_model=UserResponseWithToken)
 async def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
     """Login a user with email and PIN."""
     # Find user by email
@@ -160,7 +197,7 @@ async def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
         )
     
     # Verify PIN
-    if user.password_hash != hash_pin(login_data.pin):
+    if not verify_pin(login_data.pin, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or PIN"
@@ -172,8 +209,11 @@ async def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is inactive"
         )
+    # Create JWT token
+    access_token = create_access_token(data={"sub": str(user.user_id), "email": user.email})
     
-    return UserResponse(
+    
+    return UserResponseWithToken(
         user_id=user.user_id,
         email=user.email,
         name=f"{user.first_name} {user.last_name}".strip(),
@@ -182,7 +222,8 @@ async def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
         accessibility_preferences=user.accessibility_preferences,
         timezone=user.timezone,
         is_active=user.is_active,
-        created_at=user.created_at.isoformat() if user.created_at else None
+        created_at=user.created_at.isoformat() if user.created_at else None,
+        access_token=access_token
     )
 
 # User endpoints
