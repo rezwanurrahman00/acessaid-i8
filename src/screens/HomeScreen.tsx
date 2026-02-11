@@ -276,26 +276,15 @@ const HomeScreen = () => {
    * Get OCR API key from various possible locations
    */
   const getOCRAPIKey = (): string => {
-    // Try multiple ways to access the API key (for different Expo versions)
-    const manifestExtra = (Constants.manifest as { extra?: { OCR_SPACE_API_KEY?: string } } | null)?.extra;
-    const manifest2Extra = (Constants.manifest2 as { extra?: { OCR_SPACE_API_KEY?: string } } | undefined)?.extra;
+     // Get API key from environment variables (.env.local)
+    const key = process.env.EXPO_PUBLIC_OCR_SPACE_API_KEY || '';
 
-    const key =
-      Constants.expoConfig?.extra?.OCR_SPACE_API_KEY ||
-       manifestExtra?.OCR_SPACE_API_KEY ||
-       manifest2Extra?.OCR_SPACE_API_KEY ||
-      (process.env as any)?.EXPO_PUBLIC_OCR_SPACE_API_KEY ||
-      '';
-
-    // Debug logging (remove in production if needed)
+  // Debug logging (remove in production if needed)
     if (__DEV__) {
-      console.log('🔑 OCR API Key check:', {
-        hasExpoConfig: !!Constants.expoConfig,
-        hasManifest: !!Constants.manifest,
-        hasManifest2: !!(Constants as any).manifest2,
-        keyFound: !!key,
-        keyLength: key?.length || 0,
-        keyPreview: key ? `${key.substring(0, 3)}...${key.substring(key.length - 3)}` : 'N/A'
+      console.log('🔑 OCR API Key status:', {
+        found: !!key,
+        length: key?.length || 0
+      
       });
     }
 
@@ -310,14 +299,11 @@ const HomeScreen = () => {
 
     if (!ocrSpaceKey || !ocrSpaceKey.trim()) {
       console.error('❌ OCR API Key is missing!');
-      console.error('Available Constants:', {
-        expoConfig: Constants.expoConfig ? 'exists' : 'missing',
-        manifest: Constants.manifest ? 'exists' : 'missing',
-        manifest2: (Constants as any).manifest2 ? 'exists' : 'missing'
-      });
+      
       Alert.alert(
         'API Key Missing',
-        'OCR.Space API key is not configured. Please:\n\n1. Check app.json has OCR_SPACE_API_KEY in extra section\n2. Restart the Expo development server\n3. Reload the app'
+        'OCR.Space API key is not configured. Please:\n\n1. Create .env.local file in project root\n2. Add: EXPO_PUBLIC_OCR_SPACE_API_KEY=your_key_here\n3. Restart Expo with: npx expo start'
+     
       );
       return '';
     }
