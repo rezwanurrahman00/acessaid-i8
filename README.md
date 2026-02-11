@@ -219,6 +219,24 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
 
 ---
 
+### Sprint 4: Camera Reader & Reminder Integration ✅
+
+**Goal**: Polish the Camera Reader UI and enable seamless conversion of OCR-extracted text into reminders.
+
+**Completed**:
+
+#### 📸 Camera Reader UI Redesign
+- Redesigned Camera Reader layout with improved spacing, contrast, and button styling
+- Enhanced visual hierarchy for capture, upload, and file import actions
+- Cleaner extracted text display area with better readability
+
+#### 📝 Extracted Text to Reminder
+- Added the ability to directly create a reminder from OCR-extracted text
+- Users can scan or upload a document and instantly convert the extracted text into a new reminder
+- Streamlined workflow from text extraction to reminder creation without manual copy-paste
+
+---
+
 ## 🔌 APIs Used
 
 AccessAid integrates with the following APIs to provide its functionality:
@@ -373,7 +391,7 @@ Once the backend is running, visit `http://localhost:8000/docs` for interactive 
 
 ## 📋 Current Status
 
-The app is now fully functional with all Sprint 1, 2, and 3 features implemented. The foundation established in Sprint 1 was expanded in Sprint 2 with core accessibility features, authentication, voice commands, and a complete backend API. Sprint 3 added major feature implementations including enhanced Camera Reader Module with OCR and safety checks, comprehensive Speech-to-Text voice input capabilities, and a global Voice Announcement Toggle system for improved accessibility control. The application is production-ready with comprehensive accessibility features for users with disabilities.
+The app is now fully functional with all Sprint 1, 2, 3, and 4 features implemented. The foundation established in Sprint 1 was expanded in Sprint 2 with core accessibility features, authentication, voice commands, and a complete backend API. Sprint 3 added major feature implementations including enhanced Camera Reader Module with OCR and safety checks, comprehensive Speech-to-Text voice input capabilities, and a global Voice Announcement Toggle system for improved accessibility control. Sprint 4 introduced a redesigned Camera Reader UI with improved contrast and layout, along with the ability to directly create reminders from OCR-extracted text. The application is production-ready with comprehensive accessibility features for users with disabilities.
 
 ## Scripts
 - `npm start` – Start the Expo dev server (⚠️ Voice features won't work in Expo Go)
