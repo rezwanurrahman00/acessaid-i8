@@ -19,7 +19,7 @@ load_dotenv()
 
 from database import get_db, create_tables
 from database.models import User, Task, Reminder, Notification, TTSHistory, UserSettings, DeviceSync
-from database.seed_data import 
+from database.seed_data import seed_database
 
 # Password hashing context for bcrypt
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -104,7 +104,7 @@ async def root():
 
 # Helper functions for PIN hashing and verification
 def hash_pin(pin: str) -> str:
-      """Hash a PIN using bcrypt."""
+    """Hash a PIN using bcrypt."""
     return pwd_context.hash(pin)
 
 def verify_pin(pin: str, hashed_pin: str) -> bool:
