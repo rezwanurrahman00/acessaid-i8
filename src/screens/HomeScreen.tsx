@@ -29,7 +29,7 @@ import { ModernCard } from '../components/ModernCard';
 import { useApp } from '../contexts/AppContext';
 import type { MainTabParamList } from '../types';
 import { voiceManager } from '../utils/voiceCommandManager';
-import { apiService } from '../../services/api';
+
 
 // Conditional import for clipboard (same pattern as ReminderScreen)
 let Clipboard: any = null;
@@ -52,7 +52,7 @@ const isSmallScreen = screenWidth < 375;
 const isPhone = screenWidth < 768;
 
 const HomeScreen = () => {
-  const { state, dispatch } = useApp();
+  const { state } = useApp();
   const navigation = useNavigation<NavigationProp<MainTabParamList>>();
   const [ttsText, setTtsText] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -736,66 +736,11 @@ const HomeScreen = () => {
   /**
    * Save extracted OCR text as a reminder (tries API, falls back to local state)
    */
-  const handleSaveAsReminder = async () => {
-    try {
-      const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
-      const reminderTitle = aiReaderText.length > 50
-        ? aiReaderText.substring(0, 50) + '...'
-        : aiReaderText;
-
-      // Set reminder for 1 hour from now as a sensible default
-      const reminderDate = new Date(Date.now() + 60 * 60 * 1000);
-
-      let saved = false;
-
-      // Try backend API first
-      try {
-        await apiService.createReminder(currentUserId, {
-          title: reminderTitle,
-          description: aiReaderText,
-          reminder_datetime: reminderDate.toISOString(),
-          priority: 'medium',
-        });
-        saved = true;
-      } catch {
-        // Backend unavailable — save locally via AppContext
-        const localReminder = {
-          id: Date.now().toString(),
-          title: reminderTitle,
-          description: aiReaderText,
-          datetime: reminderDate,
-          isCompleted: false,
-          createdAt: new Date(),
-          category: 'personal' as const,
-          priority: 'medium' as const,
-          recurrence: 'once' as const,
-        };
-        dispatch({ type: 'ADD_REMINDER', payload: localReminder as any });
-        saved = true;
-      }
-
-      if (saved) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          'Saved!',
-          'Reminder created from scanned text. Opening reminders...',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Reminders'),
-            },
-          ]
-        );
-        if (state.voiceAnnouncementsEnabled) {
-          speakDirect('Reminder saved successfully. Opening reminders.');
-        }
-      }
-    } catch (error) {
-      console.error('Failed to save reminder:', error);
-      Alert.alert('Error', 'Failed to save reminder. Please try again.');
-      if (state.voiceAnnouncementsEnabled) {
-        speakDirect('Failed to save reminder. Please try again.');
-      }
+  const handleSaveAsReminder = () => {
+    // Navigate to Reminders tab with the scanned text pre-filled in the Create Reminder form
+    navigation.navigate('Reminders', { prefillDescription: aiReaderText });
+    if (state.voiceAnnouncementsEnabled) {
+      speakDirect('Opening create reminder with scanned text.');
     }
   };
 

@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRoute, RouteProp } from '@react-navigation/native';
+import type { MainTabParamList } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
@@ -72,6 +74,7 @@ const storageKey = (userId?: string | null) => (userId ? `${baseKey}_${userId}` 
 
 const ReminderScreen: React.FC = () => {
   const { state } = useApp();
+  const route = useRoute<RouteProp<MainTabParamList, 'Reminders'>>();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
@@ -105,6 +108,26 @@ const ReminderScreen: React.FC = () => {
 
   const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
   const styles = useMemo(() => createStyles(theme), [theme]);
+
+  // Auto-open Create Reminder modal when navigated with prefillDescription
+  useEffect(() => {
+    const prefill = route.params?.prefillDescription;
+    if (prefill) {
+      const reminderTitle = prefill.length > 50 ? prefill.substring(0, 50) + '...' : prefill;
+      setTitle(reminderTitle);
+      setDescription(prefill);
+      setDate(new Date(Date.now() + 60 * 60 * 1000));
+      setCategory('personal');
+      setPriority('medium');
+      setRecurrence('once');
+      setEditingReminderId(null);
+      setModalVisible(true);
+      // Clear the param so it doesn't re-trigger on tab re-focus
+      if (route.params) {
+        (route.params as any).prefillDescription = undefined;
+      }
+    }
+  }, [route.params?.prefillDescription]);
 
   // Helper to speak with voice announcements check
   const speakText = (text: string) => {
@@ -545,13 +568,10 @@ const ReminderScreen: React.FC = () => {
       return;
     }
 
-    try {
-      // Get current user ID
-      const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
+    const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
 
-      if (editingReminderId) {
-        console.log('Updating reminder with ID in ReminderScreen.tsx:', editingReminderId);
-        
+    if (editingReminderId) {
+      try {
         await apiService.updateReminder(currentUserId, parseInt(editingReminderId), {
           reminder_id: parseInt(editingReminderId),
           title: title.trim(),
@@ -560,55 +580,67 @@ const ReminderScreen: React.FC = () => {
           frequency: recurrence,
           priority: priority,
         });
-
-        // Refresh reminders from database
         await fetchReminders();
-        
         setModalVisible(false);
         setEditingReminderId(null);
         speakText(`Reminder "${title.trim()}" updated successfully`);
-        return;
+      } catch (error) {
+        console.error('Failed to update reminder:', error);
+        Alert.alert('Error', 'Failed to update reminder. Please try again.');
       }
-
-      // Call backend API to create reminder
-      const backendReminder = await apiService.createReminder(currentUserId, {
-        title: title.trim(),
-        description: description.trim() || undefined,
-        reminder_datetime: date.toISOString(),
-        frequency: recurrence,
-        priority: priority,
-      });
-
-
-      // Refresh reminders from database
-      await fetchReminders();
-
-      // Get the newly created reminder for scheduling
-      const newReminder: Reminder = {
-        id: backendReminder.reminder_id.toString(),
-        title: backendReminder.title,
-        description: backendReminder.description,
-        datetime: new Date(backendReminder.reminder_datetime),
-        isCompleted: backendReminder.is_completed,
-        createdAt: backendReminder.created_at ? new Date(backendReminder.created_at) : new Date(),
-        category,
-        priority,
-        recurrence,
-      };
-
-      await scheduleNative(newReminder);
-
-      // Schedule recurring reminders
-      if (recurrence !== 'once') {
-        scheduleRecurringReminders(newReminder);
-      }
-
-      setModalVisible(false);
-      speakText(`Reminder "${title.trim()}" created successfully`);
-    } catch (error) {
-      console.error('Failed to create reminder:', error);
-      Alert.alert('Error', 'Failed to create reminder. Please try again.');
+      return;
     }
+
+    // Build the reminder object immediately so UI updates instantly
+    const newReminder: Reminder = {
+      id: Date.now().toString(),
+      title: title.trim(),
+      description: description.trim() || undefined,
+      datetime: date,
+      isCompleted: false,
+      createdAt: new Date(),
+      category,
+      priority,
+      recurrence,
+    };
+
+    // Close modal and show reminder in list right away
+    setReminders(prev => [...prev, newReminder]);
+    setModalVisible(false);
+    speakText(`Reminder "${title.trim()}" created successfully`);
+
+    // Do the slow work (API + storage + scheduling) in the background
+    (async () => {
+      try {
+        // Persist to AsyncStorage
+        const key = storageKey(state.user?.id);
+        const existing = await AsyncStorage.getItem(key);
+        const stored = existing ? JSON.parse(existing) : [];
+        stored.push({
+          ...newReminder,
+          datetime: newReminder.datetime.toISOString(),
+          createdAt: newReminder.createdAt.toISOString(),
+        });
+        await AsyncStorage.setItem(key, JSON.stringify(stored));
+
+        // Try syncing to backend (fire-and-forget)
+        apiService.createReminder(currentUserId, {
+          title: title.trim(),
+          description: description.trim() || undefined,
+          reminder_datetime: date.toISOString(),
+          frequency: recurrence,
+          priority: priority,
+        }).catch(() => {});
+
+        // Schedule notification
+        await scheduleNative(newReminder);
+        if (recurrence !== 'once') {
+          scheduleRecurringReminders(newReminder);
+        }
+      } catch (err) {
+        console.warn('Background save error:', err);
+      }
+    })();
   };
 
   const scheduleRecurringReminders = async (reminder: Reminder) => {
