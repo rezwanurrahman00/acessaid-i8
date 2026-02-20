@@ -79,4 +79,41 @@ export const stopSpeech = async () => {
   }
 };
 
+// Cache for accessibility settings to reduce AsyncStorage reads
+const accessibilityCache: Partial<Record<string, boolean>> = {};
+
+/**
+ * Persists a visual accessibility setting (highContrast / largeText) to AsyncStorage.
+ * Call this whenever the user toggles either setting.
+ */
+export const setAccessibilitySetting = async (
+  key: "highContrast" | "largeText",
+  value: boolean
+) => {
+  try {
+    accessibilityCache[key] = value;
+    await AsyncStorage.setItem(`accessibility_${key}`, value ? "true" : "false");
+  } catch (error) {
+    console.error("Error saving accessibility setting:", error);
+  }
+};
+
+/**
+ * Reads a visual accessibility setting from AsyncStorage.
+ * Returns false if not set.
+ */
+export const getAccessibilitySetting = async (
+  key: "highContrast" | "largeText"
+): Promise<boolean> => {
+  try {
+    if (accessibilityCache[key] !== undefined) return accessibilityCache[key]!;
+    const value = await AsyncStorage.getItem(`accessibility_${key}`);
+    accessibilityCache[key] = value === "true";
+    return accessibilityCache[key]!;
+  } catch (error) {
+    console.error("Error reading accessibility setting:", error);
+    return false;
+  }
+};
+
 

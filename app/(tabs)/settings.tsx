@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import * as Haptics from "expo-haptics";
 import {
   View,
   Text,
@@ -18,7 +19,9 @@ import {
   setTalkingPreference,
   speakIfEnabled,
   stopSpeech,
+  setAccessibilitySetting,
 } from "@/services/ttsService";
+import { useAccessibilitySettings } from "@/hooks/useAccessibilitySettings";
 
 type LocalSettings = {
   voice_speed: number;
@@ -33,6 +36,7 @@ type LocalSettings = {
 };
 
 export default function SettingsScreen() {
+  const { ui, scale } = useAccessibilitySettings();
   const [settings, setSettings] = useState<UserSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId] = useState(1);
@@ -87,6 +91,13 @@ export default function SettingsScreen() {
   };
 
   const updateSetting = async (settingName: keyof LocalSettings, value: any) => {
+    // Haptic feedback so hearing-impaired users feel the toggle change
+    if (typeof value === "boolean") {
+      Haptics.impactAsync(value ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
     setLocalSettings((prev) => ({ ...prev, [settingName]: value }));
 
     try {
@@ -99,6 +110,14 @@ export default function SettingsScreen() {
       await setTalkingPreference(Boolean(value));
       if (!value) await stopSpeech();
       else await speakIfEnabled("Talking feature enabled.");
+    }
+
+    if (settingName === "high_contrast") {
+      await setAccessibilitySetting("highContrast", Boolean(value));
+    }
+
+    if (settingName === "large_text") {
+      await setAccessibilitySetting("largeText", Boolean(value));
     }
 
     await speakIfEnabled(
@@ -152,57 +171,57 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4A90E2" />
-        <ThemedText style={styles.loadingText}>Loading settings...</ThemedText>
+      <View style={[styles.loadingContainer, { backgroundColor: ui.bg }]}>
+        <ActivityIndicator size="large" color={ui.accent} />
+        <ThemedText style={[styles.loadingText, { color: ui.subtext, fontSize: scale(16) }]}>Loading settings...</ThemedText>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <ThemedText style={styles.title}>Settings</ThemedText>
-        <ThemedText style={styles.subtitle}>
+    <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
+      <ThemedView style={[styles.header, { backgroundColor: ui.headerSettings }]}>
+        <ThemedText style={[styles.title, { fontSize: scale(28) }]}>Settings</ThemedText>
+        <ThemedText style={[styles.subtitle, { fontSize: scale(16) }]}>
           Customize your AccessAid experience
         </ThemedText>
       </ThemedView>
 
       {/* Voice & Speech */}
-      <ThemedView style={styles.settingsSection}>
-        <ThemedText style={styles.sectionTitle}>Voice & Speech</ThemedText>
+      <ThemedView style={[styles.settingsSection, { backgroundColor: ui.sectionBg }]}>
+        <ThemedText style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}>Voice & Speech</ThemedText>
 
-        <View style={styles.settingRow}>
-          <ThemedText style={styles.settingLabel}>Talking (Voice Navigation)</ThemedText>
+        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
+          <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>Talking (Voice Navigation)</ThemedText>
           <Switch
             value={localSettings.voice_navigation}
             onValueChange={() =>
               toggleSetting("voice_navigation", localSettings.voice_navigation)
             }
-            trackColor={{ false: "#767577", true: "#81b0ff" }}
-            thumbColor={localSettings.voice_navigation ? "#f5dd4b" : "#f4f3f4"}
+            trackColor={{ false: ui.switchTrackOff, true: ui.switchTrackActive }}
+            thumbColor={localSettings.voice_navigation ? ui.switchThumbTrue : ui.switchThumbOff}
           />
         </View>
 
-        <ThemedText style={styles.helperText}>
+        <ThemedText style={[styles.helperText, { color: ui.helperText, fontSize: scale(13) }]}>
           When enabled, AccessAid speaks labels or actions when you tap icons.
         </ThemedText>
 
-        <View style={styles.settingRow}>
-          <ThemedText style={styles.settingLabel}>
+        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
+          <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>
             Speech Rate: {localSettings.voice_speed.toFixed(1)}x
           </ThemedText>
-          <TouchableOpacity style={styles.adjustButton} onPress={adjustVoiceSpeed}>
-            <Text style={styles.adjustButtonText}>Adjust</Text>
+          <TouchableOpacity style={[styles.adjustButton, { backgroundColor: ui.accent }]} onPress={adjustVoiceSpeed}>
+            <Text style={[styles.adjustButtonText, { fontSize: scale(14) }]}>Adjust</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.settingRow}>
-          <ThemedText style={styles.settingLabel}>
+        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
+          <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>
             Preferred Voice: {localSettings.preferred_voice}
           </ThemedText>
           <TouchableOpacity
-            style={styles.adjustButton}
+            style={[styles.adjustButton, { backgroundColor: ui.accent }]}
             onPress={() =>
               updateSetting(
                 "preferred_voice",
@@ -213,64 +232,64 @@ export default function SettingsScreen() {
               )
             }
           >
-            <Text style={styles.adjustButtonText}>Change</Text>
+            <Text style={[styles.adjustButtonText, { fontSize: scale(14) }]}>Change</Text>
           </TouchableOpacity>
         </View>
       </ThemedView>
 
       {/* Visual Settings */}
-      <ThemedView style={styles.settingsSection}>
-        <ThemedText style={styles.sectionTitle}>Visual Settings</ThemedText>
-        <View style={styles.settingRow}>
-          <ThemedText style={styles.settingLabel}>High Contrast Mode</ThemedText>
+      <ThemedView style={[styles.settingsSection, { backgroundColor: ui.sectionBg }]}>
+        <ThemedText style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}>Visual Settings</ThemedText>
+        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
+          <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>High Contrast Mode</ThemedText>
           <Switch
             value={localSettings.high_contrast}
             onValueChange={() =>
               toggleSetting("high_contrast", localSettings.high_contrast)
             }
-            trackColor={{ false: "#767577", true: "#81b0ff" }}
-            thumbColor={localSettings.high_contrast ? "#f5dd4b" : "#f4f3f4"}
+            trackColor={{ false: ui.switchTrackOff, true: ui.switchTrackActive }}
+            thumbColor={localSettings.high_contrast ? ui.switchThumbTrue : ui.switchThumbOff}
           />
         </View>
-        <View style={styles.settingRow}>
-          <ThemedText style={styles.settingLabel}>Large Text</ThemedText>
+        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
+          <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>Large Text</ThemedText>
           <Switch
             value={localSettings.large_text}
             onValueChange={() =>
               toggleSetting("large_text", localSettings.large_text)
             }
-            trackColor={{ false: "#767577", true: "#81b0ff" }}
-            thumbColor={localSettings.large_text ? "#f5dd4b" : "#f4f3f4"}
+            trackColor={{ false: ui.switchTrackOff, true: ui.switchTrackActive }}
+            thumbColor={localSettings.large_text ? ui.switchThumbTrue : ui.switchThumbOff}
           />
         </View>
       </ThemedView>
 
       {/* Notifications */}
-      <ThemedView style={styles.settingsSection}>
-        <ThemedText style={styles.sectionTitle}>Notifications</ThemedText>
+      <ThemedView style={[styles.settingsSection, { backgroundColor: ui.sectionBg }]}>
+        <ThemedText style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}>Notifications</ThemedText>
         {[
           ["push_notifications", "Push Notifications"],
           ["email_notifications", "Email Notifications"],
           ["reminder_sound", "Reminder Sound"],
         ].map(([key, label]) => (
-          <View key={key} style={styles.settingRow}>
-            <ThemedText style={styles.settingLabel}>{label}</ThemedText>
+          <View key={key} style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
+            <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>{label}</ThemedText>
             <Switch
               value={(localSettings as any)[key]}
               onValueChange={() =>
                 toggleSetting(key as keyof LocalSettings, (localSettings as any)[key])
               }
-              trackColor={{ false: "#767577", true: "#81b0ff" }}
-              thumbColor={(localSettings as any)[key] ? "#f5dd4b" : "#f4f3f4"}
+              trackColor={{ false: ui.switchTrackOff, true: ui.switchTrackActive }}
+              thumbColor={(localSettings as any)[key] ? ui.switchThumbTrue : ui.switchThumbOff}
             />
           </View>
         ))}
-        <View style={styles.settingRow}>
-          <ThemedText style={styles.settingLabel}>
+        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
+          <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>
             Reminder Frequency: {localSettings.reminder_frequency}
           </ThemedText>
           <TouchableOpacity
-            style={styles.adjustButton}
+            style={[styles.adjustButton, { backgroundColor: ui.accent }]}
             onPress={() =>
               updateSetting(
                 "reminder_frequency",
@@ -278,38 +297,38 @@ export default function SettingsScreen() {
               )
             }
           >
-            <Text style={styles.adjustButtonText}>Change</Text>
+            <Text style={[styles.adjustButtonText, { fontSize: scale(14) }]}>Change</Text>
           </TouchableOpacity>
         </View>
       </ThemedView>
 
       {/* Quick Actions */}
-      <ThemedView style={styles.settingsSection}>
-        <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
+      <ThemedView style={[styles.settingsSection, { backgroundColor: ui.sectionBg }]}>
+        <ThemedText style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}>Quick Actions</ThemedText>
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, { backgroundColor: ui.accent }]}
           onPress={() =>
             localSettings.voice_navigation
               ? speakIfEnabled("Testing voice settings with current speech rate.")
               : Alert.alert("Talking is off", "Enable Talking to hear the test.")
           }
         >
-          <Text style={styles.actionButtonText}>🔊 Test Voice</Text>
+          <Text style={[styles.actionButtonText, { fontSize: scale(16) }]}>🔊 Test Voice</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.actionButton, styles.resetButton]}
+          style={[styles.actionButton, { backgroundColor: ui.danger }]}
           onPress={resetToDefaults}
         >
-          <Text style={styles.actionButtonText}>🔄 Reset to Defaults</Text>
+          <Text style={[styles.actionButtonText, { fontSize: scale(16) }]}>🔄 Reset to Defaults</Text>
         </TouchableOpacity>
       </ThemedView>
 
       {/* Info */}
-      <ThemedView style={styles.infoSection}>
-        <ThemedText style={styles.sectionTitle}>App Information</ThemedText>
-        <ThemedText style={styles.infoText}>AccessAid v1.0.0</ThemedText>
-        <ThemedText style={styles.infoText}>by Code Innovators</ThemedText>
-        <ThemedText style={styles.infoText}>
+      <ThemedView style={[styles.infoSection, { backgroundColor: ui.sectionBg }]}>
+        <ThemedText style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}>App Information</ThemedText>
+        <ThemedText style={[styles.infoText, { color: ui.subtext, fontSize: scale(14) }]}>AccessAid v1.0.0</ThemedText>
+        <ThemedText style={[styles.infoText, { color: ui.subtext, fontSize: scale(14) }]}>by Code Innovators</ThemedText>
+        <ThemedText style={[styles.infoText, { color: ui.subtext, fontSize: scale(14) }]}>
           Making technology accessible for everyone
         </ThemedText>
       </ThemedView>
@@ -352,7 +371,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
   },
-  helperText: { fontSize: 13, color: "#666", marginTop: 8 },
+  helperText: { fontSize: 14, color: "#666", marginTop: 8 },
   settingLabel: { fontSize: 16, color: "#333333", flex: 1 },
   adjustButton: {
     backgroundColor: "#4A90E2",

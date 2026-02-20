@@ -3,6 +3,7 @@ import { ThemedView } from "@/components/themed-view";
 import { apiService, Reminder } from "@/services/api";
 import { speakIfEnabled } from "@/services/ttsService";
 import { useApp } from "@/src/contexts/AppContext";
+import { useAccessibilitySettings } from "@/hooks/useAccessibilitySettings";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -43,6 +44,7 @@ const SPOKEN_NUMBERS: Record<string, string> = {
 
 export default function RemindersScreen() {
   const { state } = useApp();
+  const { ui, scale } = useAccessibilitySettings();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -231,6 +233,7 @@ export default function RemindersScreen() {
     );
 
     if (!match) {
+      Alert.alert("Command Not Recognized", "Try saying: \"Set reminder for [title] at [time]\"\nExample: \"Set reminder for medicine at 8pm\"");
       speakIfEnabled("Command not recognized.");
       return;
     }
@@ -240,6 +243,7 @@ export default function RemindersScreen() {
 
     const time = normalizeSpokenTime(timeCandidate);
     if (!titleCandidate || !time) {
+      Alert.alert("Command Not Recognized", "Couldn't understand the title or time. Try: \"Set reminder for [title] at [time]\"");
       speakIfEnabled("Command not recognized.");
       return;
     }
@@ -295,68 +299,80 @@ export default function RemindersScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <ThemedText style={styles.title}>Smart Reminders</ThemedText>
-        <ThemedText style={styles.subtitle}>
+    <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
+      <ThemedView style={[styles.header, { backgroundColor: ui.headerReminders }]}>
+        <ThemedText style={[styles.title, { fontSize: scale(28) }]}>Smart Reminders</ThemedText>
+        <ThemedText style={[styles.subtitle, { fontSize: scale(16) }]}>
           Manage your daily tasks
         </ThemedText>
       </ThemedView>
 
       <ThemedView style={styles.addButtonContainer}>
         <TouchableOpacity
-          style={[styles.addButton, isListening && styles.voiceActiveButton]}
+          style={[
+            styles.addButton,
+            { backgroundColor: isListening ? ui.warning : ui.accent },
+          ]}
           onPress={isListening ? stopVoiceListening : startVoiceListening}
         >
-          <Text style={styles.addButtonText}>
-            {isListening ? "🛑 Stop Voice" : "🎤 Voice Commands"}
+          <Text style={[styles.addButtonText, { fontSize: scale(18) }]}>
+            {isListening ? “🛑 Stop Voice” : “🎤 Voice Commands”}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.addButton}
+          style={[styles.addButton, { backgroundColor: ui.accent }]}
           onPress={() => setIsAddingReminder(!isAddingReminder)}
         >
-          <Text style={styles.addButtonText}>
-            {isAddingReminder ? "❌ Cancel" : "➕ Add Reminder"}
+          <Text style={[styles.addButtonText, { fontSize: scale(18) }]}>
+            {isAddingReminder ? “❌ Cancel” : “➕ Add Reminder”}
           </Text>
         </TouchableOpacity>
       </ThemedView>
 
       {lastVoiceCommand ? (
-        <ThemedText style={styles.voiceHint}>
+        <ThemedText style={[styles.voiceHint, { color: ui.subtext }]}>
           Last voice command: “{lastVoiceCommand}”
         </ThemedText>
       ) : null}
 
       {isAddingReminder && (
-        <ThemedView style={styles.formContainer}>
+        <ThemedView style={[styles.formContainer, { backgroundColor: ui.cardBg }]}>
           <TextInput
-            style={styles.input}
-            placeholder="Title"
+            style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText }]}
+            placeholder=”Title”
+            placeholderTextColor={ui.subtext}
+            accessibilityLabel=”Reminder title”
             value={newReminder.title}
             onChangeText={(t) =>
               setNewReminder({ ...newReminder, title: t })
             }
           />
           <TextInput
-            style={styles.input}
-            placeholder="Description"
+            style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText }]}
+            placeholder=”Description”
+            placeholderTextColor={ui.subtext}
+            accessibilityLabel=”Reminder description”
             value={newReminder.description}
             onChangeText={(t) =>
               setNewReminder({ ...newReminder, description: t })
             }
           />
           <TextInput
-            style={styles.input}
-            placeholder="Time (HH:MM)"
+            style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText }]}
+            placeholder=”Time (HH:MM)”
+            placeholderTextColor={ui.subtext}
+            accessibilityLabel=”Reminder time in HH colon MM format”
             value={newReminder.time}
             onChangeText={(t) =>
               setNewReminder({ ...newReminder, time: t })
             }
           />
-          <TouchableOpacity style={styles.saveButton} onPress={addReminder}>
-            <Text style={styles.addButtonText}>Save</Text>
+          <TouchableOpacity
+            style={[styles.saveButton, { backgroundColor: ui.success }]}
+            onPress={addReminder}
+          >
+            <Text style={[styles.addButtonText, { fontSize: scale(18) }]}>Save</Text>
           </TouchableOpacity>
         </ThemedView>
       )}
