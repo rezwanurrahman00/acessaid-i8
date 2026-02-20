@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useApp } from '../contexts/AppContext';
+import { getThemeConfig } from '../../constants/theme';
 import { RootStackParamList, MainTabParamList } from '../types';
 
 // Screen imports
@@ -17,6 +19,9 @@ const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const MainTabNavigator = () => {
+  const { state } = useApp();
+  const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -35,12 +40,12 @@ const MainTabNavigator = () => {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#4A90E2',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: theme.accent,
+        tabBarInactiveTintColor: theme.textMuted,
         tabBarStyle: {
-          backgroundColor: 'white',
+          backgroundColor: theme.cardBackground,
           borderTopWidth: 1,
-          borderTopColor: '#E0E0E0',
+          borderTopColor: theme.cardBorder,
           paddingBottom: 5,
           paddingTop: 5,
           height: 60,
@@ -51,6 +56,11 @@ const MainTabNavigator = () => {
         },
         headerShown: false,
       })}
+      screenListeners={{
+        tabPress: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        },
+      }}
     >
       <Tab.Screen 
         name="Home" 

@@ -10,6 +10,7 @@ import {
   Alert,
   Animated,
   FlatList,
+  LayoutAnimation,
   Modal,
   Platform,
   ScrollView,
@@ -17,6 +18,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
@@ -69,6 +71,13 @@ type Reminder = {
   recurrence?: ReminderRecurrence;
 };
 
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const animateLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
 const baseKey = 'reminders_v2';
 const storageKey = (userId?: string | null) => (userId ? `${baseKey}_${userId}` : baseKey);
 
@@ -88,6 +97,7 @@ const ReminderScreen: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [fadeIn] = useState(new Animated.Value(0));
   const [slideUp] = useState(new Animated.Value(40));
   const intervalRef = useRef<any>(null);
@@ -305,6 +315,12 @@ const ReminderScreen: React.FC = () => {
         setReminders([]);
       }
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchReminders();
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -605,6 +621,7 @@ const ReminderScreen: React.FC = () => {
     };
 
     // Close modal and show reminder in list right away
+    animateLayout();
     setReminders(prev => [...prev, newReminder]);
     setModalVisible(false);
     speakText(`Reminder "${title.trim()}" created successfully`);
@@ -747,6 +764,8 @@ const ReminderScreen: React.FC = () => {
     const newCompletedStatus = !reminder.isCompleted;
     const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
 
+    // Animate the completion state change
+    animateLayout();
     // Update locally first for immediate feedback
     setReminders(prev => prev.map(r => (r.id === id ? { ...r, isCompleted: newCompletedStatus } : r)));
 
@@ -796,6 +815,7 @@ const ReminderScreen: React.FC = () => {
         style: 'destructive',
         onPress: async () => {
           // Remove locally first for immediate feedback
+          animateLayout();
           setReminders(prev => prev.filter(r => r.id !== id));
           speakText('Reminder deleted');
 
@@ -1022,6 +1042,8 @@ const ReminderScreen: React.FC = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
         renderItem={renderItem}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📝</Text>

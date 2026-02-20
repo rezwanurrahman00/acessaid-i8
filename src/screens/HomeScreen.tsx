@@ -744,13 +744,13 @@ const HomeScreen = () => {
     }
   };
 
-  const FeatureCard = ({ 
-    title, 
-    description, 
-    icon, 
-    onPress, 
+  const FeatureCard = ({
+    title,
+    description,
+    icon,
+    onPress,
     gradientColors,
-    accessibilityLabel 
+    accessibilityLabel
   }: {
     title: string;
     description: string;
@@ -771,6 +771,31 @@ const HomeScreen = () => {
         <Text style={styles.cardDescription}>{description}</Text>
       </View>
     </ModernCard>
+  );
+
+  const QuickStatsCard = ({
+    title,
+    stats
+  }: {
+    title: string;
+    stats: { value: string; label: string }[]
+  }) => (
+    <LinearGradient
+      colors={['#4A90E2', '#357ABD']}
+      style={styles.quickStatsGradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      <Text style={styles.quickStatsTitle}>{title}</Text>
+      <View style={styles.statsRow}>
+        {stats.map((stat, index) => (
+          <View key={index} style={styles.statItem}>
+            <Text style={styles.statNumber}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+          </View>
+        ))}
+      </View>
+    </LinearGradient>
   );
 
   return (
@@ -862,7 +887,7 @@ const HomeScreen = () => {
               <View style={styles.aiReaderButtonsSecondRow}>
                 <View style={styles.aiReaderHalfButton}>
                   <ModernButton
-                    title=" Upload Image"
+                    title="Image"
                     onPress={handleUploadImage}
                     variant="outline"
                     size="medium"
@@ -874,7 +899,7 @@ const HomeScreen = () => {
                 </View>
                 <View style={styles.aiReaderHalfButton}>
                   <ModernButton
-                    title=" Upload File"
+                    title="File"
                     onPress={handleUploadFile}
                     variant="outline"
                     size="medium"
@@ -980,52 +1005,15 @@ const HomeScreen = () => {
             />
           </View>
 
-          <ModernCard variant="outlined" style={styles.voiceCommandsContainer}>
-            <Text style={styles.sectionTitle}>Voice Commands</Text>
-            <Text style={styles.voiceCommandsText}>
-              Try saying: "Read text" or "Go to profile"
-            </Text>
-            
-            <ModernButton
-              title="Voice Help"
-              onPress={() => {
-                speakText('Available commands: Read text, Go to profile, Help');
-              }}
-              variant="outline"
-              icon={<Ionicons name="help-circle" size={16} color={theme.accent} />}
-              style={styles.voiceCommandButton}
-            />
-          </ModernCard>
-
-          <ModernCard variant="elevated" style={styles.quickStatsContainer}>
-            <Text style={styles.sectionTitle}>Quick Stats</Text>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>
-                  {Math.round(state.accessibilitySettings.brightness)}%
-                </Text>
-                <Text style={styles.statLabel}>Brightness</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>
-                  {Math.round(state.accessibilitySettings.textZoom)}%
-                </Text>
-                <Text style={styles.statLabel}>Text Size</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>
-                  {Math.round(state.accessibilitySettings.voiceSpeed * 100)}%
-                </Text>
-                <Text style={styles.statLabel}>Voice Speed</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>
-                  {state.reminders.filter(r => !r.isCompleted).length}
-                </Text>
-                <Text style={styles.statLabel}>Reminders</Text>
-              </View>
-            </View>
-          </ModernCard>
+          <QuickStatsCard
+            title="Quick Stats"
+            stats={[
+              { value: `${Math.round(state.accessibilitySettings.brightness)}%`, label: 'Brightness' },
+              { value: `${Math.round(state.accessibilitySettings.textZoom)}%`, label: 'Text Size' },
+              { value: `${Math.round(state.accessibilitySettings.voiceSpeed * 100)}%`, label: 'Voice Speed' },
+              { value: `${state.reminders.filter(r => !r.isCompleted).length}`, label: 'Reminders' },
+            ]}
+          />
 
 
         </ScrollView>
@@ -1172,17 +1160,22 @@ const createStyles = (theme: AppTheme) =>
     voiceCommandButton: {
       width: '100%',
     },
-    quickStatsContainer: {
-      padding: 20,
-      backgroundColor: theme.cardBackground,
+    quickStatsGradient: {
       borderRadius: 20,
-      borderWidth: theme.isDark ? 1 : 0.5,
-      borderColor: theme.cardBorder,
-      shadowColor: theme.cardShadow,
-      shadowOffset: { width: 0, height: theme.isDark ? 6 : 2 },
-      shadowOpacity: theme.isDark ? 0.3 : 0.08,
-      shadowRadius: theme.isDark ? 14 : 6,
-      elevation: theme.isDark ? 7 : 2,
+      padding: 20,
+      marginBottom: 15,
+      shadowColor: '#4A90E2',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    quickStatsTitle: {
+      color: 'white',
+      fontSize: 20,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: 16,
     },
     infoText: {
       color: theme.textMuted,
@@ -1199,11 +1192,11 @@ const createStyles = (theme: AppTheme) =>
     statNumber: {
       fontSize: 24,
       fontWeight: 'bold',
-      color: theme.accent,
+      color: 'white',
     },
     statLabel: {
       fontSize: 12,
-      color: theme.textSecondary,
+      color: 'rgba(255, 255, 255, 0.85)',
       marginTop: 4,
     },
     aiReaderContainer: {
