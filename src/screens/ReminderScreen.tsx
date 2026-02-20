@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import Constants from 'expo-constants';
+import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 import * as Speech from 'expo-speech';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -184,7 +185,9 @@ const ReminderScreen: React.FC = () => {
       keywords: ['show reminders', 'list reminders', 'view reminders', 'my reminders'],
       action: () => {
         const activeCount = reminders.filter(r => !r.isCompleted).length;
-        speakText(`You have ${activeCount} active reminders out of ${reminders.length} total`);
+        const message = `You have ${activeCount} active reminder${activeCount !== 1 ? 's' : ''} out of ${reminders.length} total`;
+        Alert.alert('Reminders', message);
+        speakText(message);
       },
       description: 'Announce reminder count',
       category: 'reminder'
@@ -197,12 +200,14 @@ const ReminderScreen: React.FC = () => {
         const activeReminders = reminders.filter(r => !r.isCompleted);
 
         if (activeReminders.length === 0) {
+          Alert.alert('Your Reminders', 'You have no active reminders.');
           speakText('You have no active reminders');
           return;
         }
 
         // Build the announcement
         let announcement = `You have ${activeReminders.length} active reminder${activeReminders.length > 1 ? 's' : ''}. `;
+        const lines: string[] = [];
 
         activeReminders.forEach((reminder, index) => {
           const time = reminder.datetime.toLocaleTimeString('en-US', {
@@ -216,9 +221,12 @@ const ReminderScreen: React.FC = () => {
             day: 'numeric'
           });
 
-          announcement += `${index + 1}. ${reminder.title} at ${time} on ${date}. `;
+          const line = `${index + 1}. ${reminder.title} at ${time} on ${date}`;
+          announcement += line + '. ';
+          lines.push(line);
         });
 
+        Alert.alert('Your Reminders', lines.join('\n'));
         speakText(announcement);
       },
       description: 'Read all active reminders with times',
@@ -249,8 +257,10 @@ const ReminderScreen: React.FC = () => {
       Animated.timing(fadeIn, { toValue: 1, duration: 450, useNativeDriver: true }),
       Animated.timing(slideUp, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start();
-    // Announce screen load
+    // Announce screen load (visual + audio)
     setTimeout(() => {
+      const hint = 'Voice commands available:\n• "Set reminder for [title] at [time]"\n• "Read my reminders"\n• "Show reminders"\n• "Create reminder"';
+      Alert.alert('Reminders', hint);
       if (state.voiceAnnouncementsEnabled) {
         voiceManager.announceScreenChange('reminders');
         speakText('You are on the Reminders page. You can say things like: Set reminder for food at 5 pm, or just say "create reminder" to add manually.');
@@ -403,6 +413,8 @@ const ReminderScreen: React.FC = () => {
   }, [reminders]);
 
   const triggerReminder = async (rem: Reminder) => {
+    // Haptic alert so hearing-impaired users feel the reminder firing
+    try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); } catch (_) { }
     try {
       // Default notification sound + TTS
       await Notifications.scheduleNotificationAsync({
@@ -430,6 +442,7 @@ const ReminderScreen: React.FC = () => {
   };
 
   const handleAlertYes = () => {
+    try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch (_) { }
     try { Speech.stop(); } catch { }
     if (speakIntervalRef.current) clearInterval(speakIntervalRef.current);
     if (alertReminder) {
@@ -439,6 +452,7 @@ const ReminderScreen: React.FC = () => {
   };
 
   const handleAlertNo = async () => {
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (_) { }
     try { Speech.stop(); } catch { }
     if (speakIntervalRef.current) clearInterval(speakIntervalRef.current);
     if (alertReminder) {
@@ -856,6 +870,15 @@ const ReminderScreen: React.FC = () => {
     }
   };
 
+  const getPriorityLabel = (pri?: ReminderPriority) => {
+    switch (pri) {
+      case 'high': return '▲ High';
+      case 'medium': return '● Medium';
+      case 'low': return '▼ Low';
+      default: return '';
+    }
+  };
+
   const getRecurrenceText = (rec?: ReminderRecurrence) => {
     switch (rec) {
       case 'daily': return '🔁 Daily';
@@ -919,6 +942,11 @@ const ReminderScreen: React.FC = () => {
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 12 }}>
           <Text style={styles.cardSubtitle}>🔔 {formatPreview(item.datetime)}</Text>
           <Text style={[styles.recurrenceBadge, { color: theme.accent }]}>{getRecurrenceText(item.recurrence)}</Text>
+          {item.priority && (
+            <Text style={[styles.priorityLabel, { color: getPriorityColor(item.priority) }]}>
+              {getPriorityLabel(item.priority)}
+            </Text>
+          )}
         </View>
       </View>
       <View style={styles.cardActions}>
@@ -1407,7 +1435,7 @@ const createStyles = (theme: AppTheme) =>
     },
     filterChipText: {
       color: theme.textSecondary,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '500',
     },
     filterChipTextActive: {
@@ -1477,12 +1505,16 @@ const createStyles = (theme: AppTheme) =>
       lineHeight: 20,
     },
     cardSubtitle: {
-      fontSize: 13,
+      fontSize: 14,
       color: theme.textSecondary
     },
     recurrenceBadge: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: '600',
+    },
+    priorityLabel: {
+      fontSize: 14,
+      fontWeight: '700',
     },
     cardActions: { flexDirection: 'row', alignItems: 'center' },
     actionBtn: { paddingHorizontal: 8, paddingVertical: 6 },

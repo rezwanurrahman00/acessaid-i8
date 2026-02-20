@@ -12,15 +12,15 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { speakIfEnabled } from "@/services/ttsService"; // 🗣 connect talking system
+import { speakIfEnabled } from "@/services/ttsService";
+import { useAccessibilitySettings } from "@/hooks/useAccessibilitySettings";
 
 export default function ProfileTab() {
   const { user, signOut, updateUser } = useAuth();
   const router = useRouter();
+  const { ui, scale } = useAccessibilitySettings();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || "");
   const [editedAge, setEditedAge] = useState(user?.age || "");
@@ -28,8 +28,6 @@ export default function ProfileTab() {
   const [editedWeight, setEditedWeight] = useState(user?.weight || "");
   const [editedBloodGroup, setEditedBloodGroup] = useState(user?.bloodGroup || "");
   const [editedFoodAllergy, setEditedFoodAllergy] = useState(user?.foodAllergy || "");
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "light"];
 
   // 🗣 Speak once when the profile loads
   useEffect(() => {
@@ -138,19 +136,19 @@ export default function ProfileTab() {
   if (!user) {
     speakIfEnabled("No user data found");
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.text }]}>No user data found</Text>
+      <View style={[styles.container, { backgroundColor: ui.bg }]}>
+        <Text style={[styles.errorText, { color: ui.text }]}>No user data found</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
       <ThemedView style={styles.content}>
         {/* Header */}
-        <ThemedView style={[styles.header, { backgroundColor: colors.tint }]}>
-          <ThemedText style={[styles.title, { color: "#FFFFFF" }]}>Profile</ThemedText>
-          <ThemedText style={[styles.subtitle, { color: "#E8F4FD" }]}>
+        <ThemedView style={[styles.header, { backgroundColor: ui.headerProfile }]}>
+          <ThemedText style={[styles.title, { color: "#FFFFFF", fontSize: scale(32) }]}>Profile</ThemedText>
+          <ThemedText style={[styles.subtitle, { color: "#E8F4FD", fontSize: scale(16) }]}>
             Manage your personal information
           </ThemedText>
         </ThemedView>
@@ -161,22 +159,24 @@ export default function ProfileTab() {
             onPress={handleImagePicker}
             style={styles.imageContainer}
             accessibilityLabel="Edit profile picture"
+            accessibilityRole="button"
+            accessibilityHint="Opens photo library to change your profile picture"
           >
             {user.profilePicture ? (
               <Image source={{ uri: user.profilePicture }} style={styles.profileImage} />
             ) : (
-              <View style={[styles.placeholderImage, { backgroundColor: colors.tint }]}>
-                <Text style={styles.placeholderText}>{user.name.charAt(0).toUpperCase()}</Text>
+              <View style={[styles.placeholderImage, { backgroundColor: ui.headerProfile }]}>
+                <Text style={[styles.placeholderText, { fontSize: scale(48) }]}>{user.name.charAt(0).toUpperCase()}</Text>
               </View>
             )}
-            <View style={[styles.editIcon, { backgroundColor: colors.tint }]}>
+            <View style={[styles.editIcon, { backgroundColor: ui.accent }]}>
               <Text style={styles.editIconText}>📷</Text>
             </View>
           </TouchableOpacity>
         </ThemedView>
 
         {/* Info Section */}
-        <ThemedView style={[styles.infoSection, { backgroundColor: colors.background }]}>
+        <ThemedView style={[styles.infoSection, { backgroundColor: ui.cardBg }]}>
           {[
             ["Name", editedName, setEditedName, "Enter your name", user.name],
             ["Email", user.email],
@@ -186,25 +186,28 @@ export default function ProfileTab() {
             ["Blood Group", editedBloodGroup, setEditedBloodGroup, "e.g., O+", user.bloodGroup],
             ["Food Allergies", editedFoodAllergy, setEditedFoodAllergy, "e.g., peanuts", user.foodAllergy],
           ].map(([label, value, setValue, placeholder, displayValue], i) => (
-            <View key={i} style={styles.infoItem}>
-              <ThemedText style={[styles.label, { color: colors.text }]}>{label}</ThemedText>
+            <View key={i} style={[styles.infoItem, { borderBottomColor: ui.divider, borderBottomWidth: 1 }]}>
+              <ThemedText style={[styles.label, { color: ui.subtext, fontSize: scale(14) }]}>{label}</ThemedText>
               {label !== "Email" && isEditing && setValue ? (
                 <TextInput
                   style={[
                     styles.input,
                     {
-                      backgroundColor: colors.background,
-                      borderColor: colors.icon,
-                      color: colors.text,
+                      backgroundColor: ui.inputBg,
+                      borderColor: ui.inputBorder,
+                      color: ui.inputText,
+                      fontSize: scale(16),
                     },
                   ]}
                   value={String(value)}
                   onChangeText={(text) => setValue(text)}
                   placeholder={placeholder || ""}
+                  placeholderTextColor={ui.subtext}
+                  accessibilityLabel={String(label)}
                   onFocus={() => speakIfEnabled(`${label} field active`)}
                 />
               ) : (
-                <ThemedText style={[styles.value, { color: colors.text }]}>
+                <ThemedText style={[styles.value, { color: ui.text, fontSize: scale(16) }]}>
                   {displayValue || "Not provided"}
                 </ThemedText>
               )}
@@ -213,36 +216,44 @@ export default function ProfileTab() {
         </ThemedView>
 
         {/* Buttons */}
-        <ThemedView style={[styles.buttonSection, { backgroundColor: colors.background }]}>
+        <ThemedView style={[styles.buttonSection, { backgroundColor: ui.bg }]}>
           {isEditing ? (
             <View style={styles.editButtons}>
               <TouchableOpacity
-                style={[styles.button, styles.cancelButton, { borderColor: colors.icon }]}
+                style={[styles.button, styles.cancelButton, { borderColor: ui.divider }]}
                 onPress={handleCancelEdit}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel editing"
               >
-                <ThemedText style={[styles.buttonText, { color: colors.text }]}>Cancel</ThemedText>
+                <ThemedText style={[styles.buttonText, { color: ui.text, fontSize: scale(16) }]}>Cancel</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.button, styles.saveButton, { backgroundColor: colors.tint }]}
+                style={[styles.button, styles.saveButton, { backgroundColor: ui.accent }]}
                 onPress={handleSaveProfile}
+                accessibilityRole="button"
+                accessibilityLabel="Save profile changes"
               >
-                <ThemedText style={styles.buttonText}>Save</ThemedText>
+                <ThemedText style={[styles.buttonText, { fontSize: scale(16) }]}>Save</ThemedText>
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity
-              style={[styles.button, styles.editButton, { backgroundColor: colors.tint }]}
+              style={[styles.button, styles.editButton, { backgroundColor: ui.accent }]}
               onPress={handleEditProfile}
+              accessibilityRole="button"
+              accessibilityLabel="Edit your profile"
             >
-              <ThemedText style={styles.buttonText}>Edit Profile</ThemedText>
+              <ThemedText style={[styles.buttonText, { fontSize: scale(16) }]}>Edit Profile</ThemedText>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity
-            style={[styles.button, styles.signOutButton, { borderColor: colors.icon }]}
+            style={[styles.button, styles.signOutButton, { borderColor: ui.danger }]}
             onPress={handleSignOut}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out of AccessAid"
           >
-            <ThemedText style={[styles.buttonText, { color: colors.text }]}>Sign Out</ThemedText>
+            <ThemedText style={[styles.buttonText, { color: ui.danger, fontSize: scale(16) }]}>Sign Out</ThemedText>
           </TouchableOpacity>
         </ThemedView>
       </ThemedView>

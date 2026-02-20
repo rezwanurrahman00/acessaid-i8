@@ -90,6 +90,29 @@ export const getThemeConfig = (isDark: boolean): AppTheme => {
   };
 };
 
+/**
+ * Light/dark color map used by _layout.tsx and themed components.
+ * Uses the same values as getThemeConfig for consistency.
+ */
+export const Colors = {
+  light: {
+    tint: "#4A90E2",
+    background: "#FFFFFF",
+    text: "#1F2933",
+    icon: "#CBD5E0",
+    tabIconDefault: "#94A3B8",
+    tabIconSelected: "#4A90E2",
+  },
+  dark: {
+    tint: "#60A5FA",
+    background: "#0B1120",
+    text: "#F8FAFC",
+    icon: "#475569",
+    tabIconDefault: "#64748B",
+    tabIconSelected: "#60A5FA",
+  },
+};
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */

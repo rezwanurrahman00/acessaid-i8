@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Alert,
   ScrollView,
@@ -11,13 +11,14 @@ import {
   Modal,
 } from "react-native";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as Speech from "expo-speech";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useAuth } from "@/contexts/AuthContext";
-import { speakIfEnabled } from "@/services/ttsService"; // 🗣 connect to toggle system
+import { speakIfEnabled, setAccessibilitySetting, getAccessibilitySetting } from "@/services/ttsService";
+import * as Haptics from "expo-haptics";
 
 export default function HomeScreen() {
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -29,6 +30,22 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
+  // Sync with settings saved by the Settings tab
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        const hc = await getAccessibilitySetting("highContrast");
+        const lt = await getAccessibilitySetting("largeText");
+        if (active) {
+          setHighContrast(hc);
+          setLargeText(lt);
+        }
+      })();
+      return () => { active = false; };
+    }, [])
+  );
+
   const ui = {
     bg: highContrast ? "#000000" : "#f5f5f5",
     cardBg: highContrast ? "#000000" : "#FFFFFF",
@@ -39,7 +56,10 @@ export default function HomeScreen() {
     headerBorder: highContrast ? "#FFFFFF" : "transparent",
     accent: highContrast ? "#FFD700" : "#4A90E2",
     accentMuted: highContrast ? "#E6C200" : "#81b0ff",
-    switchThumbTrue: highContrast ? "#000000" : "#f5dd4b",
+    switchTrackActive: highContrast ? "#E6C200" : "#81b0ff",
+    switchTrackOff:    highContrast ? "#888888" : "#767577",
+    switchThumbTrue:   highContrast ? "#000000" : "#f5dd4b",
+    switchThumbOff:    highContrast ? "#CCCCCC" : "#f4f3f4",
   };
 
   const scale = (n: number) => (largeText ? Math.round(n * 1.25) : n);
@@ -158,11 +178,13 @@ export default function HomeScreen() {
           <Switch
             value={highContrast}
             onValueChange={(v) => {
+              Haptics.impactAsync(v ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
               setHighContrast(v);
+              setAccessibilitySetting("highContrast", v);
               speakIfEnabled(v ? "High contrast mode on" : "High contrast mode off");
             }}
-            trackColor={{ false: "#767577", true: ui.accentMuted }}
-            thumbColor={highContrast ? ui.switchThumbTrue : "#f4f3f4"}
+            trackColor={{ false: ui.switchTrackOff, true: ui.switchTrackActive }}
+            thumbColor={highContrast ? ui.switchThumbTrue : ui.switchThumbOff}
           />
         </View>
 
@@ -175,11 +197,13 @@ export default function HomeScreen() {
           <Switch
             value={largeText}
             onValueChange={(v) => {
+              Haptics.impactAsync(v ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
               setLargeText(v);
+              setAccessibilitySetting("largeText", v);
               speakIfEnabled(v ? "Large text enabled" : "Large text disabled");
             }}
-            trackColor={{ false: "#767577", true: ui.accentMuted }}
-            thumbColor={largeText ? ui.switchThumbTrue : "#f4f3f4"}
+            trackColor={{ false: ui.switchTrackOff, true: ui.switchTrackActive }}
+            thumbColor={largeText ? ui.switchThumbTrue : ui.switchThumbOff}
           />
         </View>
 
@@ -238,9 +262,12 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={[
             styles.featureButton,
-            { backgroundColor: "#32CD32" },
+            { backgroundColor: ui.success },
           ]}
-          onPress={() => speakIfEnabled("Reminders feature coming soon")}
+          onPress={() => {
+            Alert.alert("Coming Soon", "Smart Reminders are coming soon!");
+            speakIfEnabled("Reminders feature coming soon");
+          }}
         >
           <Text style={[styles.featureButtonText, { fontSize: scale(18) }]}>
             📅 Smart Reminders
@@ -256,15 +283,19 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={[
             styles.featureButton,
-            { backgroundColor: "#FF8C00" },
+            { backgroundColor: ui.warning, paddingVertical: 28 },
           ]}
-          onPress={() =>
+          onPress={() => {
+            Alert.alert(
+              "Voice Navigation",
+              "Voice navigation helps you move through the app using voice commands. Coming soon!"
+            );
             speakIfEnabled(
               "Voice navigation helps you move through the app using voice commands. Coming soon!"
-            )
-          }
+            );
+          }}
         >
-          <Text style={[styles.featureButtonText, { fontSize: scale(18) }]}>
+          <Text style={[styles.featureButtonText, { fontSize: scale(20) }]}>
             🎤 Voice Navigation
           </Text>
           <ThemedText
@@ -291,7 +322,7 @@ export default function HomeScreen() {
 
         <View style={styles.quickActionsRow}>
           <TouchableOpacity
-            style={[styles.quickActionButton, { backgroundColor: "#32CD32" }]}
+            style={[styles.quickActionButton, { backgroundColor: ui.success }]}
             onPress={() => {
               speakIfEnabled("Opening reminders");
               router.push("/reminders");
@@ -303,7 +334,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.quickActionButton, { backgroundColor: "#6C7B7F" }]}
+            style={[styles.quickActionButton, { backgroundColor: ui.accent }]}
             onPress={() => {
               speakIfEnabled("Opening settings");
               router.push("/settings");

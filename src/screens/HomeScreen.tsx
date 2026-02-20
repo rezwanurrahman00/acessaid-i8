@@ -752,7 +752,7 @@ const HomeScreen = () => {
       style={styles.featureCard}
     >
       <View style={styles.cardContent}>
-        <Ionicons name={icon as any} size={40} color="white" />
+        <Ionicons name={icon as any} size={52} color="white" />
         <Text style={styles.cardTitle}>{title}</Text>
         <Text style={styles.cardDescription}>{description}</Text>
       </View>
@@ -971,8 +971,6 @@ const HomeScreen = () => {
           </ModernCard>
 
           <View style={styles.featuresContainer}>
-            <Text style={styles.sectionTitle}>Quick Access</Text>
-
             <FeatureCard
               title={isListening ? "Voice Commands (Active)" : "Voice Commands"}
               description={isListening ? "Listening for commands..." : "Control the app with your voice"}
@@ -1109,7 +1107,7 @@ const createStyles = (theme: AppTheme) =>
     },
     cardContent: {
       alignItems: 'center',
-      padding: 20,
+      padding: 30,
     },
     cardTitle: {
       color: theme.textInverted,
