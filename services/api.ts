@@ -175,7 +175,17 @@ class ApiService {
   }
 
   async getUserReminders(userId: number): Promise<Reminder[]> {
-    return tryFetch(`${this.baseUrl}/users/${userId}/reminders`, {}, mockReminders);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(`${this.baseUrl}/users/${userId}/reminders`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    } catch (err) {
+      clearTimeout(timeout);
+      throw err;
+    }
   }
 
   async createReminder(userId: number, reminderData: {
@@ -199,27 +209,45 @@ class ApiService {
     return await response.json();
   }
 
-  async updateReminder(userId: number, reminderId: number, updateData: Partial<Reminder>): Promise<{ message: string }> {
-    console.log(`✏️ ✏️ Updating reminder with ID api.ts:`, reminderId, 'and data:', updateData);
-    return tryFetch(
-      `${this.baseUrl}/reminders/${reminderId}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+  async updateReminder(userId: number, reminderId: number, updateData: Partial<Reminder>): Promise<Reminder> {
+    console.log(`✏️ Updating reminder ${reminderId}:`, updateData);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(`${this.baseUrl}/reminders/${reminderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData),
-      },
-      { message: "Reminder updated locally (offline mode)" }
-    );
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!response.ok) {
+        throw new Error(`Server error ${response.status}`);
+      }
+      return await response.json();
+    } catch (err) {
+      clearTimeout(timeout);
+      throw err;
+    }
   }
 
   async deleteReminder(reminderId: number): Promise<{ message: string }> {
-    return tryFetch(
-      `${this.baseUrl}/reminders/${reminderId}`,
-      {
-        method: "DELETE",
-      },
-      { message: "Reminder deleted locally (offline mode)" }
-    );
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(`${this.baseUrl}/reminders/${reminderId}`, {
+        method: 'DELETE',
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!response.ok) {
+        throw new Error(`Server error ${response.status}`);
+      }
+      return await response.json();
+    } catch (err) {
+      clearTimeout(timeout);
+      throw err;
+    }
   }
 
   async getUserSettings(userId: number): Promise<UserSetting[]> {
