@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as Speech from 'expo-speech';
 import { useApp } from '../contexts/AppContext';
 import { getThemeConfig } from '../../constants/theme';
 import { RootStackParamList, MainTabParamList } from '../types';
@@ -56,11 +57,16 @@ const MainTabNavigator = () => {
         },
         headerShown: false,
       })}
-      screenListeners={{
+      screenListeners={({ route, navigation }) => ({
         tabPress: () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          // Announce tab name when switching TO this tab (not when re-pressing the active tab)
+          if (state.voiceAnnouncementsEnabled && !navigation.isFocused()) {
+            try { Speech.stop(); } catch {}
+            try { Speech.speak(route.name); } catch {}
+          }
         },
-      }}
+      })}
     >
       <Tab.Screen 
         name="Home" 

@@ -83,7 +83,7 @@ const baseKey = 'reminders_v2';
 const storageKey = (userId?: string | null) => (userId ? `${baseKey}_${userId}` : baseKey);
 
 const ReminderScreen: React.FC = () => {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const route = useRoute<RouteProp<MainTabParamList, 'Reminders'>>();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -101,6 +101,29 @@ const ReminderScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [fadeIn] = useState(new Animated.Value(0));
   const [slideUp] = useState(new Animated.Value(40));
+  // Track reminders deleted locally so fetchReminders never reloads them from backend
+  // Matched by title + datetime (handles ID mismatch between local and backend)
+  const pendingDeletesRef = useRef<{ title: string; datetimeISO: string }[]>([]);
+
+  // Sync local reminders to AppContext so HomeScreen Quick Stats stays current
+  useEffect(() => {
+    const mapped = reminders.map(r => ({
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      date: r.datetime,
+      time: r.datetime,
+      isCompleted: r.isCompleted,
+      isActive: !r.isCompleted,
+      createdAt: r.createdAt,
+      updatedAt: new Date(),
+      category: r.category as any,
+      priority: r.priority as any,
+      recurrence: r.recurrence,
+    }));
+    dispatch({ type: 'SET_REMINDERS', payload: mapped });
+  }, [reminders]);
+
   const intervalRef = useRef<any>(null);
   const notifSubRef = useRef<Notifications.Subscription | null>(null);
   const spokenCooldownRef = useRef<Record<string, number>>({});
@@ -257,10 +280,8 @@ const ReminderScreen: React.FC = () => {
       Animated.timing(fadeIn, { toValue: 1, duration: 450, useNativeDriver: true }),
       Animated.timing(slideUp, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start();
-    // Announce screen load (visual + audio)
+    // Announce screen load
     setTimeout(() => {
-      const hint = 'Voice commands available:\n• "Set reminder for [title] at [time]"\n• "Read my reminders"\n• "Show reminders"\n• "Create reminder"';
-      Alert.alert('Reminders', hint);
       if (state.voiceAnnouncementsEnabled) {
         voiceManager.announceScreenChange('reminders');
         speakText('You are on the Reminders page. You can say things like: Set reminder for food at 5 pm, or just say "create reminder" to add manually.');
@@ -291,18 +312,17 @@ const ReminderScreen: React.FC = () => {
         recurrence: (r.frequency?.toLowerCase() || 'once') as ReminderRecurrence,
       }));
 
-      setReminders(localReminders);
+      // Filter out any reminders the user deleted locally but backend hasn't confirmed yet.
+      // Match by title + datetime (within 2 min) to handle ID mismatches.
+      const filtered = localReminders.filter(r => {
+        if (pendingDeletesRef.current.length === 0) return true;
+        return !pendingDeletesRef.current.some(pd => {
+          const diff = Math.abs(r.datetime.getTime() - new Date(pd.datetimeISO).getTime());
+          return pd.title === r.title && diff < 120_000;
+        });
+      });
 
-      // Also save to AsyncStorage as cache
-      const key = storageKey(state.user?.id);
-      await AsyncStorage.setItem(
-        key,
-        JSON.stringify(localReminders.map(r => ({
-          ...r,
-          datetime: r.datetime.toISOString(),
-          createdAt: r.createdAt.toISOString()
-        })))
-      );
+      setReminders(filtered);
     } catch (e) {
       console.warn('Failed to load reminders from backend, trying AsyncStorage fallback:', e);
 
@@ -482,6 +502,7 @@ const ReminderScreen: React.FC = () => {
     setCategory('personal');
     setPriority('medium');
     setRecurrence('once');
+    setEditingReminderId(null);
     setModalVisible(true);
   };
 
@@ -588,12 +609,12 @@ const ReminderScreen: React.FC = () => {
       Alert.alert('Missing title', 'Please enter a reminder title.');
       return;
     }
-    if (reminders.length >= 50) {
+    if (!editingReminderId && reminders.length >= 50) {
       Alert.alert('Limit reached', 'You can only have up to 50 reminders.');
       return;
     }
 
-    if (date.getTime() <= Date.now()) {
+    if (!editingReminderId && date.getTime() <= Date.now()) {
       Alert.alert('Invalid time', 'Please select a future date and time.');
       return;
     }
@@ -601,23 +622,43 @@ const ReminderScreen: React.FC = () => {
     const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
 
     if (editingReminderId) {
-      try {
-        await apiService.updateReminder(currentUserId, parseInt(editingReminderId), {
-          reminder_id: parseInt(editingReminderId),
+      const existingReminder = reminders.find(r => r.id === editingReminderId);
+
+      // Apply update to local state immediately so the user sees changes right away
+      if (existingReminder) {
+        const updated: Reminder = {
+          ...existingReminder,
           title: title.trim(),
           description: description.trim() || undefined,
-          reminder_datetime: date.toISOString(),
-          frequency: recurrence,
-          priority: priority,
-        });
-        await fetchReminders();
-        setModalVisible(false);
-        setEditingReminderId(null);
-        speakText(`Reminder "${title.trim()}" updated successfully`);
-      } catch (error) {
-        console.error('Failed to update reminder:', error);
-        Alert.alert('Error', 'Failed to update reminder. Please try again.');
+          datetime: date,
+          category,
+          priority,
+          recurrence,
+        };
+        animateLayout();
+        setReminders(prev => prev.map(r => r.id === editingReminderId ? updated : r));
       }
+
+      setModalVisible(false);
+      setEditingReminderId(null);
+      speakText(`Reminder "${title.trim()}" updated`);
+
+      // Sync to backend in background
+      (async () => {
+        try {
+          await apiService.updateReminder(currentUserId, parseInt(editingReminderId), {
+            title: title.trim(),
+            description: description.trim() || undefined,
+            reminder_datetime: date.toISOString(),
+            frequency: recurrence,
+            priority: priority,
+          });
+        } catch (error) {
+          console.warn('Backend sync failed for update:', error);
+          // Local state already updated above — no need to block the user
+        }
+      })();
+
       return;
     }
 
@@ -654,14 +695,19 @@ const ReminderScreen: React.FC = () => {
         });
         await AsyncStorage.setItem(key, JSON.stringify(stored));
 
-        // Try syncing to backend (fire-and-forget)
-        apiService.createReminder(currentUserId, {
-          title: title.trim(),
-          description: description.trim() || undefined,
-          reminder_datetime: date.toISOString(),
-          frequency: recurrence,
-          priority: priority,
-        }).catch(() => {});
+        // Sync to backend, then refresh so local Date.now() ID is replaced with real backend ID
+        try {
+          await apiService.createReminder(currentUserId, {
+            title: title.trim(),
+            description: description.trim() || undefined,
+            reminder_datetime: date.toISOString(),
+            frequency: recurrence,
+            priority: priority,
+          });
+          await fetchReminders();
+        } catch {
+          // Backend unavailable — local data already saved to AsyncStorage above
+        }
 
         // Schedule notification
         await scheduleNative(newReminder);
@@ -803,22 +849,17 @@ const ReminderScreen: React.FC = () => {
   };
 
   const showEditModal = (id: string) => {
-    console.log('✏️ Edit reminder:', id);
     const reminder = reminders.find(r => r.id === id);
-    setEditingReminderId(id);
     if (!reminder) return;
 
+    setEditingReminderId(id);
     setTitle(reminder.title);
     setDescription(reminder.description || '');
-    // setDate(reminder.datetime);
+    setDate(reminder.datetime);
     setCategory(reminder.category || 'personal');
     setPriority(reminder.priority || 'medium');
     setRecurrence(reminder.recurrence || 'once');
-
     setModalVisible(true);
-
-    // After saving, we would need to handle updating the existing reminder instead of creating a new one.
-    // This would require additional logic in the saveReminder function to check if we're editing an existing reminder.
   }
 
   const removeReminder = (id: string) => {
@@ -827,25 +868,38 @@ const ReminderScreen: React.FC = () => {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: async () => {
-          // Remove locally first for immediate feedback
+        onPress: () => {
+          const reminderToDelete = reminders.find(r => r.id === id);
+
+          // Remove from local state immediately
           animateLayout();
           setReminders(prev => prev.filter(r => r.id !== id));
           speakText('Reminder deleted');
 
-          // Sync with backend
-          try {
-            await apiService.deleteReminder(parseInt(id));
-            
-            // Refresh reminders from database
-            await fetchReminders();
-            
-            console.log('Reminder deleted from backend:', id);
-          } catch (error) {
-            console.error('Failed to delete reminder from backend:', error);
-            // Refresh to ensure consistency even if delete fails
-            await fetchReminders();
+          // Track as pending delete so fetchReminders never reloads it from backend
+          if (reminderToDelete) {
+            pendingDeletesRef.current.push({
+              title: reminderToDelete.title,
+              datetimeISO: reminderToDelete.datetime.toISOString(),
+            });
           }
+
+          // Sync to backend in background
+          (async () => {
+            try {
+              await apiService.deleteReminder(parseInt(id));
+              // Backend confirmed deletion — remove from pending filter
+              if (reminderToDelete) {
+                pendingDeletesRef.current = pendingDeletesRef.current.filter(
+                  pd => !(pd.title === reminderToDelete.title &&
+                    Math.abs(new Date(pd.datetimeISO).getTime() - reminderToDelete.datetime.getTime()) < 120_000)
+                );
+              }
+            } catch (error) {
+              console.warn('Backend sync failed for delete:', error);
+              // Reminder stays in pendingDeletesRef — fetchReminders will keep filtering it out
+            }
+          })();
         }
       },
     ]);
@@ -1093,7 +1147,7 @@ const ReminderScreen: React.FC = () => {
           <BlurViewComponent intensity={40} tint={Platform.OS === 'ios' ? 'systemThinMaterial' : 'light'} style={styles.blurFill} />
           <View style={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}>
             <Animated.View style={[styles.sheet, { opacity: fadeIn }]}>
-              <Text style={styles.sheetTitle}>⏰ Create Reminder</Text>
+              <Text style={styles.sheetTitle}>{editingReminderId ? '✏️ Edit Reminder' : '⏰ Create Reminder'}</Text>
 
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '80%' }}>
                 {/* ADDED: Title with Voice Input */}
