@@ -207,6 +207,17 @@ const ProfileScreen = () => {
     profilePhoto: state.user?.profilePhoto || '',
   });
 
+  // Local state for sliders — only used to drive the slider visual; context is NOT updated mid-drag
+  const [brightnessValue, setBrightnessValue] = useState(state.accessibilitySettings.brightness);
+  const [textZoomValue, setTextZoomValue] = useState(state.accessibilitySettings.textZoom);
+  const [voiceSpeedValue, setVoiceSpeedValue] = useState(state.accessibilitySettings.voiceSpeed);
+  // Refs track latest drag value so onSlidingComplete can dispatch without a stale closure
+  const brightnessDragRef = useRef(state.accessibilitySettings.brightness);
+  const textZoomDragRef = useRef(state.accessibilitySettings.textZoom);
+  const voiceSpeedDragRef = useRef(state.accessibilitySettings.voiceSpeed);
+  // Disable ScrollView scrolling while a slider is being dragged
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -372,7 +383,11 @@ const ProfileScreen = () => {
       Brightness.setBrightnessAsync((value as number) / 100);
     }
 
-    speakText(`${setting} updated to ${value}`);
+    if (setting === 'isDarkMode') {
+      speakText(`Dark mode ${value ? 'on' : 'off'}`);
+    } else {
+      speakText(`${setting} updated to ${value}`);
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -559,7 +574,7 @@ const ProfileScreen = () => {
       <LinearGradient colors={theme.gradient as any} style={styles.container}>
         <BackgroundLogo />
         <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-          <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false} scrollEnabled={scrollEnabled}>
             {renderHeroHeader()}
             {renderStatsCards()}
 
@@ -645,14 +660,25 @@ const ProfileScreen = () => {
               'sunny',
               '#FFA726',
               'Display Brightness',
-              `${state.accessibilitySettings.brightness}% • ${getBrightnessLabel(state.accessibilitySettings.brightness)}`,
+              `${brightnessValue}% • ${getBrightnessLabel(brightnessValue)}`,
               (
                 <>
                   <TouchSlider
-                    value={state.accessibilitySettings.brightness}
+                    value={brightnessValue}
                     min={0}
                     max={100}
-                    onValueChange={(value) => handleAccessibilityChange('brightness', value)}
+                    onValueChange={(value) => {
+                      // During drag: update local display + live screen brightness only.
+                      // No dispatch/speech/haptics — keeps JS thread free for smooth sliding.
+                      brightnessDragRef.current = value;
+                      setBrightnessValue(value);
+                      Brightness.setBrightnessAsync(value / 100);
+                    }}
+                    onSlidingStart={() => setScrollEnabled(false)}
+                    onSlidingComplete={() => {
+                      setScrollEnabled(true);
+                      handleAccessibilityChange('brightness', brightnessDragRef.current);
+                    }}
                     levelLabels={['Low', 'Medium', 'High', 'Max']}
                     unit="%"
                     accessibilityLabel="Brightness slider"
@@ -671,14 +697,24 @@ const ProfileScreen = () => {
               'text',
               '#42A5F5',
               'Text Size',
-              `${state.accessibilitySettings.textZoom}% • ${getTextZoomLabel(state.accessibilitySettings.textZoom)}`,
+              `${textZoomValue}% • ${getTextZoomLabel(textZoomValue)}`,
               (
                 <>
                   <TouchSlider
-                    value={state.accessibilitySettings.textZoom}
+                    value={textZoomValue}
                     min={80}
                     max={180}
-                    onValueChange={(value) => handleAccessibilityChange('textZoom', value)}
+                    onValueChange={(value) => {
+                      // During drag: local display only. Dispatching textZoom mid-drag causes
+                      // text reflow → page height changes → ScrollView jumps.
+                      textZoomDragRef.current = value;
+                      setTextZoomValue(value);
+                    }}
+                    onSlidingStart={() => setScrollEnabled(false)}
+                    onSlidingComplete={() => {
+                      setScrollEnabled(true);
+                      handleAccessibilityChange('textZoom', textZoomDragRef.current);
+                    }}
                     levelLabels={['Small', 'Normal', 'Large', 'XL']}
                     unit="%"
                     accessibilityLabel="Text size slider"
@@ -697,15 +733,24 @@ const ProfileScreen = () => {
               'volume-high',
               '#66BB6A',
               'Voice Speed',
-              `${state.accessibilitySettings.voiceSpeed.toFixed(1)}x • ${getVoiceSpeedLabel(state.accessibilitySettings.voiceSpeed)}`,
+              `${voiceSpeedValue.toFixed(1)}x • ${getVoiceSpeedLabel(voiceSpeedValue)}`,
               (
                 <>
                   <TouchSlider
-                    value={state.accessibilitySettings.voiceSpeed}
+                    value={voiceSpeedValue}
                     min={0.5}
                     max={2.0}
                     step={0.1}
-                    onValueChange={(value) => handleAccessibilityChange('voiceSpeed', value)}
+                    onValueChange={(value) => {
+                      // During drag: local display only.
+                      voiceSpeedDragRef.current = value;
+                      setVoiceSpeedValue(value);
+                    }}
+                    onSlidingStart={() => setScrollEnabled(false)}
+                    onSlidingComplete={() => {
+                      setScrollEnabled(true);
+                      handleAccessibilityChange('voiceSpeed', voiceSpeedDragRef.current);
+                    }}
                     levelLabels={['Slow', 'Normal', 'Fast']}
                     unit="x"
                     accessibilityLabel="Voice speed slider"
