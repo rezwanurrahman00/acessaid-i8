@@ -7,7 +7,7 @@
 // For Android device: use your machine's IP (192.168.1.71)
 // For Android emulator: use 10.0.2.2
 // For iOS simulator: use localhost
-const API_BASE_URL = 'http://192.168.1.71:8000/api';
+const API_BASE_URL = 'http://192.168.0.220:8000/api';
 
 // Types
 export interface User {

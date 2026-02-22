@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/lib/supabase';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
-  password: string;
   profilePicture?: string;
   age?: string;
   height?: string;
@@ -33,23 +33,55 @@ export const useAuth = () => {
   return context;
 };
 
+const toAppUser = (supabaseUser: SupabaseUser, profile?: any): User => ({
+  id: supabaseUser.id,
+  name: profile?.name || supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || '',
+  email: supabaseUser.email || '',
+  profilePicture: profile?.profile_picture,
+  age: profile?.age?.toString(),
+  height: profile?.height?.toString(),
+  weight: profile?.weight?.toString(),
+  bloodGroup: profile?.blood_group,
+  foodAllergy: profile?.food_allergy,
+});
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadUser();
+    // Check for existing session on startup
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        loadProfile(session.user);
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    // Listen for auth state changes (sign in, sign out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadProfile(session.user);
+      } else {
+        setUser(null);
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const loadUser = async () => {
+  const loadProfile = async (supabaseUser: SupabaseUser) => {
     try {
-      const userData = await AsyncStorage.getItem('user');
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-      }
-    } catch (error) {
-      console.error('Error loading user:', error);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', supabaseUser.id)
+        .single();
+      setUser(toAppUser(supabaseUser, profile));
+    } catch {
+      setUser(toAppUser(supabaseUser));
     } finally {
       setIsLoading(false);
     }
@@ -57,105 +89,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
-      const usersData = await AsyncStorage.getItem('users');
-      if (!usersData) {
-        return { success: false, message: 'Invalid email or password.' };
-      }
-
-      const users: User[] = JSON.parse(usersData);
-      const foundUser = users.find(u => u.email === email);
-      
-      if (!foundUser) {
-        return { success: false, message: 'Invalid email or password.' };
-      }
-
-      // Check if password matches (in a real app, you'd hash the password and compare hashes)
-      if (foundUser.password !== password) {
-        return { success: false, message: 'Invalid email or password.' };
-      }
-
-      console.log('Sign in successful, setting user:', foundUser);
-      setUser(foundUser);
-      await AsyncStorage.setItem('user', JSON.stringify(foundUser));
-      console.log('User saved to AsyncStorage');
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { success: false, message: error.message };
       return { success: true, message: 'Sign in successful!' };
-    } catch (error) {
+    } catch {
       return { success: false, message: 'An error occurred during sign in.' };
     }
   };
 
   const signUp = async (name: string, email: string, password: string) => {
     try {
-      const usersData = await AsyncStorage.getItem('users');
-      const users: User[] = usersData ? JSON.parse(usersData) : [];
-
-      // Check if user already exists
-      const existingUser = users.find(u => u.email === email);
-      if (existingUser) {
-        return { success: false, message: 'Account already exists.' };
-      }
-
-      const newUser: User = {
-        id: Date.now().toString(),
-        name,
+      const { error } = await supabase.auth.signUp({
         email,
         password,
-      };
-
-      users.push(newUser);
-      await AsyncStorage.setItem('users', JSON.stringify(users));
-      console.log('Sign up successful, setting user:', newUser);
-      setUser(newUser);
-      await AsyncStorage.setItem('user', JSON.stringify(newUser));
-      console.log('User saved to AsyncStorage');
-      
+        options: { data: { name } },
+      });
+      if (error) return { success: false, message: error.message };
       return { success: true, message: 'Account created successfully!' };
-    } catch (error) {
+    } catch {
       return { success: false, message: 'An error occurred during sign up.' };
     }
   };
 
   const signOut = async () => {
-    try {
-      await AsyncStorage.removeItem('user');
-      setUser(null);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
+    await supabase.auth.signOut();
   };
 
   const updateUser = async (updates: Partial<User>) => {
     if (!user) return;
-
     try {
-      const updatedUser = { ...user, ...updates };
-      setUser(updatedUser);
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-
-      // Also update in users array
-      const usersData = await AsyncStorage.getItem('users');
-      if (usersData) {
-        const users: User[] = JSON.parse(usersData);
-        const userIndex = users.findIndex(u => u.id === user.id);
-        if (userIndex !== -1) {
-          users[userIndex] = updatedUser;
-          await AsyncStorage.setItem('users', JSON.stringify(users));
-        }
-      }
+      await supabase
+        .from('profiles')
+        .update({
+          name: updates.name,
+          profile_picture: updates.profilePicture,
+          age: updates.age,
+          height: updates.height,
+          weight: updates.weight,
+          blood_group: updates.bloodGroup,
+          food_allergy: updates.foodAllergy,
+        })
+        .eq('id', user.id);
+      setUser({ ...user, ...updates });
     } catch (error) {
       console.error('Error updating user:', error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      isLoading,
-      signIn,
-      signUp,
-      signOut,
-      updateUser,
-    }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
