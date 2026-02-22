@@ -22,7 +22,7 @@ import {
   View,
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
-import { apiService } from '../../services/api';
+import { supabase } from '../../lib/supabase';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import { useApp } from '../contexts/AppContext';
 import type { MainTabParamList } from '../types';
@@ -101,9 +101,6 @@ const ReminderScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [fadeIn] = useState(new Animated.Value(0));
   const [slideUp] = useState(new Animated.Value(40));
-  // Track reminders deleted locally so fetchReminders never reloads them from backend
-  // Matched by title + datetime (handles ID mismatch between local and backend)
-  const pendingDeletesRef = useRef<{ title: string; datetimeISO: string }[]>([]);
 
   // Sync local reminders to AppContext so HomeScreen Quick Stats stays current
   useEffect(() => {
@@ -291,42 +288,40 @@ const ReminderScreen: React.FC = () => {
 
   }, []);
 
-  // Reusable function to fetch reminders from backend
+  // Reusable function to fetch reminders from Supabase
   const fetchReminders = async () => {
     try {
-      const userId = state.user?.id ? parseInt(state.user.id) : 1;
+      const userId = state.user?.id;
+      if (!userId) {
+        setReminders([]);
+        return;
+      }
 
-      // Fetch reminders from backend
-      const backendReminders = await apiService.getUserReminders(userId);
+      const { data, error } = await supabase
+        .from('reminders')
+        .select('*')
+        .eq('user_id', userId)
+        .order('reminder_datetime', { ascending: true });
 
-      // Convert backend reminders to local format
-      const localReminders: Reminder[] = backendReminders.map((r) => ({
-        id: r.reminder_id.toString(),
+      if (error) throw error;
+
+      const localReminders: Reminder[] = (data || []).map((r: any) => ({
+        id: r.id,
         title: r.title,
         description: r.description,
         datetime: new Date(r.reminder_datetime),
         isCompleted: r.is_completed,
         createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-        category: 'personal' as ReminderCategory, // Default category
+        category: 'personal' as ReminderCategory,
         priority: (r.priority?.toLowerCase() || 'medium') as ReminderPriority,
         recurrence: (r.frequency?.toLowerCase() || 'once') as ReminderRecurrence,
       }));
 
-      // Filter out any reminders the user deleted locally but backend hasn't confirmed yet.
-      // Match by title + datetime (within 2 min) to handle ID mismatches.
-      const filtered = localReminders.filter(r => {
-        if (pendingDeletesRef.current.length === 0) return true;
-        return !pendingDeletesRef.current.some(pd => {
-          const diff = Math.abs(r.datetime.getTime() - new Date(pd.datetimeISO).getTime());
-          return pd.title === r.title && diff < 120_000;
-        });
-      });
-
-      setReminders(filtered);
+      setReminders(localReminders);
     } catch (e) {
-      console.warn('Failed to load reminders from backend, trying AsyncStorage fallback:', e);
+      console.warn('Failed to load reminders from Supabase, trying AsyncStorage fallback:', e);
 
-      // Fallback to AsyncStorage if backend fails
+      // Fallback to AsyncStorage if Supabase is unreachable
       try {
         const key = storageKey(state.user?.id);
         const stored = await AsyncStorage.getItem(key);
@@ -619,7 +614,7 @@ const ReminderScreen: React.FC = () => {
       return;
     }
 
-    const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
+    const userId = state.user?.id;
 
     if (editingReminderId) {
       const existingReminder = reminders.find(r => r.id === editingReminderId);
@@ -643,19 +638,22 @@ const ReminderScreen: React.FC = () => {
       setEditingReminderId(null);
       speakText(`Reminder "${title.trim()}" updated`);
 
-      // Sync to backend in background
+      // Sync to Supabase in background
       (async () => {
         try {
-          await apiService.updateReminder(currentUserId, parseInt(editingReminderId), {
-            title: title.trim(),
-            description: description.trim() || undefined,
-            reminder_datetime: date.toISOString(),
-            frequency: recurrence,
-            priority: priority,
-          });
+          const { error } = await supabase
+            .from('reminders')
+            .update({
+              title: title.trim(),
+              description: description.trim() || undefined,
+              reminder_datetime: date.toISOString(),
+              frequency: recurrence,
+              priority: priority,
+            })
+            .eq('id', editingReminderId);
+          if (error) console.warn('Supabase update failed:', error.message);
         } catch (error) {
-          console.warn('Backend sync failed for update:', error);
-          // Local state already updated above — no need to block the user
+          console.warn('Failed to sync update to Supabase:', error);
         }
       })();
 
@@ -681,32 +679,26 @@ const ReminderScreen: React.FC = () => {
     setModalVisible(false);
     speakText(`Reminder "${title.trim()}" created successfully`);
 
-    // Do the slow work (API + storage + scheduling) in the background
+    // Do the slow work (Supabase sync + scheduling) in the background
     (async () => {
       try {
-        // Persist to AsyncStorage
-        const key = storageKey(state.user?.id);
-        const existing = await AsyncStorage.getItem(key);
-        const stored = existing ? JSON.parse(existing) : [];
-        stored.push({
-          ...newReminder,
-          datetime: newReminder.datetime.toISOString(),
-          createdAt: newReminder.createdAt.toISOString(),
-        });
-        await AsyncStorage.setItem(key, JSON.stringify(stored));
-
-        // Sync to backend, then refresh so local Date.now() ID is replaced with real backend ID
-        try {
-          await apiService.createReminder(currentUserId, {
-            title: title.trim(),
-            description: description.trim() || undefined,
-            reminder_datetime: date.toISOString(),
-            frequency: recurrence,
-            priority: priority,
-          });
-          await fetchReminders();
-        } catch {
-          // Backend unavailable — local data already saved to AsyncStorage above
+        // Sync to Supabase, then refresh so local Date.now() ID is replaced with real UUID
+        if (userId) {
+          try {
+            await supabase
+              .from('reminders')
+              .insert({
+                user_id: userId,
+                title: title.trim(),
+                description: description.trim() || undefined,
+                reminder_datetime: date.toISOString(),
+                frequency: recurrence,
+                priority: priority,
+              });
+            await fetchReminders();
+          } catch {
+            // Supabase unavailable — local state already synced to AsyncStorage via useEffect
+          }
         }
 
         // Schedule notification
@@ -773,24 +765,35 @@ const ReminderScreen: React.FC = () => {
         return;
       }
 
-      // Get current user ID
-      const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
+      // Get current user ID (UUID string from Supabase)
+      const userId = state.user?.id;
+      if (!userId) {
+        speakText("Please sign in first");
+        return;
+      }
 
-      // Call backend API to create reminder
-      const backendReminder = await apiService.createReminder(currentUserId, {
-        title: parsed.title,
-        description: parsed.description,
-        reminder_datetime: reminderDatetime.toISOString(),
-        frequency: 'once',
-        priority: parsed.priority || 'medium',
-      });
+      // Save to Supabase
+      const { data: backendReminder, error: insertError } = await supabase
+        .from('reminders')
+        .insert({
+          user_id: userId,
+          title: parsed.title,
+          description: parsed.description,
+          reminder_datetime: reminderDatetime.toISOString(),
+          frequency: 'once',
+          priority: parsed.priority || 'medium',
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
 
       // Refresh reminders from database
       await fetchReminders();
 
       // Get the newly created reminder for scheduling
       const newReminder: Reminder = {
-        id: backendReminder.reminder_id.toString(),
+        id: backendReminder.id,
         title: backendReminder.title,
         description: backendReminder.description,
         datetime: new Date(backendReminder.reminder_datetime),
@@ -822,27 +825,27 @@ const ReminderScreen: React.FC = () => {
     if (!reminder) return;
 
     const newCompletedStatus = !reminder.isCompleted;
-    const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
 
     // Animate the completion state change
     animateLayout();
     // Update locally first for immediate feedback
     setReminders(prev => prev.map(r => (r.id === id ? { ...r, isCompleted: newCompletedStatus } : r)));
 
-    // Sync with backend
+    // Sync with Supabase
     try {
-      await apiService.updateReminder(currentUserId, parseInt(id), {
-        is_completed: newCompletedStatus,
-        is_active: !newCompletedStatus, // If completed, mark as inactive
-      } as any);
-      
-      // Refresh reminders from database
-      await fetchReminders();
-      
+      const { error } = await supabase
+        .from('reminders')
+        .update({
+          is_completed: newCompletedStatus,
+          is_active: !newCompletedStatus,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
       speakText(newCompletedStatus ? 'Reminder marked as completed' : 'Reminder marked as active');
     } catch (error) {
-      console.error('Failed to update reminder on backend:', error);
-      // Revert the change if backend update fails
+      console.error('Failed to update reminder on Supabase:', error);
+      // Revert the change if update fails
       setReminders(prev => prev.map(r => (r.id === id ? { ...r, isCompleted: !newCompletedStatus } : r)));
       speakText('Failed to update reminder');
     }
@@ -876,28 +879,15 @@ const ReminderScreen: React.FC = () => {
           setReminders(prev => prev.filter(r => r.id !== id));
           speakText('Reminder deleted');
 
-          // Track as pending delete so fetchReminders never reloads it from backend
-          if (reminderToDelete) {
-            pendingDeletesRef.current.push({
-              title: reminderToDelete.title,
-              datetimeISO: reminderToDelete.datetime.toISOString(),
-            });
-          }
-
-          // Sync to backend in background
+          // Sync to Supabase in background
           (async () => {
             try {
-              await apiService.deleteReminder(parseInt(id));
-              // Backend confirmed deletion — remove from pending filter
-              if (reminderToDelete) {
-                pendingDeletesRef.current = pendingDeletesRef.current.filter(
-                  pd => !(pd.title === reminderToDelete.title &&
-                    Math.abs(new Date(pd.datetimeISO).getTime() - reminderToDelete.datetime.getTime()) < 120_000)
-                );
-              }
+              await supabase
+                .from('reminders')
+                .delete()
+                .eq('id', id);
             } catch (error) {
-              console.warn('Backend sync failed for delete:', error);
-              // Reminder stays in pendingDeletesRef — fetchReminders will keep filtering it out
+              console.warn('Failed to delete reminder from Supabase:', error);
             }
           })();
         }

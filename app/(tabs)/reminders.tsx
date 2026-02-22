@@ -1,9 +1,9 @@
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { apiService, Reminder } from "@/services/api";
 import { speakIfEnabled } from "@/services/ttsService";
-import { useApp } from "@/src/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useAccessibilitySettings } from "@/hooks/useAccessibilitySettings";
+import { supabase } from "@/lib/supabase";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,42 +21,37 @@ try {
   ExpoSpeechRecognitionModule =
     require("expo-speech-recognition").ExpoSpeechRecognitionModule;
 } catch {
-  console.log(
-    "⚠️ Voice recognition not available (Expo Go). Use development build."
-  );
+  console.log("Voice recognition not available (Expo Go). Use development build.");
 }
 
 // --- Mapping spoken numbers to digits ---
 const SPOKEN_NUMBERS: Record<string, string> = {
-  one: "1",
-  two: "2",
-  three: "3",
-  four: "4",
-  five: "5",
-  six: "6",
-  seven: "7",
-  eight: "8",
-  nine: "9",
-  ten: "10",
-  eleven: "11",
-  twelve: "12",
+  one: "1", two: "2", three: "3", four: "4", five: "5",
+  six: "6", seven: "7", eight: "8", nine: "9",
+  ten: "10", eleven: "11", twelve: "12",
 };
 
+// Supabase reminder type (id is UUID string)
+interface Reminder {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  reminder_datetime: string;
+  frequency: string;
+  priority: string;
+  is_active: boolean;
+  is_completed: boolean;
+  created_at: string;
+}
+
 export default function RemindersScreen() {
-  const { state } = useApp();
+  const { user } = useAuth();
   const { ui, scale } = useAccessibilitySettings();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Get current user ID from logged-in user
-  const currentUserId = state.user?.id ? parseInt(state.user.id) : 1;
 
-  const [newReminder, setNewReminder] = useState({
-    title: "",
-    description: "",
-    time: "",
-  });
-
+  const [newReminder, setNewReminder] = useState({ title: "", description: "", time: "" });
   const [isAddingReminder, setIsAddingReminder] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [lastVoiceCommand, setLastVoiceCommand] = useState("");
@@ -65,9 +60,7 @@ export default function RemindersScreen() {
   const isMountedRef = useRef(true);
 
   useEffect(() => {
-    speakIfEnabled(
-      "Reminders screen loaded. You can add, view, or delete reminders."
-    );
+    speakIfEnabled("Reminders screen loaded. You can add, view, or delete reminders.");
     loadReminders();
 
     return () => {
@@ -84,23 +77,17 @@ export default function RemindersScreen() {
   const loadReminders = async () => {
     setLoading(true);
     try {
-      const data = await apiService.getUserReminders(currentUserId);
-      setReminders(data);
-      speakIfEnabled(`Loaded ${data.length} reminders`);
-    } catch {
-      setReminders([
-        {
-          reminder_id: 1,
-          title: "Take a short break",
-          description: "Stretch and drink water",
-          reminder_datetime: new Date().toISOString(),
-          frequency: "Daily",
-          priority: "Medium",
-          is_active: true,
-          is_completed: false,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      const { data, error } = await supabase
+        .from('reminders')
+        .select('*')
+        .order('reminder_datetime', { ascending: true });
+
+      if (error) throw error;
+      setReminders(data || []);
+      speakIfEnabled(`Loaded ${data?.length ?? 0} reminders`);
+    } catch (err) {
+      console.error('Failed to load reminders:', err);
+      setReminders([]);
     } finally {
       setLoading(false);
     }
@@ -110,13 +97,10 @@ export default function RemindersScreen() {
   const normalizeSpokenTime = (spokenTime: string): string | null => {
     let value = spokenTime.toLowerCase().trim();
 
-    // Replace words with digits: "five" -> "5"
     value = value.replace(
       /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/g,
       (m) => SPOKEN_NUMBERS[m]
     );
-
-    // Remove dots in "p.m." / "a.m."
     value = value.replace(/\./g, "").trim();
 
     const match = value.match(/^(\d{1,2}):?(\d{0,2})\s*(am|pm)?$/i);
@@ -133,10 +117,7 @@ export default function RemindersScreen() {
       if (suffix.toLowerCase() === "am" && hours === 12) hours = 0;
     }
 
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-      2,
-      "0"
-    )}`;
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
   };
   // -------------------------------------------------------------
 
@@ -151,41 +132,80 @@ export default function RemindersScreen() {
       return;
     }
 
+    if (!user) {
+      Alert.alert("Not signed in", "Please sign in to add reminders.");
+      return;
+    }
+
     const today = new Date();
     const [h, m] = time.split(":");
     today.setHours(parseInt(h), parseInt(m), 0, 0);
 
-    try {
-      // Call backend API to create reminder
-      const reminder = await apiService.createReminder(currentUserId, {
+    const { data, error } = await supabase
+      .from('reminders')
+      .insert({
+        user_id: user.id,
         title,
         description,
         reminder_datetime: today.toISOString(),
-        frequency: "once",
-        priority: "medium",
-      });
+        frequency: 'once',
+        priority: 'medium',
+      })
+      .select()
+      .single();
 
-      // Add to local state
-      setReminders((prev) => [...prev, reminder]);
-
-      if (options?.closeForm ?? true) {
-        setIsAddingReminder(false);
-      }
-
-      speakIfEnabled(`Reminder added: ${title} at ${time}`);
-    } catch (error) {
+    if (error) {
       console.error('Failed to create reminder:', error);
       Alert.alert('Error', 'Failed to create reminder. Please try again.');
+      return;
     }
+
+    setReminders(prev => [...prev, data]);
+
+    if (options?.closeForm ?? true) {
+      setIsAddingReminder(false);
+    }
+    speakIfEnabled(`Reminder added: ${title} at ${time}`);
   };
 
   const addReminder = async () => {
-    await createReminder(
-      newReminder.title,
-      newReminder.description,
-      newReminder.time
-    );
+    await createReminder(newReminder.title, newReminder.description, newReminder.time);
     setNewReminder({ title: "", description: "", time: "" });
+  };
+
+  const deleteReminder = async (id: string, title: string) => {
+    Alert.alert('Delete Reminder', `Delete "${title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.from('reminders').delete().eq('id', id);
+          if (error) {
+            Alert.alert('Error', 'Failed to delete reminder.');
+            return;
+          }
+          setReminders(prev => prev.filter(r => r.id !== id));
+          speakIfEnabled('Reminder deleted');
+        },
+      },
+    ]);
+  };
+
+  const completeReminder = async (id: string) => {
+    const { data, error } = await supabase
+      .from('reminders')
+      .update({ is_completed: true })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      Alert.alert('Error', 'Failed to update reminder.');
+      return;
+    }
+    setReminders(prev => prev.map(r => r.id === id ? data : r));
+    speakIfEnabled('Reminder marked as complete');
   };
 
   const readRemindersOutLoud = async () => {
@@ -193,17 +213,12 @@ export default function RemindersScreen() {
       speakIfEnabled("You have no reminders.");
       return;
     }
-
     const speech = reminders
       .map((r, i) => {
-        const t = new Date(r.reminder_datetime).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        const t = new Date(r.reminder_datetime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         return `Reminder ${i + 1}: ${r.title} at ${t}.`;
       })
       .join(" ");
-
     speakIfEnabled(speech);
   };
 
@@ -215,8 +230,8 @@ export default function RemindersScreen() {
       .replace(/voice command recognized:/g, "")
       .replace(/recording/g, "")
       .replace(/[^\w\s:]/g, "")
-      .replace(/\s+/g, " ")        // collapse multiple spaces
-      .replace(/\s*(am|pm)\b/gi, "$1") // remove space before am/pm
+      .replace(/\s+/g, " ")
+      .replace(/\s*(am|pm)\b/gi, "$1")
       .trim();
 
     console.log("sanitized voice command:", JSON.stringify(sanitized));
@@ -227,7 +242,6 @@ export default function RemindersScreen() {
       return;
     }
 
-    // TITLE first: match "set reminder for <title> at <time>"
     const match = sanitized.match(
       /(?:create|add|set)(?: a)? reminder\s+(?:for\s+)?(.+?)\s+(?:at|for)\s+([\d\w\s]+(?:am|pm)?)/i
     );
@@ -240,15 +254,14 @@ export default function RemindersScreen() {
 
     const titleCandidate = match[1].trim();
     const timeCandidate = match[2].trim();
-
     const time = normalizeSpokenTime(timeCandidate);
+
     if (!titleCandidate || !time) {
-      Alert.alert("Command Not Recognized", "Couldn't understand the title or time. Try: \"Set reminder for [title] at [time]\"");
+      Alert.alert("Command Not Recognized", "Couldn't understand the title or time.");
       speakIfEnabled("Command not recognized.");
       return;
     }
 
-    // Auto-fill the form and add reminder
     setNewReminder({ title: titleCandidate, description: "", time });
     setIsAddingReminder(true);
     await createReminder(titleCandidate, "", time, { closeForm: false });
@@ -261,22 +274,15 @@ export default function RemindersScreen() {
       return;
     }
 
-    const permission =
-      await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!permission?.granted) return;
 
     if (!listenersInitializedRef.current) {
       ExpoSpeechRecognitionModule.addListener("result", (e: any) => {
-        const transcript =
-          e?.results?.[0]?.transcript ??
-          e?.results?.[0]?.[0]?.transcript ??
-          "";
+        const transcript = e?.results?.[0]?.transcript ?? e?.results?.[0]?.[0]?.transcript ?? "";
         if (transcript) handleVoiceCommand(transcript);
       });
-
-      ExpoSpeechRecognitionModule.addListener("end", () =>
-        setIsListening(false)
-      );
+      ExpoSpeechRecognitionModule.addListener("end", () => setIsListening(false));
       listenersInitializedRef.current = true;
     }
 
@@ -292,7 +298,7 @@ export default function RemindersScreen() {
 
   if (loading) {
     return (
-      <View style={{ marginTop: 40 }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 40 }}>
         <ActivityIndicator size="large" />
       </View>
     );
@@ -309,14 +315,11 @@ export default function RemindersScreen() {
 
       <ThemedView style={styles.addButtonContainer}>
         <TouchableOpacity
-          style={[
-            styles.addButton,
-            { backgroundColor: isListening ? ui.warning : ui.accent },
-          ]}
+          style={[styles.addButton, { backgroundColor: isListening ? ui.warning : ui.accent }]}
           onPress={isListening ? stopVoiceListening : startVoiceListening}
         >
           <Text style={[styles.addButtonText, { fontSize: scale(18) }]}>
-            {isListening ? “🛑 Stop Voice” : “🎤 Voice Commands”}
+            {isListening ? "🛑 Stop Voice" : "🎤 Voice Commands"}
           </Text>
         </TouchableOpacity>
 
@@ -325,14 +328,14 @@ export default function RemindersScreen() {
           onPress={() => setIsAddingReminder(!isAddingReminder)}
         >
           <Text style={[styles.addButtonText, { fontSize: scale(18) }]}>
-            {isAddingReminder ? “❌ Cancel” : “➕ Add Reminder”}
+            {isAddingReminder ? "❌ Cancel" : "➕ Add Reminder"}
           </Text>
         </TouchableOpacity>
       </ThemedView>
 
       {lastVoiceCommand ? (
         <ThemedText style={[styles.voiceHint, { color: ui.subtext }]}>
-          Last voice command: “{lastVoiceCommand}”
+          Last voice command: "{lastVoiceCommand}"
         </ThemedText>
       ) : null}
 
@@ -340,33 +343,27 @@ export default function RemindersScreen() {
         <ThemedView style={[styles.formContainer, { backgroundColor: ui.cardBg }]}>
           <TextInput
             style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText }]}
-            placeholder=”Title”
+            placeholder="Title"
             placeholderTextColor={ui.subtext}
-            accessibilityLabel=”Reminder title”
+            accessibilityLabel="Reminder title"
             value={newReminder.title}
-            onChangeText={(t) =>
-              setNewReminder({ ...newReminder, title: t })
-            }
+            onChangeText={(t) => setNewReminder({ ...newReminder, title: t })}
           />
           <TextInput
             style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText }]}
-            placeholder=”Description”
+            placeholder="Description (optional)"
             placeholderTextColor={ui.subtext}
-            accessibilityLabel=”Reminder description”
+            accessibilityLabel="Reminder description"
             value={newReminder.description}
-            onChangeText={(t) =>
-              setNewReminder({ ...newReminder, description: t })
-            }
+            onChangeText={(t) => setNewReminder({ ...newReminder, description: t })}
           />
           <TextInput
             style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText }]}
-            placeholder=”Time (HH:MM)”
+            placeholder="Time (HH:MM)"
             placeholderTextColor={ui.subtext}
-            accessibilityLabel=”Reminder time in HH colon MM format”
+            accessibilityLabel="Reminder time in HH colon MM format"
             value={newReminder.time}
-            onChangeText={(t) =>
-              setNewReminder({ ...newReminder, time: t })
-            }
+            onChangeText={(t) => setNewReminder({ ...newReminder, time: t })}
           />
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: ui.success }]}
@@ -376,53 +373,156 @@ export default function RemindersScreen() {
           </TouchableOpacity>
         </ThemedView>
       )}
+
+      {/* Reminders List */}
+      {reminders.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <ThemedText style={[styles.emptyText, { color: ui.subtext }]}>
+            No reminders yet. Add one above!
+          </ThemedText>
+        </View>
+      ) : (
+        <View style={styles.reminderListContainer}>
+          <ThemedText style={[styles.sectionTitle, { color: ui.text, fontSize: scale(18) }]}>
+            Your Reminders ({reminders.length})
+          </ThemedText>
+          {reminders.map((reminder) => (
+            <ThemedView
+              key={reminder.id}
+              style={[
+                styles.reminderCard,
+                { backgroundColor: ui.cardBg, opacity: reminder.is_completed ? 0.6 : 1 },
+              ]}
+            >
+              <View style={styles.reminderHeader}>
+                <ThemedText
+                  style={[
+                    styles.reminderTitle,
+                    {
+                      color: ui.text,
+                      fontSize: scale(16),
+                      textDecorationLine: reminder.is_completed ? 'line-through' : 'none',
+                    },
+                  ]}
+                  numberOfLines={2}
+                >
+                  {reminder.title}
+                </ThemedText>
+                <View
+                  style={[
+                    styles.priorityBadge,
+                    {
+                      backgroundColor:
+                        reminder.priority === 'high' ? '#e74c3c'
+                        : reminder.priority === 'medium' ? '#f39c12'
+                        : '#27ae60',
+                    },
+                  ]}
+                >
+                  <Text style={styles.priorityText}>{reminder.priority}</Text>
+                </View>
+              </View>
+
+              {reminder.description ? (
+                <ThemedText style={[styles.reminderDescription, { color: ui.subtext, fontSize: scale(14) }]}>
+                  {reminder.description}
+                </ThemedText>
+              ) : null}
+
+              <ThemedText style={[styles.reminderTime, { color: ui.subtext, fontSize: scale(13) }]}>
+                {new Date(reminder.reminder_datetime).toLocaleString([], {
+                  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                })}
+                {reminder.frequency && reminder.frequency !== 'once' ? ` • ${reminder.frequency}` : ''}
+              </ThemedText>
+
+              <View style={styles.reminderActions}>
+                {!reminder.is_completed && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: ui.success }]}
+                    onPress={() => completeReminder(reminder.id)}
+                    accessibilityLabel={`Mark ${reminder.title} as done`}
+                  >
+                    <Text style={styles.actionButtonText}>✓ Done</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: '#e74c3c' }]}
+                  onPress={() => deleteReminder(reminder.id, reminder.title)}
+                  accessibilityLabel={`Delete ${reminder.title}`}
+                >
+                  <Text style={styles.actionButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </ThemedView>
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  container: { flex: 1 },
   header: {
-    backgroundColor: "#32CD32",
     padding: 30,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     alignItems: "center",
   },
-  title: { fontSize: 28, fontWeight: "bold", color: "#fff" },
-  subtitle: { fontSize: 16, color: "#e8f8e8" },
+  title: { fontWeight: "bold", color: "#fff" },
+  subtitle: { color: "#e8f8e8" },
   addButtonContainer: { margin: 20 },
   addButton: {
-    backgroundColor: "#4A90E2",
     padding: 15,
     borderRadius: 12,
     alignItems: "center",
     marginBottom: 10,
   },
-  addButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  voiceActiveButton: { backgroundColor: "#F39C12" },
-  voiceHint: {
-    marginHorizontal: 20,
-    marginBottom: 10,
-    fontStyle: "italic",
-  },
+  addButtonText: { color: "#fff", fontWeight: "bold" },
+  voiceHint: { marginHorizontal: 20, marginBottom: 10, fontStyle: "italic" },
   formContainer: {
     margin: 20,
     padding: 20,
-    backgroundColor: "#fff",
     borderRadius: 15,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
   },
   saveButton: {
-    backgroundColor: "#32CD32",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
   },
+  emptyContainer: { margin: 20, alignItems: 'center', paddingVertical: 40 },
+  emptyText: { fontSize: 16, fontStyle: 'italic', textAlign: 'center' },
+  reminderListContainer: { marginHorizontal: 20, marginBottom: 20 },
+  sectionTitle: { fontWeight: 'bold', marginBottom: 12 },
+  reminderCard: {
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  reminderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  reminderTitle: { fontWeight: '600', flex: 1, marginRight: 8 },
+  priorityBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  priorityText: { color: '#fff', fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
+  reminderDescription: { marginBottom: 4 },
+  reminderTime: { marginBottom: 10 },
+  reminderActions: { flexDirection: 'row', gap: 8 },
+  actionButton: { flex: 1, padding: 10, borderRadius: 8, alignItems: 'center' },
+  actionButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 });

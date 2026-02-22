@@ -94,7 +94,7 @@ app.add_middleware(
 async def startup_event():
     """Initialize database and create tables on startup."""
     create_tables()
-    print("✅ Database tables created successfully!")
+    print("Database tables created successfully!")
 
 # Health check endpoint
 @app.get("/")
@@ -111,7 +111,7 @@ async def database_health_check(db: Session = Depends(get_db)):
         reminder_count = db.query(Reminder).count()
         
         return {
-            "database_connection": "✅ Connected",
+            "database_connection": "Connected",
             "tables": {
                 "users": user_count,
                 "reminders": reminder_count
@@ -120,7 +120,7 @@ async def database_health_check(db: Session = Depends(get_db)):
         }
     except Exception as e:
         return {
-            "database_connection": f"❌ Error: {str(e)}",
+            "database_connection": f"Error: {str(e)}",
             "error_type": type(e).__name__,
             "timestamp": datetime.utcnow().isoformat()
         }

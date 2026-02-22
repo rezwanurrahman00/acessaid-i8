@@ -17,7 +17,7 @@ import {
   View,
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
-import { apiService } from '../../services/api';
+import { supabase } from '../../lib/supabase';
 import { AccessAidLogo } from '../components/AccessAidLogo';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import { ModernButton } from '../components/ModernButton';
@@ -66,6 +66,9 @@ const LoginScreen = () => {
     return /^\d{4}$/.test(pin);
   };
 
+  // Supabase requires min 6 chars — pad the 4-digit PIN internally
+  const toSupabasePassword = (pin: string) => `${pin}##`;
+
   const handleLogin = async () => {
     if (!validateEmail(email)) {
       Alert.alert('Invalid Email', 'Please enter a valid email address.');
@@ -80,72 +83,32 @@ const LoginScreen = () => {
     }
 
     setIsLoading(true);
-    
+
     try {
-      // Try to login with backend API first
-      console.log('Attempting backend login with email:', email);
-      const user = await apiService.login({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase().trim(),
-        pin: pin,
+        password: toSupabasePassword(pin),
       });
 
-      console.log('Logged in user from API:', user);
+      if (error) throw error;
 
-      // Convert API user to app user format
+      const supabaseUser = data.user!;
       const appUser: User = {
-        id: user.user_id.toString(),
-        email: user.email,
-        pin: pin, // Keep PIN locally for offline mode
-        name: user.name || `${user.first_name} ${user.last_name}`.trim(),
-        joinDate: user.created_at,
+        id: supabaseUser.id,
+        email: supabaseUser.email!,
+        pin,
+        name: supabaseUser.user_metadata?.name || email.split('@')[0],
+        joinDate: supabaseUser.created_at,
       };
 
-      // Save to AsyncStorage for offline mode
-      const usersRaw = await AsyncStorage.getItem('users');
-      const users: Array<User & { pin: string }> = usersRaw ? JSON.parse(usersRaw) : [];
-      const userIndex = users.findIndex(u => u.email === appUser.email);
-      
-      if (userIndex >= 0) {
-        users[userIndex] = appUser;
-      } else {
-        users.push(appUser);
-      }
-      await AsyncStorage.setItem('users', JSON.stringify(users));
-
+      await AsyncStorage.setItem('user', JSON.stringify(appUser));
       dispatch({ type: 'LOGIN', payload: appUser });
       speakText('Login successful! Welcome to AccessAid.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error: any) {
-      // Fallback to offline mode with AsyncStorage
-      console.log('Backend login failed, trying offline mode:', error.message);
-      
-      try {
-        const usersRaw = await AsyncStorage.getItem('users');
-        const users: Array<User & { pin: string }> = usersRaw ? JSON.parse(usersRaw) : [];
-        const found = users.find(u => u.email === email.toLowerCase().trim());
-        
-        if (!found) {
-          Alert.alert('Login Failed', 'No account found. Please check your internet connection or sign up.');
-          speakText('No account found. Please check your internet connection or sign up.');
-          setIsLoading(false);
-          return;
-        }
-        
-        if (found.pin !== pin) {
-          Alert.alert('Invalid PIN', 'The PIN you entered is incorrect.');
-          speakText('The PIN you entered is incorrect');
-          setIsLoading(false);
-          return;
-        }
-
-        dispatch({ type: 'LOGIN', payload: found });
-        speakText('Login successful! Welcome to AccessAid in offline mode.');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch (offlineError) {
-        Alert.alert('Login Failed', 'Please check your credentials and try again.');
-        speakText('Login failed. Please check your credentials and try again.');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
+      Alert.alert('Login Failed', error.message || 'Invalid email or PIN.');
+      speakText('Login failed. Please check your email and PIN.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsLoading(false);
     }
@@ -171,36 +134,31 @@ const LoginScreen = () => {
     }
 
     setIsLoading(true);
-    
+
     try {
-      // Try to register with backend API
-      const user = await apiService.register({
+      const { data, error } = await supabase.auth.signUp({
         email: email.toLowerCase().trim(),
-        pin: pin,
-        name: name.trim(),
+        password: toSupabasePassword(pin),
+        options: { data: { name: name.trim() } },
       });
 
-      // Convert API user to app user format
+      if (error) throw error;
+
+      const supabaseUser = data.user!;
       const appUser: User = {
-        id: user.user_id.toString(),
-        email: user.email,
-        pin: pin, // Keep PIN locally for offline mode
-        name: user.name || `${user.first_name} ${user.last_name}`.trim(),
-        joinDate: user.created_at,
+        id: supabaseUser.id,
+        email: supabaseUser.email!,
+        pin,
+        name: name.trim(),
+        joinDate: supabaseUser.created_at,
       };
 
-      // Save to AsyncStorage for offline mode
-      const usersRaw = await AsyncStorage.getItem('users');
-      const users: Array<User & { pin: string }> = usersRaw ? JSON.parse(usersRaw) : [];
-      const nextUsers = [appUser, ...users.filter(u => u.email !== appUser.email)];
-      await AsyncStorage.setItem('users', JSON.stringify(nextUsers));
-
+      await AsyncStorage.setItem('user', JSON.stringify(appUser));
       dispatch({ type: 'LOGIN', payload: appUser });
       speakText('Account created successfully! Welcome to AccessAid.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error: any) {
-      // If email already exists in backend or network error, show appropriate message
-      if (error.message && error.message.includes('already registered')) {
+      if (error.message?.includes('already registered')) {
         Alert.alert('Email In Use', 'This email is already registered. Please sign in.');
         speakText('This email is already registered. Please sign in.');
       } else {

@@ -887,7 +887,7 @@ export default function AuthScreen() {
                       styles.inputLabel,
                       currentField === 'password' && styles.inputLabelActive
                     ]}>
-                      🔒 Password {currentField === 'password' && '●'}
+                      🔒 PIN / Password {currentField === 'password' && '●'}
                     </Text>
                     <TextInput
                       ref={passwordInputRef}
@@ -904,18 +904,19 @@ export default function AuthScreen() {
                       }}
                       onFocus={() => {
                         setCurrentField('password');
-                        speakText("Password field focused");
+                        speakText("PIN or password field focused");
                       }}
                       onBlur={() => {
                         if (passwordTimeoutRef.current) {
                           clearTimeout(passwordTimeoutRef.current);
                         }
                       }}
-                      placeholder="Enter your password"
+                      placeholder="Enter your PIN or password"
                       placeholderTextColor="rgba(255,255,255,0.6)"
                       secureTextEntry
-                      accessibilityLabel="Password input field"
-                      accessibilityHint="Enter your password"
+                      keyboardType="default"
+                      accessibilityLabel="PIN or password input field"
+                      accessibilityHint="Enter your PIN or password, minimum 4 characters"
                     />
                   </View>
                 </Animated.View>
