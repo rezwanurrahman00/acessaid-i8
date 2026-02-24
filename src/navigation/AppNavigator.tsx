@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
+import { View } from 'react-native';
 import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -8,6 +9,7 @@ import * as Speech from 'expo-speech';
 import { useApp } from '../contexts/AppContext';
 import { getThemeConfig } from '../../constants/theme';
 import { RootStackParamList, MainTabParamList } from '../types';
+import SOSButton from '../components/SOSButton';
 
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
@@ -26,6 +28,7 @@ const MainTabNavigator = () => {
   const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
 
   return (
+    <View style={{ flex: 1 }}>
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
@@ -95,6 +98,8 @@ const MainTabNavigator = () => {
         }}
       />
     </Tab.Navigator>
+    <SOSButton />
+    </View>
   );
 };
 
