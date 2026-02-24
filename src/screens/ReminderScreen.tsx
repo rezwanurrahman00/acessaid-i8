@@ -98,7 +98,7 @@ const ReminderScreen: React.FC = () => {
   const [recurrence, setRecurrence] = useState<ReminderRecurrence>('once');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<ReminderCategory | 'all'>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('active');
   const [showFilters, setShowFilters] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);

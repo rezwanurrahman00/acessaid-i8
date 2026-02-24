@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -23,6 +24,12 @@ import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
 import { useApp } from '../contexts/AppContext';
 import { User } from '../types';
+
+// Voice-to-text module (not available in Expo Go, only dev builds)
+let ExpoSpeechRecognitionModule: any = null;
+try {
+  ExpoSpeechRecognitionModule = require('expo-speech-recognition').ExpoSpeechRecognitionModule;
+} catch {}
 
 const LoginScreen = () => {
   const { dispatch, state } = useApp();
@@ -51,6 +58,10 @@ const LoginScreen = () => {
   const otpRef = useRef<any>(null);
   const resetNewPinRef = useRef<any>(null);
   const resetConfirmPinRef = useRef<any>(null);
+
+  // Voice-to-text: which field is currently listening
+  const [listeningField, setListeningField] = useState<'email' | 'name' | 'forgotEmail' | null>(null);
+  const voiceListenersRef = useRef<any[]>([]);
 
   const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -93,11 +104,15 @@ const LoginScreen = () => {
       });
       if (error) throw error;
       const supabaseUser = data.user!;
+      // Preserve any cached fields (profilePhoto, bio, etc.) that the login form doesn't know about
+      const existingRaw = await AsyncStorage.getItem('user');
+      const existing = existingRaw ? JSON.parse(existingRaw) : {};
       const appUser: User = {
+        ...existing,
         id: supabaseUser.id,
         email: supabaseUser.email!,
         pin,
-        name: supabaseUser.user_metadata?.name || email.split('@')[0],
+        name: supabaseUser.user_metadata?.name || existing.name || email.split('@')[0],
         joinDate: supabaseUser.created_at,
       };
       await AsyncStorage.setItem('user', JSON.stringify(appUser));
@@ -194,6 +209,110 @@ const LoginScreen = () => {
       try { Speech.stop(); } catch {}
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  // ── Voice-to-text for text fields ─────────────────────────────────────────
+
+  const cleanupVoiceListeners = () => {
+    voiceListenersRef.current.forEach(sub => { try { sub?.remove?.(); } catch {} });
+    voiceListenersRef.current = [];
+  };
+
+  const applyVoiceResult = (field: 'email' | 'name' | 'forgotEmail', text: string) => {
+    if (field === 'email' || field === 'forgotEmail') {
+      // Normalize spoken email: "john at gmail dot com" → "john@gmail.com"
+      let normalized = text.toLowerCase().trim();
+      normalized = normalized.replace(/\s+at\s+/gi, '@');
+      normalized = normalized.replace(/\s+dot\s+/gi, '.');
+      normalized = normalized.replace(/\s+/g, '');
+      setEmail(normalized);
+      speakText(`Email set to ${normalized}`);
+    } else {
+      setName(text.trim());
+      speakText(`Name set to ${text.trim()}`);
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const startVoiceInput = async (field: 'email' | 'name' | 'forgotEmail') => {
+    if (listeningField) return; // already listening
+
+    const label = field === 'name' ? 'your full name' : 'your email address';
+
+    // ── Web (Chrome / Expo web) ──────────────────────────────────────────────
+    if (Platform.OS === 'web') {
+      const SRWeb =
+        (global as any).webkitSpeechRecognition ||
+        (window as any).webkitSpeechRecognition ||
+        (global as any).SpeechRecognition ||
+        (window as any).SpeechRecognition;
+
+      if (!SRWeb) {
+        Alert.alert('Not Available', 'Voice input is not supported in this browser.');
+        return;
+      }
+
+      setListeningField(field);
+      speakText(`Listening. Say ${label}.`);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const rec = new SRWeb();
+      rec.lang = 'en-US';
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.onresult = (event: any) => {
+        const text = event.results?.[0]?.[0]?.transcript;
+        if (text) applyVoiceResult(field, text);
+        setListeningField(null);
+      };
+      rec.onerror = () => setListeningField(null);
+      rec.onend = () => setListeningField(null);
+      rec.start();
+      return;
+    }
+
+    // ── Native (dev build only) ──────────────────────────────────────────────
+    if (!ExpoSpeechRecognitionModule) {
+      Alert.alert('Not Available', 'Voice input requires a development build.');
+      return;
+    }
+
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      speakText('Microphone permission is required for voice input.');
+      return;
+    }
+
+    setListeningField(field);
+    speakText(`Listening. Say ${label}.`);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    cleanupVoiceListeners();
+
+    const resultSub = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
+      const transcript = event.results?.[0]?.transcript;
+      const isFinal = event.isFinal;
+      if (transcript && isFinal) {
+        applyVoiceResult(field, transcript);
+        cleanupVoiceListeners();
+        setListeningField(null);
+      }
+    });
+    const endSub = ExpoSpeechRecognitionModule.addListener('end', () => {
+      cleanupVoiceListeners();
+      setListeningField(null);
+    });
+    const errorSub = ExpoSpeechRecognitionModule.addListener('error', () => {
+      cleanupVoiceListeners();
+      setListeningField(null);
+    });
+    voiceListenersRef.current = [resultSub, endSub, errorSub];
+
+    ExpoSpeechRecognitionModule.start({
+      lang: 'en-US',
+      interimResults: false,
+      maxAlternatives: 1,
+      continuous: false,
+    });
   };
 
   // ── Forgot PIN handlers ────────────────────────────────────────────────────
@@ -332,22 +451,37 @@ const LoginScreen = () => {
               <>
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Email Address</Text>
-                  <TextInput
-                    ref={emailRef}
-                    style={[styles.textInput, otpSent && styles.textInputDisabled]}
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="Enter your email"
-                    placeholderTextColor={placeholderColor}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType={otpSent ? 'next' : 'send'}
-                    onSubmitEditing={otpSent ? () => otpRef.current?.focus() : handleSendOtp}
-                    onFocus={() => speakText('Email address. Enter the email you used to sign up.')}
-                    editable={!otpSent}
-                    accessibilityLabel="Email address input"
-                  />
+                  <View style={styles.inputRow}>
+                    <TextInput
+                      ref={emailRef}
+                      style={[styles.textInput, styles.textInputFlex, otpSent && styles.textInputDisabled]}
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="Enter your email"
+                      placeholderTextColor={placeholderColor}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType={otpSent ? 'next' : 'send'}
+                      onSubmitEditing={otpSent ? () => otpRef.current?.focus() : handleSendOtp}
+                      onFocus={() => speakText('Email address. Enter the email you used to sign up.')}
+                      editable={!otpSent}
+                      accessibilityLabel="Email address input"
+                    />
+                    {!otpSent && (
+                      <TouchableOpacity
+                        style={[styles.micButton, listeningField === 'forgotEmail' && styles.micButtonActive]}
+                        onPress={() => startVoiceInput('forgotEmail')}
+                        disabled={!!listeningField}
+                        accessibilityLabel="Voice input for email"
+                      >
+                        {listeningField === 'forgotEmail'
+                          ? <ActivityIndicator size="small" color={theme.textInverted} />
+                          : <Ionicons name="mic" size={20} color={theme.accent} />
+                        }
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
 
                 {!otpSent ? (
@@ -442,39 +576,65 @@ const LoginScreen = () => {
                 {!isLogin && (
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>Full Name</Text>
-                    <TextInput
-                      ref={nameRef}
-                      style={styles.textInput}
-                      value={name}
-                      onChangeText={setName}
-                      placeholder="Enter your full name"
-                      placeholderTextColor={placeholderColor}
-                      autoCapitalize="words"
-                      returnKeyType="next"
-                      onSubmitEditing={() => emailRef.current?.focus()}
-                      onFocus={() => speakText('Full name. Enter your full name.')}
-                      accessibilityLabel="Full name input"
-                    />
+                    <View style={styles.inputRow}>
+                      <TextInput
+                        ref={nameRef}
+                        style={[styles.textInput, styles.textInputFlex]}
+                        value={name}
+                        onChangeText={setName}
+                        placeholder="Enter your full name"
+                        placeholderTextColor={placeholderColor}
+                        autoCapitalize="words"
+                        returnKeyType="next"
+                        onSubmitEditing={() => emailRef.current?.focus()}
+                        onFocus={() => speakText('Full name. Enter your full name.')}
+                        accessibilityLabel="Full name input"
+                      />
+                      <TouchableOpacity
+                        style={[styles.micButton, listeningField === 'name' && styles.micButtonActive]}
+                        onPress={() => startVoiceInput('name')}
+                        disabled={!!listeningField}
+                        accessibilityLabel="Voice input for name"
+                      >
+                        {listeningField === 'name'
+                          ? <ActivityIndicator size="small" color={theme.textInverted} />
+                          : <Ionicons name="mic" size={20} color={theme.accent} />
+                        }
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
 
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Email Address</Text>
-                  <TextInput
-                    ref={emailRef}
-                    style={styles.textInput}
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="Enter your email"
-                    placeholderTextColor={placeholderColor}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="next"
-                    onSubmitEditing={() => pinRef.current?.focus()}
-                    onFocus={() => speakText('Email address. Enter your email address.')}
-                    accessibilityLabel="Email address input"
-                  />
+                  <View style={styles.inputRow}>
+                    <TextInput
+                      ref={emailRef}
+                      style={[styles.textInput, styles.textInputFlex]}
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="Enter your email"
+                      placeholderTextColor={placeholderColor}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => pinRef.current?.focus()}
+                      onFocus={() => speakText('Email address. Enter your email address.')}
+                      accessibilityLabel="Email address input"
+                    />
+                    <TouchableOpacity
+                      style={[styles.micButton, listeningField === 'email' && styles.micButtonActive]}
+                      onPress={() => startVoiceInput('email')}
+                      disabled={!!listeningField}
+                      accessibilityLabel="Voice input for email"
+                    >
+                      {listeningField === 'email'
+                        ? <ActivityIndicator size="small" color={theme.textInverted} />
+                        : <Ionicons name="mic" size={20} color={theme.accent} />
+                      }
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 <View style={styles.inputContainer}>
@@ -546,12 +706,6 @@ const LoginScreen = () => {
             )}
           </ModernCard>
 
-          <View style={styles.voiceHelpContainer}>
-            <Text style={styles.voiceHelpTitle}>Voice Announcements</Text>
-            <Text style={styles.voiceHelpText}>
-              Toggle audio feedback to hear spoken guidance and confirmations
-            </Text>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -682,27 +836,27 @@ const createStyles = (theme: AppTheme) =>
       fontSize: 14,
       fontWeight: '600',
     },
-    voiceHelpContainer: {
+    inputRow: {
+      flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: theme.isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.2)',
+      gap: 8,
+    },
+    textInputFlex: {
+      flex: 1,
+    },
+    micButton: {
+      width: 56,
+      height: 56,
+      backgroundColor: theme.accentSoft,
       borderRadius: 16,
-      padding: 20,
-      marginTop: 20,
-      borderWidth: theme.isDark ? 1 : 0.5,
-      borderColor: theme.cardBorder,
+      borderWidth: 2,
+      borderColor: theme.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    voiceHelpTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: theme.textInverted,
-      marginBottom: 8,
-    },
-    voiceHelpText: {
-      fontSize: 14,
-      color: theme.textInverted,
-      opacity: 0.85,
-      textAlign: 'center',
-      lineHeight: 20,
+    micButtonActive: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
     },
   });
 
