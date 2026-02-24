@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Brightness from 'expo-brightness';
 import * as Haptics from 'expo-haptics';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
@@ -77,7 +79,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ title, children, icon }
             <Ionicons name={icon as any} size={22} color={theme.accent} />
           </View>
         )}
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>{title}</Text>
       </View>
       {children}
     </ModernCard>
@@ -116,11 +118,17 @@ const ProfileField: React.FC<ProfileFieldProps> = ({
         style={[
           styles.textInput,
           multiline && styles.multilineInput,
-          {
-            borderColor: theme.inputBorder,
-            backgroundColor: theme.inputBackground,
-            color: theme.textPrimary,
-          },
+          editable
+            ? {
+                borderColor: theme.inputBorder,
+                backgroundColor: theme.inputBackground,
+                color: theme.textPrimary,
+              }
+            : {
+                borderColor: 'transparent',
+                backgroundColor: 'transparent',
+                color: theme.textSecondary,
+              },
         ]}
         value={value}
         onChangeText={onChangeText}
@@ -194,6 +202,8 @@ const JoinDateModal: React.FC<JoinDateModalProps> = ({ visible, onClose, theme, 
 const ProfileScreen = () => {
   const { state, dispatch } = useApp();
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(state.accessibilitySettings.isDarkMode);
   const [isJoinDateModalVisible, setIsJoinDateModalVisible] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -265,7 +275,7 @@ const ProfileScreen = () => {
     speakText('Profile screen. You can edit your information or adjust accessibility settings.');
 
     return cleanupVoiceCommands;
-  }, [isEditingProfile]);
+  }, []);
 
   const setupVoiceCommands = () => {
     voiceManager.addCommand({
@@ -330,67 +340,112 @@ const ProfileScreen = () => {
       Alert.alert('Unavailable', 'Image picking is unavailable in this environment.');
       return;
     }
-    
+
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permission.status !== 'granted') {
         Alert.alert('Permission needed', 'Please allow photo library access to set a profile picture.');
         return;
       }
-      
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
         allowsEditing: true,
         aspect: [1, 1],
       });
-      
+
       if (!result.canceled && result.assets?.[0]?.uri) {
         const uri = result.assets[0].uri;
-        setProfileData({ ...profileData, profilePhoto: uri });
-        dispatch({ type: 'UPDATE_USER', payload: { profilePhoto: uri } });
-        speakText('Profile picture updated');
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setIsUploadingPhoto(true);
+
+        try {
+          // Resize + compress to JPEG and get base64 (no extra packages needed)
+          const manipResult = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 400 } }],
+            { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+          if (!manipResult.base64) throw new Error('Failed to process image');
+
+          // Convert base64 → Uint8Array for Supabase Storage upload
+          const binaryString = atob(manipResult.base64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+
+          const filePath = `${state.user!.id}/avatar.jpg`;
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, bytes, { contentType: 'image/jpeg', upsert: true });
+
+          if (uploadError) throw uploadError;
+
+          // Get the permanent public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+
+          // Save avatar_url to profiles table
+          await supabase.from('profiles').upsert({
+            id: state.user!.id,
+            avatar_url: publicUrl,
+          });
+
+          // Update local state with the public URL so it persists across reinstalls
+          setProfileData(prev => ({ ...prev, profilePhoto: publicUrl }));
+          dispatch({ type: 'UPDATE_USER', payload: { profilePhoto: publicUrl } });
+          speakText('Profile picture updated');
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } catch (uploadErr) {
+          console.warn('Failed to upload photo to Supabase:', uploadErr);
+          // Fallback: store local URI (works until reinstall)
+          setProfileData(prev => ({ ...prev, profilePhoto: uri }));
+          dispatch({ type: 'UPDATE_USER', payload: { profilePhoto: uri } });
+          speakText('Profile picture updated locally');
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } finally {
+          setIsUploadingPhoto(false);
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to update profile picture');
+      setIsUploadingPhoto(false);
     }
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!profileData.name.trim()) {
       Alert.alert('Name Required', 'Please enter your name.');
       speakText('Please enter your name');
       return;
     }
 
-    // Update local state immediately
+    // Update local state immediately so UI reflects changes at once
     dispatch({
       type: 'UPDATE_USER',
       payload: { ...state.user!, ...profileData },
     });
 
-    setIsEditingProfile(false);
-    speakText('Profile updated successfully');
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    // Sync to Supabase in background
-    (async () => {
-      try {
-        // Update Supabase Auth user metadata (name persists across logins)
-        await supabase.auth.updateUser({
-          data: { name: profileData.name.trim() },
-        });
-        // Update profiles table
-        await supabase.from('profiles').upsert({
-          id: state.user!.id,
-          name: profileData.name.trim(),
-        });
-      } catch {
-        // Local state + AsyncStorage already updated — fails silently
-        console.warn('Failed to sync profile to Supabase');
-      }
-    })();
+    setIsSaving(true);
+    try {
+      await supabase.auth.updateUser({
+        data: { name: profileData.name.trim() },
+      });
+      await supabase.from('profiles').upsert({
+        id: state.user!.id,
+        name: profileData.name.trim(),
+        bio: profileData.bio.trim(),
+      });
+    } catch {
+      console.warn('Failed to sync profile to Supabase');
+    } finally {
+      setIsSaving(false);
+      setIsEditingProfile(false);
+      speakText('Profile updated successfully');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
   };
 
   const handleAccessibilityChange = (setting: string, value: number | boolean) => {
@@ -405,8 +460,12 @@ const ProfileScreen = () => {
 
     if (setting === 'isDarkMode') {
       speakText(`Dark mode ${value ? 'on' : 'off'}`);
-    } else {
-      speakText(`${setting} updated to ${value}`);
+    } else if (setting === 'brightness') {
+      speakText(`Brightness set to ${getBrightnessLabel(value as number)}`);
+    } else if (setting === 'textZoom') {
+      speakText(`Text size set to ${getTextZoomLabel(value as number)}`);
+    } else if (setting === 'voiceSpeed') {
+      speakText(`Voice speed set to ${getVoiceSpeedLabel(value as number)}`);
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -450,6 +509,7 @@ const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.profilePictureHeroWrapper}
               onPress={handleProfilePicture}
+              disabled={isUploadingPhoto}
               accessibilityLabel="Profile picture"
             >
               {profileData.profilePhoto ? (
@@ -459,8 +519,15 @@ const ProfileScreen = () => {
                   <Ionicons name="person" size={50} color="white" />
                 </LinearGradient>
               )}
+              {isUploadingPhoto && (
+                <View style={styles.photoUploadOverlay}>
+                  <ActivityIndicator size="large" color="white" />
+                </View>
+              )}
               <View style={[styles.profileEditBadge, { backgroundColor: theme.accent }]}>
-                <Ionicons name="camera" size={16} color="white" />
+                {isUploadingPhoto
+                  ? <ActivityIndicator size="small" color="white" />
+                  : <Ionicons name="camera" size={16} color="white" />}
               </View>
             </TouchableOpacity>
           </View>
@@ -505,10 +572,20 @@ const ProfileScreen = () => {
             </Text>
           </TouchableOpacity>
           {isEditingProfile && (
-            <TouchableOpacity style={[styles.heroActionButton, styles.heroActionButtonPrimary]} onPress={handleSaveProfile}>
+            <TouchableOpacity
+              style={[styles.heroActionButton, styles.heroActionButtonPrimary]}
+              onPress={handleSaveProfile}
+              disabled={isSaving}
+            >
               <LinearGradient colors={[theme.accent, '#357ABD']} style={styles.heroActionButtonGradient}>
-                <Ionicons name="checkmark-circle" size={20} color="white" />
-                <Text style={styles.heroActionTextPrimary}>Save</Text>
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={20} color="white" />
+                    <Text style={styles.heroActionTextPrimary}>Save</Text>
+                  </>
+                )}
               </LinearGradient>
             </TouchableOpacity>
           )}
@@ -614,7 +691,7 @@ const ProfileScreen = () => {
               placeholder="Enter your email"
               keyboardType="email-address"
               accessibilityLabel="Email input"
-              editable={isEditingProfile}
+              editable={false}
             />
             <ProfileField
               label="Bio"
@@ -1188,6 +1265,13 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: 20,
+  },
+  photoUploadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 65,
   },
   settingCardEnhanced: {
     marginBottom: 16,
