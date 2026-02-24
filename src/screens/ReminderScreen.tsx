@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  AppState,
   FlatList,
   LayoutAnimation,
   Modal,
@@ -23,6 +24,8 @@ import {
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
+import { addToQueue, getQueueLength, processQueue } from '../utils/syncQueue';
+import { cancelForReminder, rescheduleAll, scheduleForReminder } from '../utils/notificationService';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import { useApp } from '../contexts/AppContext';
 import type { MainTabParamList } from '../types';
@@ -129,6 +132,7 @@ const ReminderScreen: React.FC = () => {
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [sendingTest, setSendingTest] = useState(false);
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
   // ADDED: Voice input states
   const [isVoiceInputMode, setIsVoiceInputMode] = useState(false);
@@ -297,6 +301,9 @@ const ReminderScreen: React.FC = () => {
         return;
       }
 
+      // Try to flush any offline operations first
+      await processQueue();
+
       const { data, error } = await supabase
         .from('reminders')
         .select('*')
@@ -318,6 +325,11 @@ const ReminderScreen: React.FC = () => {
       }));
 
       setReminders(localReminders);
+      await rescheduleAll(localReminders);
+
+      // Reflect how many ops are still waiting
+      const remaining = await getQueueLength();
+      setPendingCount(remaining);
     } catch (e) {
       console.warn('Failed to load reminders from Supabase, trying AsyncStorage fallback:', e);
 
@@ -332,6 +344,7 @@ const ReminderScreen: React.FC = () => {
             createdAt: new Date(r.createdAt),
           }));
           setReminders(parsed);
+          await rescheduleAll(parsed);
         } else {
           setReminders([]);
         }
@@ -339,6 +352,10 @@ const ReminderScreen: React.FC = () => {
         console.warn('Failed to load reminders from AsyncStorage too');
         setReminders([]);
       }
+
+      // Show how many ops are pending even when offline
+      const remaining = await getQueueLength();
+      setPendingCount(remaining);
     }
   };
 
@@ -352,6 +369,16 @@ const ReminderScreen: React.FC = () => {
     fetchReminders();
   }, [state.user?.id]);
 
+  // Auto-sync when app comes back to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        fetchReminders();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
   useEffect(() => {
     const key = storageKey(state.user?.id);
     AsyncStorage.setItem(
@@ -360,8 +387,8 @@ const ReminderScreen: React.FC = () => {
     ).catch(() => { });
   }, [reminders, state.user?.id]);
 
+  // Effect 1: One-time setup — permissions, push token, Android channel, notification handler
   useEffect(() => {
-    // Ask permissions once
     (async () => {
       await Notifications.requestPermissionsAsync();
       try {
@@ -383,33 +410,34 @@ const ReminderScreen: React.FC = () => {
           shouldShowAlert: true,
           shouldPlaySound: true,
           shouldSetBadge: false,
-          // For newer types
           // @ts-ignore
           shouldShowBanner: true,
           // @ts-ignore
           shouldShowList: true,
         }),
       });
-
-      // Foreground listener to speak on receipt (iOS/Android)
-      if (notifSubRef.current) {
-        try { (Notifications as any).removeNotificationSubscription?.(notifSubRef.current); } catch { }
-      }
-      notifSubRef.current = Notifications.addNotificationReceivedListener((notification) => {
-        const { title: notifTitle, body, data } = notification.request.content as any;
-        const reminderId: string | undefined = data?.reminderId;
-        const nowTs = Date.now();
-        if (reminderId) {
-          const last = spokenCooldownRef.current[reminderId] || 0;
-          if (nowTs - last < 15000) {
-            return; // prevent duplicates within 15s
-          }
-          spokenCooldownRef.current[reminderId] = nowTs;
-          const rem = reminders.find(r => r.id === reminderId);
-          if (rem) presentAlert(rem);
-        }
-      });
     })();
+  }, []);
+
+  // Effect 2: Foreground notification listener — needs reminders in closure
+  useEffect(() => {
+    if (notifSubRef.current) {
+      try { (Notifications as any).removeNotificationSubscription?.(notifSubRef.current); } catch { }
+    }
+    notifSubRef.current = Notifications.addNotificationReceivedListener((notification) => {
+      const { data } = notification.request.content as any;
+      const reminderId: string | undefined = data?.reminderId;
+      const nowTs = Date.now();
+      if (reminderId) {
+        const last = spokenCooldownRef.current[reminderId] || 0;
+        if (nowTs - last < 15000) {
+          return; // prevent duplicates within 15s
+        }
+        spokenCooldownRef.current[reminderId] = nowTs;
+        const rem = reminders.find(r => r.id === reminderId);
+        if (rem) presentAlert(rem);
+      }
+    });
 
     // Web/background fallback checker (fires once per reminder)
     if (Platform.OS === 'web') {
@@ -475,7 +503,7 @@ const ReminderScreen: React.FC = () => {
       const newDate = new Date(Date.now() + 5 * 60 * 1000);
       const updated = { ...alertReminder, datetime: newDate, hasFired: false };
       setReminders(prev => prev.map(r => r.id === alertReminder.id ? updated : r));
-      await scheduleNative(updated);
+      await scheduleForReminder(updated);
     }
     setAlertReminder(null);
   };
@@ -632,28 +660,32 @@ const ReminderScreen: React.FC = () => {
         };
         animateLayout();
         setReminders(prev => prev.map(r => r.id === editingReminderId ? updated : r));
+        scheduleForReminder(updated).catch(console.warn);
       }
 
       setModalVisible(false);
       setEditingReminderId(null);
       speakText(`Reminder "${title.trim()}" updated`);
 
-      // Sync to Supabase in background
+      // Sync to Supabase in background — queue if offline
+      const idToUpdate = editingReminderId!;
+      const updateData = {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        reminder_datetime: date.toISOString(),
+        frequency: recurrence,
+        priority: priority,
+      };
       (async () => {
         try {
           const { error } = await supabase
             .from('reminders')
-            .update({
-              title: title.trim(),
-              description: description.trim() || undefined,
-              reminder_datetime: date.toISOString(),
-              frequency: recurrence,
-              priority: priority,
-            })
-            .eq('id', editingReminderId);
-          if (error) console.warn('Supabase update failed:', error.message);
-        } catch (error) {
-          console.warn('Failed to sync update to Supabase:', error);
+            .update(updateData)
+            .eq('id', idToUpdate);
+          if (error) throw error;
+        } catch {
+          await addToQueue({ type: 'update', reminderId: idToUpdate, data: updateData });
+          setPendingCount(prev => prev + 1);
         }
       })();
 
@@ -680,32 +712,29 @@ const ReminderScreen: React.FC = () => {
     speakText(`Reminder "${title.trim()}" created successfully`);
 
     // Do the slow work (Supabase sync + scheduling) in the background
+    const createData = {
+      title: title.trim(),
+      description: description.trim() || undefined,
+      reminder_datetime: date.toISOString(),
+      frequency: recurrence,
+      priority: priority,
+    };
     (async () => {
       try {
-        // Sync to Supabase, then refresh so local Date.now() ID is replaced with real UUID
         if (userId) {
           try {
-            await supabase
-              .from('reminders')
-              .insert({
-                user_id: userId,
-                title: title.trim(),
-                description: description.trim() || undefined,
-                reminder_datetime: date.toISOString(),
-                frequency: recurrence,
-                priority: priority,
-              });
+            await supabase.from('reminders').insert({ user_id: userId, ...createData });
+            // Refresh so the temp Date.now() ID is replaced with the real Supabase UUID
             await fetchReminders();
           } catch {
-            // Supabase unavailable — local state already synced to AsyncStorage via useEffect
+            // Offline — queue the create for later sync
+            await addToQueue({ type: 'create', userId, data: createData });
+            setPendingCount(prev => prev + 1);
           }
         }
 
-        // Schedule notification
-        await scheduleNative(newReminder);
-        if (recurrence !== 'once') {
-          scheduleRecurringReminders(newReminder);
-        }
+        // Schedule notification (handles recurrence internally)
+        await scheduleForReminder(newReminder);
       } catch (err) {
         console.warn('Background save error:', err);
       }
@@ -744,7 +773,6 @@ const ReminderScreen: React.FC = () => {
     try {
       console.log('📝 Parsing natural language:', transcript);
 
-      // Parse the transcript using NLP
       const parsed = parseReminderFromSpeech(transcript);
 
       if (!parsed) {
@@ -752,67 +780,70 @@ const ReminderScreen: React.FC = () => {
         return;
       }
 
-      // Validate the parsed reminder
       if (!isValidParsedReminder(parsed)) {
         speakText(`I extracted "${parsed.title}" but couldn't understand the time. Try saying the time more clearly.`);
         return;
       }
 
-      // Ensure datetime is valid
       const reminderDatetime = parsed.datetime || new Date(Date.now() + 60 * 60 * 1000);
       if (isNaN(reminderDatetime.getTime()) || reminderDatetime.getTime() <= Date.now()) {
         speakText("The date or time seems invalid. Please try again with a future time.");
         return;
       }
 
-      // Get current user ID (UUID string from Supabase)
       const userId = state.user?.id;
       if (!userId) {
         speakText("Please sign in first");
         return;
       }
 
-      // Save to Supabase
-      const { data: backendReminder, error: insertError } = await supabase
-        .from('reminders')
-        .insert({
-          user_id: userId,
-          title: parsed.title,
-          description: parsed.description,
-          reminder_datetime: reminderDatetime.toISOString(),
-          frequency: 'once',
-          priority: parsed.priority || 'medium',
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      // Refresh reminders from database
-      await fetchReminders();
-
-      // Get the newly created reminder for scheduling
-      const newReminder: Reminder = {
-        id: backendReminder.id,
-        title: backendReminder.title,
-        description: backendReminder.description,
-        datetime: new Date(backendReminder.reminder_datetime),
-        isCompleted: backendReminder.is_completed,
-        createdAt: backendReminder.created_at ? new Date(backendReminder.created_at) : new Date(),
-        category: parsed.category || 'personal',
+      const createData = {
+        title: parsed.title,
+        description: parsed.description,
+        reminder_datetime: reminderDatetime.toISOString(),
+        frequency: 'once',
         priority: parsed.priority || 'medium',
+      };
+
+      // Add to local state immediately so user sees it right away
+      const tempReminder: Reminder = {
+        id: Date.now().toString(),
+        title: parsed.title,
+        description: parsed.description,
+        datetime: reminderDatetime,
+        isCompleted: false,
+        createdAt: new Date(),
+        category: (parsed.category as ReminderCategory) || 'personal',
+        priority: (parsed.priority as ReminderPriority) || 'medium',
         recurrence: 'once',
         hasFired: false,
       };
+      animateLayout();
+      setReminders(prev => [...prev, tempReminder]);
 
-      // Schedule native notification
-      await scheduleNative(newReminder);
+      // Announce success immediately
+      const desc = describeReminder(parsed);
+      speakText(`Reminder created: ${desc}`);
 
-      // Announce success with details
-      const description = describeReminder(parsed);
-      speakText(`Reminder created: ${description}`);
+      // Try to save to Supabase
+      try {
+        const { data: backendReminder, error: insertError } = await supabase
+          .from('reminders')
+          .insert({ user_id: userId, ...createData })
+          .select()
+          .single();
 
-      console.log('✅ Natural language reminder created:', newReminder);
+        if (insertError) throw insertError;
+
+        // Refresh so temp ID is replaced with real Supabase UUID
+        await fetchReminders();
+        await scheduleForReminder({ ...tempReminder, id: backendReminder.id });
+      } catch {
+        // Offline — queue for later sync, keep temp reminder in local state
+        await addToQueue({ type: 'create', userId, data: createData });
+        setPendingCount(prev => prev + 1);
+        await scheduleForReminder(tempReminder);
+      }
 
     } catch (error) {
       console.error('❌ Error processing natural language reminder:', error);
@@ -831,7 +862,14 @@ const ReminderScreen: React.FC = () => {
     // Update locally first for immediate feedback
     setReminders(prev => prev.map(r => (r.id === id ? { ...r, isCompleted: newCompletedStatus } : r)));
 
-    // Sync with Supabase
+    // Cancel notification when completing; reschedule when re-activating
+    if (newCompletedStatus) {
+      await cancelForReminder(id);
+    } else {
+      await scheduleForReminder({ ...reminder, isCompleted: false });
+    }
+
+    // Sync with Supabase — queue if offline, never revert the local state
     try {
       const { error } = await supabase
         .from('reminders')
@@ -843,11 +881,10 @@ const ReminderScreen: React.FC = () => {
 
       if (error) throw error;
       speakText(newCompletedStatus ? 'Reminder marked as completed' : 'Reminder marked as active');
-    } catch (error) {
-      console.error('Failed to update reminder on Supabase:', error);
-      // Revert the change if update fails
-      setReminders(prev => prev.map(r => (r.id === id ? { ...r, isCompleted: !newCompletedStatus } : r)));
-      speakText('Failed to update reminder');
+    } catch {
+      await addToQueue({ type: 'complete', reminderId: id, isCompleted: newCompletedStatus });
+      setPendingCount(prev => prev + 1);
+      speakText(newCompletedStatus ? 'Marked complete — will sync when online' : 'Marked active — will sync when online');
     }
   };
 
@@ -871,23 +908,26 @@ const ReminderScreen: React.FC = () => {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => {
-          const reminderToDelete = reminders.find(r => r.id === id);
+        onPress: async () => {
+          // Cancel scheduled notification before removing
+          await cancelForReminder(id);
 
           // Remove from local state immediately
           animateLayout();
           setReminders(prev => prev.filter(r => r.id !== id));
           speakText('Reminder deleted');
 
-          // Sync to Supabase in background
+          // Sync to Supabase in background — queue if offline
           (async () => {
             try {
-              await supabase
+              const { error } = await supabase
                 .from('reminders')
                 .delete()
                 .eq('id', id);
-            } catch (error) {
-              console.warn('Failed to delete reminder from Supabase:', error);
+              if (error) throw error;
+            } catch {
+              await addToQueue({ type: 'delete', reminderId: id });
+              setPendingCount(prev => prev + 1);
             }
           })();
         }
@@ -1031,6 +1071,7 @@ const ReminderScreen: React.FC = () => {
         <Text style={styles.headerTitle}>✨ Reminders</Text>
         <Text style={styles.headerSubtitle}>
           {filteredReminders.filter(r => !r.isCompleted).length} Active • {reminders.length}/50 Total
+          {pendingCount > 0 ? `  •  ⏳ ${pendingCount} pending sync` : ''}
         </Text>
 
         {/* Search Bar */}

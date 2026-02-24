@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,8 @@ import * as Speech from 'expo-speech';
 import { useApp } from '../contexts/AppContext';
 import { getThemeConfig } from '../../constants/theme';
 import { RootStackParamList, MainTabParamList } from '../types';
+
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 // Screen imports
 import LoginScreen from '../screens/LoginScreen';
@@ -100,7 +102,7 @@ const AppNavigator = () => {
   const { state } = useApp();
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
