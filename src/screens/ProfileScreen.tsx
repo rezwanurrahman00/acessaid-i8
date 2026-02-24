@@ -24,6 +24,7 @@ import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
 import { TouchSlider } from '../components/TouchSlider';
 import { useApp } from '../contexts/AppContext';
+import { supabase } from '../../lib/supabase';
 import { voiceManager } from '../utils/voiceCommandManager';
 
 // Constants
@@ -363,14 +364,33 @@ const ProfileScreen = () => {
       return;
     }
 
+    // Update local state immediately
     dispatch({
       type: 'UPDATE_USER',
       payload: { ...state.user!, ...profileData },
     });
-    
+
     setIsEditingProfile(false);
     speakText('Profile updated successfully');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Sync to Supabase in background
+    (async () => {
+      try {
+        // Update Supabase Auth user metadata (name persists across logins)
+        await supabase.auth.updateUser({
+          data: { name: profileData.name.trim() },
+        });
+        // Update profiles table
+        await supabase.from('profiles').upsert({
+          id: state.user!.id,
+          name: profileData.name.trim(),
+        });
+      } catch {
+        // Local state + AsyncStorage already updated — fails silently
+        console.warn('Failed to sync profile to Supabase');
+      }
+    })();
   };
 
   const handleAccessibilityChange = (setting: string, value: number | boolean) => {
