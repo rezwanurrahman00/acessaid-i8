@@ -24,11 +24,12 @@ export class VoiceCommandManager {
   private isListening = false;
   private currentScreen = 'login';
   private cooldownUntil = 0; // epoch ms to ignore triggers
-  private cooldownMs = 1200; // default cooldown after screen change or speak
+  private cooldownMs = 1200; // prevents TTS response from being re-interpreted as a command
   private recognition: any = null;
   private recognizing = false;
   private listenersInitialized = false;
   private voiceAnnouncementsEnabled = true; // Global toggle for voice announcements
+  private onStopCallback: (() => void) | null = null;
 
   setCurrentScreen(screen: string) {
     this.currentScreen = screen;
@@ -81,7 +82,7 @@ export class VoiceCommandManager {
     }
   
     console.log('❌ Command not recognized');
-    this.speak('Command not recognized. Try saying "help" for available commands.');
+    // No TTS here — speaking "command not recognized" gets picked up by the mic and creates a loop
     return false;
   }
 
@@ -101,24 +102,29 @@ export class VoiceCommandManager {
     this.cooldownUntil = Date.now() + this.cooldownMs;
   }
 
-  async startListening() {
+  async startListening(onStop?: () => void) {
     if (this.recognizing) {
       return;
     }
-    
-    // Check if voice recognition is available
-    if (!ExpoSpeechRecognitionModule) {
-      this.speak('Voice recognition is not available. Please use a development build to enable this feature.');
-      return;
-    }
-    
-    this.isListening = true;
-    this.cooldownUntil = Date.now() + 500;
 
+    // Store callback so listeners (initialized only once) can call it on end/error
+    this.onStopCallback = onStop ?? null;
+
+    // Web (Expo web / Chrome) uses the browser's built-in SpeechRecognition API
     if (Platform.OS === 'web') {
+      this.isListening = true;
       this.startWebSpeechRecognition();
       return;
     }
+
+    // Native: requires expo-speech-recognition (dev build only, not in Expo Go)
+    if (!ExpoSpeechRecognitionModule) {
+      this.speak('Voice recognition is not available. Please use a development build to enable this feature.');
+      this.onStopCallback?.();
+      return;
+    }
+
+    this.isListening = true;
 
     try {
       // Request permissions using the module's method
@@ -135,12 +141,16 @@ export class VoiceCommandManager {
         ExpoSpeechRecognitionModule.addListener('start', () => {
           console.log('🎙️ Voice recording started');
           this.recognizing = true;
-          this.speak('Listening');
+          // No TTS here — saying "Listening" sets a 1200ms cooldown that would block
+          // the user's command if they speak within that window.
+          // The green card + haptic feedback is sufficient acknowledgment.
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         });
 
         ExpoSpeechRecognitionModule.addListener('end', () => {
           this.recognizing = false;
+          this.isListening = false;
+          this.onStopCallback?.();
         });
 
         ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
@@ -158,8 +168,10 @@ export class VoiceCommandManager {
         });
 
         ExpoSpeechRecognitionModule.addListener('error', (event: any) => {
-          this.speak('Voice recognition error occurred');
+          console.log('🎤 Voice recognition error:', event);
           this.recognizing = false;
+          this.isListening = false;
+          this.onStopCallback?.();
         });
 
         this.listenersInitialized = true;
@@ -214,14 +226,15 @@ export class VoiceCommandManager {
         rec.onerror = (err: any) => {
         };
         
-        rec.onend = () => { 
-          this.recognizing = false; 
+        rec.onend = () => {
+          this.recognizing = false;
+          this.isListening = false;
+          this.onStopCallback?.();
         };
         
         rec.start();
         this.recognition = rec;
         this.recognizing = true;
-        this.speak('Listening');
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       } else {
         this.speak('Microphone not available on this device');
