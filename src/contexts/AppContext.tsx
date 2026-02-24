@@ -190,6 +190,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadData();
   }, []);
 
+  // Fetch profile (avatar, name, bio) from Supabase whenever the user logs in.
+  // Runs on every user ID change so the photo is always restored even when
+  // LoginScreen creates the appUser object without a profilePhoto field.
+  useEffect(() => {
+    if (!state.user?.id) return;
+    const fetchProfile = async () => {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('avatar_url, name, bio')
+          .eq('id', state.user!.id)
+          .single();
+        if (profile) {
+          const updates: Partial<User> = {};
+          if (profile.avatar_url) updates.profilePhoto = profile.avatar_url;
+          if (profile.name) updates.name = profile.name;
+          if (profile.bio) updates.bio = profile.bio;
+          if (Object.keys(updates).length > 0) {
+            dispatch({ type: 'UPDATE_USER', payload: updates });
+          }
+        }
+      } catch {
+        // Supabase unreachable — keep existing values
+      }
+    };
+    fetchProfile();
+  }, [state.user?.id]);
+
   // Fetch reminders from Supabase when the user ID changes (login / logout).
   // Using state.user?.id as the dependency avoids re-running on every profile field update.
   useEffect(() => {

@@ -202,6 +202,7 @@ const JoinDateModal: React.FC<JoinDateModalProps> = ({ visible, onClose, theme, 
 const ProfileScreen = () => {
   const { state, dispatch } = useApp();
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const isEditingProfileRef = useRef(false); // mirrors isEditingProfile for voice command closures
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(state.accessibilitySettings.isDarkMode);
@@ -226,6 +227,7 @@ const ProfileScreen = () => {
   const brightnessDragRef = useRef(state.accessibilitySettings.brightness);
   const textZoomDragRef = useRef(state.accessibilitySettings.textZoom);
   const voiceSpeedDragRef = useRef(state.accessibilitySettings.voiceSpeed);
+  const brightnessDebounceRef = useRef<any>(null);
   // Disable ScrollView scrolling while a slider is being dragged
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
@@ -241,6 +243,24 @@ const ProfileScreen = () => {
     () => joinDate?.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) || 'Join date not available',
     [joinDate]
   );
+
+  // Sync profileData from context whenever AppContext updates user fields asynchronously
+  // (e.g. after the Supabase profiles fetch that runs on login restores avatar_url / name / bio).
+  // Skip while the user is actively editing so we don't overwrite their in-progress changes.
+  useEffect(() => {
+    if (isEditingProfile) return;
+    setProfileData(prev => ({
+      ...prev,
+      name: state.user?.name || prev.name,
+      bio: state.user?.bio || prev.bio,
+      profilePhoto: state.user?.profilePhoto || prev.profilePhoto,
+    }));
+  }, [state.user?.name, state.user?.bio, state.user?.profilePhoto]);
+
+  // Keep ref in sync so voice command closures always read the current value
+  useEffect(() => {
+    isEditingProfileRef.current = isEditingProfile;
+  }, [isEditingProfile]);
 
   // Initialize animations and voice commands
   useEffect(() => {
@@ -281,8 +301,9 @@ const ProfileScreen = () => {
     voiceManager.addCommand({
       keywords: ['edit profile', 'edit information', 'update profile'],
       action: () => {
-        setIsEditingProfile(!isEditingProfile);
-        speakText(isEditingProfile ? 'Profile editing disabled' : 'Profile editing enabled');
+        const currently = isEditingProfileRef.current;
+        setIsEditingProfile(!currently);
+        speakText(currently ? 'Profile editing disabled' : 'Profile editing enabled');
       },
       description: 'Toggle profile editing mode',
       category: 'general',
@@ -765,11 +786,15 @@ const ProfileScreen = () => {
                     min={0}
                     max={100}
                     onValueChange={(value) => {
-                      // During drag: update local display + live screen brightness only.
-                      // No dispatch/speech/haptics — keeps JS thread free for smooth sliding.
+                      // During drag: update local display + debounced live brightness.
+                      // Debounce the native call so it fires at most every 50ms,
+                      // preventing excessive native bridge calls during fast drags.
                       brightnessDragRef.current = value;
                       setBrightnessValue(value);
-                      Brightness.setBrightnessAsync(value / 100);
+                      if (brightnessDebounceRef.current) clearTimeout(brightnessDebounceRef.current);
+                      brightnessDebounceRef.current = setTimeout(() => {
+                        Brightness.setBrightnessAsync(value / 100);
+                      }, 50);
                     }}
                     onSlidingStart={() => setScrollEnabled(false)}
                     onSlidingComplete={() => {
