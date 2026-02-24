@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { RouteProp, useFocusEffect, useRoute } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 import * as Speech from 'expo-speech';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -281,16 +281,20 @@ const ReminderScreen: React.FC = () => {
       Animated.timing(fadeIn, { toValue: 1, duration: 450, useNativeDriver: true }),
       Animated.timing(slideUp, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start();
-    // Announce screen load
-    setTimeout(() => {
-      if (state.voiceAnnouncementsEnabled) {
-        voiceManager.announceScreenChange('reminders');
-        speakText('You are on the Reminders page. You can say things like: Set reminder for food at 5 pm, or just say "create reminder" to add manually.');
-      }
-    }, 500);
-
-
   }, []);
+
+  // Announce active reminder count every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!state.voiceAnnouncementsEnabled) return;
+      const timer = setTimeout(() => {
+        voiceManager.announceScreenChange('reminders');
+        const activeCount = reminders.filter(r => !r.isCompleted).length;
+        speakText(`You have ${activeCount} active ${activeCount === 1 ? 'reminder' : 'reminders'}.`);
+      }, 500);
+      return () => clearTimeout(timer);
+    }, [reminders, state.voiceAnnouncementsEnabled])
+  );
 
   // Reusable function to fetch reminders from Supabase
   const fetchReminders = async () => {

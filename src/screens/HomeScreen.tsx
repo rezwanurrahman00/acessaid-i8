@@ -9,12 +9,13 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -55,6 +56,7 @@ const HomeScreen = () => {
   const { state } = useApp();
   const navigation = useNavigation<NavigationProp<MainTabParamList>>();
   const [ttsText, setTtsText] = useState('');
+  const ttsTextRef = useRef(''); // mirrors ttsText; read by stale-closure voice commands
   const [isListening, setIsListening] = useState(false);
   const [isVoiceInputMode, setIsVoiceInputMode] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -88,7 +90,7 @@ const HomeScreen = () => {
     voiceManager.addCommand({
       keywords: ['read text', 'speak text', 'read aloud'],
       action: () => {
-        speakText("Executing text-to-speech command." + ttsText);
+        speakText('Executing text-to-speech command. ' + ttsTextRef.current);
       },
       description: 'Read the text in the input field',
       category: 'general'
@@ -173,6 +175,11 @@ const HomeScreen = () => {
       voiceManager.removeCommand(['disable voice', 'voice off', 'stop voice']);
     };
   }, []);
+
+  // Keep ref in sync so voice commands registered once can read the current value
+  useEffect(() => {
+    ttsTextRef.current = ttsText;
+  }, [ttsText]);
 
   // Announce screen on mount only
   useEffect(() => {
@@ -980,8 +987,15 @@ const HomeScreen = () => {
                   setIsListening(false);
                   voiceManager.stopListening();
                 } else {
+                  if (!ExpoSpeechRecognitionModule && Platform.OS !== 'web') {
+                    Alert.alert(
+                      'Feature Not Available',
+                      'Voice commands require a development build.\n\nnpx expo run:android\n\nNot available in Expo Go.'
+                    );
+                    return;
+                  }
                   setIsListening(true);
-                  voiceManager.startListening();
+                  voiceManager.startListening(() => setIsListening(false));
                 }
               }}
               gradientColors={isListening ? ['#4CAF50', '#45a049'] : ['#FF6B6B', '#E53E3E']}
@@ -994,7 +1008,7 @@ const HomeScreen = () => {
             stats={[
               { value: `${Math.round(state.accessibilitySettings.brightness)}%`, label: 'Brightness' },
               { value: `${Math.round(state.accessibilitySettings.textZoom)}%`, label: 'Text Size' },
-              { value: `${Math.round(state.accessibilitySettings.voiceSpeed * 100)}%`, label: 'Voice Speed' },
+              { value: `${state.accessibilitySettings.voiceSpeed.toFixed(1)}x`, label: 'Voice Speed' },
               { value: `${state.reminders.filter(r => !r.isCompleted).length}`, label: 'Reminders' },
             ]}
           />
