@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { supabase } from '../../lib/supabase';
 import { AccessibilitySettings, Reminder, User } from '../types';
 import { voiceManager } from '../utils/voiceCommandManager';
 
@@ -145,13 +146,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const settingsData = await AsyncStorage.getItem('accessibilitySettings');
         const setupData = await AsyncStorage.getItem('hasCompletedSetup');
 
-        if (userData) {      
-         const parsedUser = JSON.parse(userData);
-         const userWithJoinDate = parsedUser.joinDate ? parsedUser : { ...parsedUser, joinDate: new Date().toISOString() };
-         dispatch({ type: 'LOGIN', payload: userWithJoinDate });
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          const userWithJoinDate = parsedUser.joinDate ? parsedUser : { ...parsedUser, joinDate: new Date().toISOString() };
+          dispatch({ type: 'LOGIN', payload: userWithJoinDate });
 
-         if (!parsedUser.joinDate) {
+          if (!parsedUser.joinDate) {
             await AsyncStorage.setItem('user', JSON.stringify(userWithJoinDate));
+          }
+
+          // Fetch latest profile fields from Supabase so avatar_url, name and bio
+          // are restored after a reinstall (AsyncStorage would be empty then)
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('avatar_url, name, bio')
+              .eq('id', userWithJoinDate.id)
+              .single();
+            if (profile) {
+              const updates: Partial<User> = {};
+              if (profile.avatar_url) updates.profilePhoto = profile.avatar_url;
+              if (profile.name) updates.name = profile.name;
+              if (profile.bio) updates.bio = profile.bio;
+              if (Object.keys(updates).length > 0) {
+                dispatch({ type: 'UPDATE_USER', payload: updates });
+              }
+            }
+          } catch {
+            // Supabase unreachable — keep AsyncStorage values
           }
         }
         if (settingsData) {
@@ -168,35 +190,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadData();
   }, []);
 
-  // Load reminders for the current user when user changes
+  // Fetch reminders from Supabase when the user ID changes (login / logout).
+  // Using state.user?.id as the dependency avoids re-running on every profile field update.
   useEffect(() => {
     const loadUserReminders = async () => {
+      if (!state.user?.id) {
+        dispatch({ type: 'SET_REMINDERS', payload: [] });
+        return;
+      }
+
       try {
-        if (!state.user) {
+        const { data, error } = await supabase
+          .from('reminders')
+          .select('*')
+          .eq('user_id', state.user.id)
+          .order('reminder_datetime', { ascending: true });
+
+        if (error) throw error;
+
+        dispatch({
+          type: 'SET_REMINDERS',
+          payload: (data || []).map((r: any) => ({
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            date: new Date(r.reminder_datetime),
+            time: new Date(r.reminder_datetime),
+            isCompleted: r.is_completed,
+            isActive: !r.is_completed,
+            createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+            updatedAt: new Date(),
+            category: 'personal',
+            priority: r.priority?.toLowerCase() || 'medium',
+            recurrence: r.frequency?.toLowerCase() || 'once',
+          })),
+        });
+      } catch {
+        // Supabase unreachable — fall back to local AsyncStorage cache
+        try {
+          const key = `reminders_${state.user.id}`;
+          const stored = await AsyncStorage.getItem(key);
+          if (stored) {
+            const parsed = JSON.parse(stored).map((r: any) => ({
+              ...r,
+              date: new Date(r.date),
+              time: new Date(r.time),
+              createdAt: new Date(r.createdAt),
+              updatedAt: new Date(r.updatedAt),
+            }));
+            dispatch({ type: 'SET_REMINDERS', payload: parsed });
+          } else {
+            dispatch({ type: 'SET_REMINDERS', payload: [] });
+          }
+        } catch (fallbackError) {
+          console.error('Error loading reminders from fallback cache:', fallbackError);
           dispatch({ type: 'SET_REMINDERS', payload: [] });
-          return;
         }
-        const key = `reminders_${state.user.id}`;
-        const remindersData = await AsyncStorage.getItem(key);
-        if (remindersData) {
-          const parsedReminders = JSON.parse(remindersData).map((reminder: any) => ({
-            ...reminder,
-            date: new Date(reminder.date),
-            time: new Date(reminder.time),
-            createdAt: new Date(reminder.createdAt),
-            updatedAt: new Date(reminder.updatedAt),
-          }));
-          dispatch({ type: 'SET_REMINDERS', payload: parsedReminders });
-        } else {
-          dispatch({ type: 'SET_REMINDERS', payload: [] });
-        }
-      } catch (error) {
-        console.error('Error loading user reminders:', error);
       }
     };
 
     loadUserReminders();
-  }, [state.user]);
+  }, [state.user?.id]);
 
   // Save data to AsyncStorage when state changes
   useEffect(() => {
