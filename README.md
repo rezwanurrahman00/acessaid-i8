@@ -1,89 +1,225 @@
 # AccessAid ♿
 
-AccessAid is a comprehensive React Native application designed to enhance daily accessibility for persons with disabilities. Built with modern accessibility standards (WCAG 2.2 AA compliance), the app features voice control, camera OCR, smart reminders, and adaptive UI components.
-
-## ✨ Key Features
-
-🎤 **Voice Control** - Comprehensive voice command framework with screen announcements and TTS feedback   
-📸 **Camera Reader OCR** - Polished AI Reader section with clearer spacing/contrast for capture, upload, and file import (OCR API configuration required)  
-🎙️ **Speech-to-Text** - Voice input capability for reminders, forms, and general text entry throughout the app  
-🔊 **Voice Announcement Toggle** - Global TTS switch to control screen titles, button labels, and OCR text reading with persistent preferences  
-⏰ **Smart Reminders** - Full featured reminder system with categories, priorities, recurrence, and real-time alerts  
-♿ **Accessibility First** - Complete dynamic text scaling, brightness control, and screen reader support  
-🎨 **Adaptive UI** - Full dark mode, high contrast, and customizable interface elements  
-🔐 **Secure Authentication** - Working email/PIN authentication with local data storage
-
-
-### 📸 Camera Reader quick start
-- Open the Home screen and scroll to **Camera Reader**.
-- Choose **Take Picture**, **Upload Image**, or **Upload File**.
-- Wait for **Processing...**, then the extracted text appears in the **Extracted Text** area and can be read aloud.
-
-## Welcome to your Expo app 👋
-
-This project was bootstrapped with create-expo-app.
-
-### Get started
-
-1) Install dependencies
-
-```bash
-npm install
-```
-
-2) Start the app
-
-> **⚠️ Important: Voice Recognition Limitations**  
-> Voice recognition (`expo-speech-recognition`) is a **native module** and will **NOT work with Expo Go**.  
-> To test voice commands, you must build the app on a physical device or emulator.
-
-#### Option A: Development Build (Recommended for Voice Features)
-
-**For Android:**
-```bash
-npx expo run:android --device
-```
-
-**For iOS:**
-```bash
-npx expo run:ios --device
-```
-
-This builds and installs the app with native modules on your connected device.
-
-#### Option B: Expo Go (Limited Features)
-
-```bash
-npx expo start
-```
-
-From the Expo CLI, you can open the app in Expo Go, but note:
-- ✅ Text-to-Speech (TTS) works
-- ✅ OCR and camera features work
-- ✅ Reminders and UI features work
-- ❌ Voice recognition/commands will NOT work
-- ❌ Voice input will NOT work
-
-**When you're ready for a fresh start:**
-
-```bash
-npm run reset-project
-```
-
-This moves the starter code to `app-example/` and creates a blank `app/` directory.
-
-Useful docs:
-- Expo docs: https://docs.expo.dev/
-- Learn Expo: https://docs.expo.dev/tutorial/introduction/
-- Community: https://github.com/expo/expo and https://chat.expo.dev/
+AccessAid is a React Native accessibility app built for persons with disabilities. It combines voice control, camera OCR, smart reminders, and an adaptive UI to make everyday tasks easier — all built to WCAG 2.2 AA standards.
 
 ---
 
-## AccessAid – Project I-8
+## ✨ Features
 
-AI/ML Tool to Help Persons with Disabilities
+| Feature | Description |
+|---|---|
+| 🔐 **Auth** | Email + 4-digit PIN sign-up/sign-in via Supabase Auth |
+| ⏰ **Smart Reminders** | Full CRUD with categories, priorities, recurrence, real-time push notifications, and offline sync |
+| 📸 **Camera OCR** | Capture or upload images/PDFs and extract text using OCR.space API |
+| 🎤 **Voice Commands** | Keyword-based voice command system with NLP reminder creation |
+| 🎙️ **Voice Input** | Speak into any text field instead of typing (dev build only) |
+| 🔊 **TTS** | Full Text-to-Speech with adjustable speed and global toggle |
+| ♿ **Accessibility** | Dynamic text zoom, brightness control, dark mode, haptic feedback, screen reader support |
 
-Team: Code Innovators
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | React Native (Expo SDK 54) + TypeScript |
+| Navigation | React Navigation (Stack + Bottom Tabs) |
+| Backend / Auth | Supabase (PostgreSQL + RLS + Auth) |
+| Notifications | expo-notifications (scheduled, cancellable, persisted) |
+| Offline Sync | AsyncStorage queue (`src/utils/syncQueue.ts`) |
+| OCR | OCR.space REST API |
+| State | React Context API |
+| Voice | expo-speech (TTS), expo-speech-recognition (STT) |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js v18+
+- npm
+- [Expo Go](https://expo.dev/go) on your phone (for basic testing)
+- Android Studio or Xcode for a full dev build (required for voice input and OCR)
+
+### 1. Clone and install
+
+```bash
+git clone <repo-url>
+cd acessaid-i8
+npm install
+```
+
+### 2. Set up environment variables
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=        # get from team or your own Supabase project
+EXPO_PUBLIC_SUPABASE_ANON_KEY=   # get from team or your own Supabase project
+EXPO_PUBLIC_OCR_SPACE_API_KEY=   # free key from https://ocr.space/ocrapi
+```
+
+> `EXPO_PUBLIC_API_BASE_URL` is for the legacy Python backend which is no longer used. You can ignore it.
+
+### 3. Run the app
+
+```bash
+npx expo start --clear
+```
+
+Scan the QR code with Expo Go. For full features (voice input, OCR) use a dev build:
+
+```bash
+# Android
+npx expo run:android
+
+# iOS (macOS only)
+npx expo run:ios
+```
+
+### Feature support by run method
+
+| Feature | Expo Go | Dev Build |
+|---|---|---|
+| Auth, reminders, profile | ✅ | ✅ |
+| Push notifications | ✅ | ✅ |
+| TTS / voice announcements | ✅ | ✅ |
+| Voice commands | ✅ | ✅ |
+| **Voice input (mic → text)** | ❌ | ✅ |
+| **Camera OCR** | ❌ | ✅ |
+
+---
+
+## 🗄 Setting Up Your Own Supabase
+
+If you want a fully independent instance instead of using the shared project:
+
+1. Create a free project at [supabase.com](https://supabase.com)
+2. Go to **Auth → Providers → Email** and **disable "Confirm email"**
+3. Run this SQL in the **SQL Editor**:
+
+```sql
+CREATE TABLE reminders (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  reminder_datetime TIMESTAMPTZ NOT NULL,
+  frequency TEXT DEFAULT 'once',
+  priority TEXT DEFAULT 'medium',
+  is_active BOOLEAN DEFAULT true,
+  is_completed BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE profiles (
+  id UUID REFERENCES auth.users(id) PRIMARY KEY,
+  name TEXT,
+  bio TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users manage own reminders" ON reminders
+  FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Users manage own profile" ON profiles
+  FOR ALL USING (auth.uid() = id);
+```
+
+4. Copy your **Project URL** and **anon key** from **Settings → API** into your `.env`
+
+---
+
+## 🔌 APIs
+
+### OCR.space
+
+**Purpose**: Extract text from images and PDFs captured or uploaded by the user.
+
+- **Endpoint**: `POST https://api.ocr.space/parse/image`
+- **Auth**: API key via `EXPO_PUBLIC_OCR_SPACE_API_KEY` in `.env`
+- **Supported formats**: JPEG, PNG, GIF, BMP, PDF
+- **Free tier**: 25,000 requests/month
+- **Get a key**: [ocr.space/ocrapi](https://ocr.space/ocrapi)
+- **Code location**: `src/screens/HomeScreen.tsx` → `extractTextWithOCRSpace()`
+
+### Supabase
+
+**Purpose**: Authentication, database (reminders + profiles), and Row Level Security.
+
+- **Auth**: Email + PIN (padded to meet 6-char minimum)
+- **Tables**: `reminders`, `profiles`
+- **RLS**: Enabled — users can only access their own data
+- **Client**: `lib/supabase.ts`
+- **Offline**: All writes are queued in `src/utils/syncQueue.ts` when Supabase is unreachable and replayed on reconnect
+
+---
+
+## 🗂 Legacy Backend (Reference Only)
+
+The `backend/` folder contains the original Python/FastAPI server built during Sprint 2. It is **no longer called by the app** — the frontend migrated fully to Supabase. The code is kept in the repo for reference and grading purposes.
+
+### Why it was replaced
+
+The FastAPI backend required every developer to run a local Python server and configure a database, which made onboarding slow and complicated testing on physical devices. Supabase removed that friction entirely — auth, database, and RLS are all managed in the cloud with zero server setup.
+
+### What it was
+
+| Layer | Technology |
+|---|---|
+| Framework | FastAPI 0.115 + Uvicorn |
+| ORM | SQLAlchemy 2.0 |
+| Database | SQLite (dev) → MySQL 8 (intended prod) |
+| Auth | JWT via python-jose + bcrypt (passlib) |
+| ML | scikit-learn, numpy, pandas |
+| Server-side TTS | pyttsx3 |
+
+### Database models
+
+| Model | Purpose |
+|---|---|
+| `User` | User accounts with accessibility preferences (JSON field) |
+| `Reminder` | Reminders with title, datetime, frequency, priority |
+| `Task` | Task management with status and due dates |
+| `Notification` | Notification tracking per reminder (SMS, email, voice, push) |
+| `TTSHistory` | Log of every TTS conversion with speech rate and duration |
+| `UserSettings` | Per-user key/value app settings |
+| `DeviceSync` | Multi-device sync state and platform tracking |
+| `MLModel` | Metadata for stored ML model versions and accuracy scores |
+| `AccessibilityLog` | Per-session log of which accessibility features were used |
+
+### Frontend service
+
+`services/api.ts` is the corresponding frontend API client. It is **not imported anywhere** in the active `src/` code — it exists solely as a reference alongside the backend.
+
+### Running it locally (optional)
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate      # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env          # fill in DB credentials
+python setup_database.py      # creates tables
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API docs are available at `http://localhost:8000/docs` once running.
+
+---
+
+## 👥 Project Info
+
+**Project**: AccessAid – I-8
+**Team**: Code Innovators
+**Course**: Capstone
 
 ### Team Members
 - Gautam Aryal (@Aryalgautam1)
@@ -92,24 +228,11 @@ Team: Code Innovators
 - Sworup Bohara (@sb2933)
 - Rezwanur Rahman (@rezwanurrahman00)
 
-### Project Summary
-AccessAid is an assistive-technology application that applies AI/ML to improve daily accessibility for persons with disabilities.
-- Capstone 1: MVP for a focused use case with accessible UI
-- Capstone 2: Feature expansion, UX polish, scalable cloud services
-
-### Tech Stack
-- **Frontend**: React Native (Expo) with TypeScript
-- **Backend**: FastAPI (Python)
-- **Database**: SQLite (with SQLAlchemy ORM)
-- **State Management**: React Context API
-- **Storage**: AsyncStorage for local persistence
-- **Navigation**: Expo Router with Stack and Tab navigation
-
 ### Repo Conventions
 - Branches: `main` (protected), `dev`, feature branches `feat/<name>`
 - Pull Requests: reviewed before merge
 - Issues: tagged with `feature`, `bug`, `priority`
-- Commits: Conventional Commits (e.g., `feat(ui): add accessibility toggle`)
+- Commits: Conventional Commits (`feat(ui): add accessibility toggle`)
 
 ---
 
@@ -237,167 +360,18 @@ AccessAid is an assistive-technology application that applies AI/ML to improve d
 
 ---
 
-## 🔌 APIs Used
+## 📜 Scripts
 
-AccessAid integrates with the following APIs to provide its functionality:
-
-### 1. OCR.Space API (External Third-Party API)
-
-**Purpose**: Optical Character Recognition (OCR) for text extraction from images and PDF documents.
-
-**Description**: 
-OCR.Space is a cloud-based OCR service that allows AccessAid to extract text from images captured by the camera or selected from the photo library. This enables users with visual impairments or reading difficulties to have images read aloud by the app.
-
-**Usage in AccessAid**:
-- Camera OCR: Users can capture images using the device camera and extract text from them
-- Image Picker OCR: Users can select existing images from their photo library for text extraction
-- PDF Support: The API also supports extracting text from PDF documents
-- Text-to-Speech Integration: Extracted text is automatically passed to the TTS system for audio output
-
-**API Details**:
-- **Endpoint**: `https://api.ocr.space/parse/image`
-- **Method**: POST
-- **Authentication**: API Key (configured in `app.json`)
-- **Supported Formats**: 
-  - Images: JPEG, PNG, GIF, BMP
-  - Documents: PDF
-- **Engine**: OCR Engine 2 (default)
-- **Language**: English (eng)
-
-**Configuration**:
-The API key is stored in `app.json` under the `extra` section:
-```json
-{
-  "extra": {
-    "OCR_SPACE_API_KEY": "your-api-key-here"
-  }
-}
-```
-
-**Getting an API Key**:
-1. Visit [OCR.Space API](https://ocr.space/OCRAPI)
-2. Sign up for a free or paid account
-3. Generate an API key from your dashboard
-4. Add the key to `app.json` as shown above
-5. Restart the Expo development server
-
-**Rate Limits**:
-- Free tier: 25,000 requests/month
-- Paid plans available for higher usage
-
-**Error Handling**:
-- API key validation on app startup
-- User-friendly error messages if API key is missing
-- Graceful fallback with alerts when OCR fails
-- Detailed console logging for debugging
-
-**Code Location**: `src/screens/HomeScreen.tsx` - `extractTextWithOCRSpace()` function
-
----
-
-### 2. AccessAid Custom Backend API (Internal FastAPI)
-
-**Purpose**: Backend service for user data management, reminders, settings, and TTS history storage.
-
-**Description**:
-A custom RESTful API built with FastAPI (Python) that handles all backend operations for AccessAid. The API manages user data, reminders, accessibility preferences, and maintains a history of TTS usage for analytics.
-
-**Base URL**: `http://192.168.0.220:8000/api` (configurable via `services/api.ts`)
-
-**API Endpoints**:
-
-#### Health Check
-- **GET** `/` - API health check endpoint
-  - Returns: `{ "message": "AccessAid API is running!", "status": "healthy" }`
-
-#### User Endpoints
-- **GET** `/api/users` - Get all users
-- **GET** `/api/users/{user_id}` - Get user by ID
-- **POST** `/api/users` - Create new user
-- **PUT** `/api/users/{user_id}` - Update user
-- **DELETE** `/api/users/{user_id}` - Delete user
-
-#### Reminder Endpoints
-- **GET** `/api/users/{user_id}/reminders` - Get all reminders for a user
-- **GET** `/api/reminders/{reminder_id}` - Get reminder by ID
-- **POST** `/api/reminders` - Create new reminder
-- **PUT** `/api/reminders/{reminder_id}` - Update reminder
-- **DELETE** `/api/reminders/{reminder_id}` - Delete reminder
-
-#### Settings Endpoints
-- **GET** `/api/users/{user_id}/settings` - Get user settings
-- **POST** `/api/users/{user_id}/settings` - Update user setting
-
-#### TTS History Endpoints
-- **GET** `/api/users/{user_id}/tts-history` - Get TTS usage history
-- **POST** `/api/users/{user_id}/tts-history` - Log TTS usage
-
-**Database Models**:
-- `User` - User accounts and profiles
-- `Reminder` - Reminder entries with categories and priorities
-- `Task` - Task management
-- `Notification` - Notification tracking
-- `TTSHistory` - Text-to-speech usage logs
-- `UserSettings` - User accessibility preferences
-- `DeviceSync` - Device synchronization data
-
-**Technology Stack**:
-- **Framework**: FastAPI 0.104.1
-- **Database**: SQLite with SQLAlchemy ORM 2.0.23
-- **Server**: Uvicorn ASGI server
-- **Authentication**: Python-JOSE with bcrypt
-- **CORS**: Enabled for React Native frontend
-
-**Offline Support**:
-The frontend includes offline fallback mechanisms. When the backend API is unavailable:
-- Mock data is used automatically
-- User operations continue with local storage
-- Data syncs when connection is restored
-
-**Code Locations**:
-- Backend API: `backend/main.py`
-- Frontend API Service: `services/api.ts`
-- Database Models: `backend/database/models.py`
-- Database Setup: `backend/database/database.py`
-
-**Running the Backend**:
 ```bash
-cd backend
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+npm start              # Start Expo dev server (Expo Go — limited features)
+npm run android        # Dev build on Android device/emulator (full features)
+npm run ios            # Dev build on iOS device/simulator (macOS only)
+npm run web            # Web build (notifications and native modules not available)
+npx expo start --clear # Start with Metro cache cleared (use when seeing stale behaviour)
 ```
 
-**API Documentation**:
-Once the backend is running, visit `http://localhost:8000/docs` for interactive Swagger/OpenAPI documentation.
-
 ---
-
-### API Integration Summary
-
-| API | Type | Purpose | Status |
-|-----|------|---------|--------|
-| OCR.Space | External | Text extraction from images/PDFs | ✅ Active |
-| AccessAid Backend | Internal | User data & app features | ✅ Active |
-
-**Note**: Ensure both APIs are properly configured before deploying to production. The OCR.Space API key must be secured and not exposed in version control.
-
-#### 📂 Code Organization
-- TypeScript throughout for type safety
-- Context API for state management (AppContext, AuthContext)
-- Organized component and screen architecture
-- Service layer abstractions
-- Comprehensive error handling
-
----
-
-## 📋 Current Status
-
-The app is now fully functional with all Sprint 1, 2, 3, and 4 features implemented. The foundation established in Sprint 1 was expanded in Sprint 2 with core accessibility features, authentication, voice commands, and a complete backend API. Sprint 3 added major feature implementations including enhanced Camera Reader Module with OCR and safety checks, comprehensive Speech-to-Text voice input capabilities, and a global Voice Announcement Toggle system for improved accessibility control. Sprint 4 introduced a redesigned Camera Reader UI with improved contrast and layout, along with the ability to directly create reminders from OCR-extracted text. The application is production-ready with comprehensive accessibility features for users with disabilities.
-
-## Scripts
-- `npm start` – Start the Expo dev server (⚠️ Voice features won't work in Expo Go)
-- `npm run android` – Build and run on Android emulator/device with full native features
-- `npm run ios` – Build and run on iOS simulator/device with full native features (macOS only)
-- `npm run web` – Run the web build (⚠️ Limited native features)
 
 ## License
+
 © Code Innovators. All rights reserved.
