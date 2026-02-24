@@ -3,11 +3,11 @@
  * Handles all backend communication with offline fallback support
  */
 
-// Update this to your machine's IP address or use localhost for web
-// For Android device: use your machine's IP (192.168.1.71)
-// For Android emulator: use 10.0.2.2
-// For iOS simulator: use localhost
-const API_BASE_URL = 'http://192.168.0.220:8000/api';
+// Set EXPO_PUBLIC_API_BASE_URL in your .env file (copy from .env.example)
+// For Android device: http://<your-machine-ip>:8000/api
+// For Android emulator: http://10.0.2.2:8000/api
+// For iOS simulator: http://localhost:8000/api
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 
 // Types
 export interface User {
