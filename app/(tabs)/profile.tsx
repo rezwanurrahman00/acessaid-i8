@@ -16,6 +16,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { speakIfEnabled } from "@/services/ttsService";
 import { useAccessibilitySettings } from "@/hooks/useAccessibilitySettings";
+import SocialSection from "@/components/social/SocialSection";
 
 export default function ProfileTab() {
   const { user, signOut, updateUser } = useAuth();
@@ -29,7 +30,6 @@ export default function ProfileTab() {
   const [editedBloodGroup, setEditedBloodGroup] = useState(user?.bloodGroup || "");
   const [editedFoodAllergy, setEditedFoodAllergy] = useState(user?.foodAllergy || "");
 
-  // 🗣 Speak once when the profile loads
   useEffect(() => {
     speakIfEnabled("Profile loaded. You can edit or view your personal information.");
   }, []);
@@ -51,7 +51,6 @@ export default function ProfileTab() {
       speakIfEnabled("Error, name cannot be empty");
       return;
     }
-
     try {
       await updateUser({
         name: editedName.trim(),
@@ -89,14 +88,12 @@ export default function ProfileTab() {
         speakIfEnabled("Permission required to access photos");
         return;
       }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 1,
       });
-
       if (!result.canceled && result.assets[0]) {
         await updateUser({ profilePicture: result.assets[0].uri });
         Alert.alert("Success", "Profile picture updated!");
@@ -145,11 +142,19 @@ export default function ProfileTab() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
       <ThemedView style={styles.content}>
+
         {/* Header */}
         <ThemedView style={[styles.header, { backgroundColor: ui.headerProfile }]}>
           <ThemedText style={[styles.title, { color: "#FFFFFF", fontSize: scale(32) }]}>Profile</ThemedText>
           <ThemedText style={[styles.subtitle, { color: "#E8F4FD", fontSize: scale(16) }]}>
             Manage your personal information
+          </ThemedText>
+        </ThemedView>
+
+        {/* Build marker – remove after confirming Expo Go loads latest */}
+        <ThemedView style={[styles.debugBanner, { backgroundColor: ui.cardBg }]}>
+          <ThemedText style={[styles.debugBannerText, { color: ui.accent, fontSize: scale(12) }]}>
+            ✓ Latest build (Community section below)
           </ThemedText>
         </ThemedView>
 
@@ -175,6 +180,9 @@ export default function ProfileTab() {
           </TouchableOpacity>
         </ThemedView>
 
+        {/* ── COMMUNITY SECTION ───────────────────────────────────────── */}
+        <SocialSection ui={ui} scale={scale} />
+
         {/* Info Section */}
         <ThemedView style={[styles.infoSection, { backgroundColor: ui.cardBg }]}>
           {[
@@ -190,15 +198,7 @@ export default function ProfileTab() {
               <ThemedText style={[styles.label, { color: ui.subtext, fontSize: scale(14) }]}>{label}</ThemedText>
               {label !== "Email" && isEditing && setValue ? (
                 <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: ui.inputBg,
-                      borderColor: ui.inputBorder,
-                      color: ui.inputText,
-                      fontSize: scale(16),
-                    },
-                  ]}
+                  style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText, fontSize: scale(16) }]}
                   value={String(value)}
                   onChangeText={(text) => setValue(text)}
                   placeholder={placeholder || ""}
@@ -228,7 +228,7 @@ export default function ProfileTab() {
                 <ThemedText style={[styles.buttonText, { color: ui.text, fontSize: scale(16) }]}>Cancel</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.button, styles.saveButton, { backgroundColor: ui.accent }]}
+                style={[styles.button, { backgroundColor: ui.accent }]}
                 onPress={handleSaveProfile}
                 accessibilityRole="button"
                 accessibilityLabel="Save profile changes"
@@ -238,7 +238,7 @@ export default function ProfileTab() {
             </View>
           ) : (
             <TouchableOpacity
-              style={[styles.button, styles.editButton, { backgroundColor: ui.accent }]}
+              style={[styles.button, { backgroundColor: ui.accent }]}
               onPress={handleEditProfile}
               accessibilityRole="button"
               accessibilityLabel="Edit your profile"
@@ -246,7 +246,6 @@ export default function ProfileTab() {
               <ThemedText style={[styles.buttonText, { fontSize: scale(16) }]}>Edit Profile</ThemedText>
             </TouchableOpacity>
           )}
-
           <TouchableOpacity
             style={[styles.button, styles.signOutButton, { borderColor: ui.danger }]}
             onPress={handleSignOut}
@@ -256,6 +255,7 @@ export default function ProfileTab() {
             <ThemedText style={[styles.buttonText, { color: ui.danger, fontSize: scale(16) }]}>Sign Out</ThemedText>
           </TouchableOpacity>
         </ThemedView>
+
       </ThemedView>
     </ScrollView>
   );
@@ -277,56 +277,22 @@ const styles = StyleSheet.create({
   profileSection: { alignItems: "center", marginBottom: 32 },
   imageContainer: { position: "relative" },
   profileImage: { width: 120, height: 120, borderRadius: 60 },
-  placeholderImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  placeholderImage: { width: 120, height: 120, borderRadius: 60, justifyContent: "center", alignItems: "center" },
   placeholderText: { fontSize: 48, fontWeight: "bold", color: "white" },
-  editIcon: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  editIcon: { position: "absolute", bottom: 0, right: 0, width: 36, height: 36, borderRadius: 18, justifyContent: "center", alignItems: "center" },
   editIconText: { fontSize: 16 },
-  infoSection: {
-    marginBottom: 32,
-    padding: 20,
-    borderRadius: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
+  infoSection: { marginBottom: 32, padding: 20, borderRadius: 15, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   infoItem: { marginBottom: 24 },
   label: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
   value: { fontSize: 16, paddingVertical: 12 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
+  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
   buttonSection: { gap: 16 },
   editButtons: { flexDirection: "row", gap: 12 },
-  button: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    flex: 1,
-  },
+  button: { paddingVertical: 14, paddingHorizontal: 24, borderRadius: 12, alignItems: "center", flex: 1 },
   cancelButton: { borderWidth: 1 },
   signOutButton: { borderWidth: 1 },
   buttonText: { fontSize: 16, fontWeight: "600", color: "white" },
   errorText: { textAlign: "center", fontSize: 16, marginTop: 50 },
+  debugBanner: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginBottom: 12, alignItems: "center" },
+  debugBannerText: { fontWeight: "600" },
 });

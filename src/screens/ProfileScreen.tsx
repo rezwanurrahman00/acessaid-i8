@@ -34,6 +34,7 @@ import { TouchSlider } from '../components/TouchSlider';
 import { useApp } from '../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
 import { voiceManager } from '../utils/voiceCommandManager';
+import SocialSection from '../../components/social/SocialSection';
 
 // Constants
 let ImagePicker: any = null;
@@ -815,6 +816,27 @@ const ProfileScreen = () => {
                 </ScrollView>
               </View>
             </Modal>
+
+            {/* ── Community / Social Section ── */}
+            {state.user && (
+              <SocialSection
+                userId={state.user.id}
+                userName={state.user.name}
+                ui={{
+                  bg: theme.background,
+                  cardBg: theme.cardBackground,
+                  text: theme.textPrimary,
+                  subtext: theme.textSecondary,
+                  divider: theme.cardBorder,
+                  accent: theme.accent,
+                  inputBg: theme.inputBackground,
+                  inputBorder: theme.inputBorder,
+                  inputText: theme.textPrimary,
+                  danger: theme.danger,
+                }}
+                scale={(n: number) => n * (state.accessibilitySettings.textZoom / 100)}
+              />
+            )}
 
             <ProfileSection title="Profile Information" icon="person-outline">
               {/* Edit button */}
