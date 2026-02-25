@@ -9,8 +9,12 @@ export interface User {
   height?: string;
   bloodGroup?: string;
   allergies?: string;
-  interests?: string;
+  medicalConditions?: string;
+  medications?: string;
   profilePhoto?: string;
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactPhone?: string;
 }
 
 export interface AccessibilitySettings {

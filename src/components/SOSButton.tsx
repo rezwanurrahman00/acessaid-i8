@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Linking } from 'react-native';
 import * as Speech from 'expo-speech';
 import React, { useEffect, useRef, useState } from 'react';
+import { useApp } from '../contexts/AppContext';
 import {
   Animated,
   Dimensions,
@@ -24,6 +26,21 @@ const getDefaultPosition = () => {
 };
 
 const SOSButton: React.FC = () => {
+  const { state } = useApp();
+  const emergencyName = state.user?.emergencyContactName;
+  const emergencyPhone = state.user?.emergencyContactPhone;
+  const emergencyRel = state.user?.emergencyContactRelationship;
+
+  // Refs so PanResponder callbacks (created once) always read the latest values
+  const emergencyNameRef = useRef(emergencyName);
+  const emergencyPhoneRef = useRef(emergencyPhone);
+  const emergencyRelRef = useRef(emergencyRel);
+  useEffect(() => {
+    emergencyNameRef.current = state.user?.emergencyContactName;
+    emergencyPhoneRef.current = state.user?.emergencyContactPhone;
+    emergencyRelRef.current = state.user?.emergencyContactRelationship;
+  }, [state.user?.emergencyContactName, state.user?.emergencyContactPhone, state.user?.emergencyContactRelationship]);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -116,7 +133,8 @@ const SOSButton: React.FC = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     try {
       Speech.stop();
-      Speech.speak(`Emergency SOS. Calling in ${COUNTDOWN_SECONDS} seconds. Say cancel to stop.`);
+      const speakName = emergencyNameRef.current || 'emergency services';
+      Speech.speak(`Emergency SOS. Calling ${speakName} in ${COUNTDOWN_SECONDS} seconds.`);
     } catch {}
 
     // Start countdown
@@ -149,12 +167,17 @@ const SOSButton: React.FC = () => {
     hasTriggeredRef.current = true;
     setModalVisible(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+    // Use saved emergency contact number, fall back to 911
+    const callNumber = emergencyPhoneRef.current ? emergencyPhoneRef.current.replace(/\s+/g, '') : '911';
+    const speakName = emergencyNameRef.current || 'emergency services';
+
     try { Speech.stop(); } catch {}
-    try { Speech.speak('Calling emergency services now.'); } catch {}
+    try { Speech.speak(`Calling ${speakName} now.`); } catch {}
     // Small delay so speech starts before the OS call sheet appears
     setTimeout(() => {
-      Linking.openURL('tel:911').catch(() => {
-        try { Speech.speak('Unable to place call. Please dial 911 manually.'); } catch {}
+      Linking.openURL(`tel:${callNumber}`).catch(() => {
+        try { Speech.speak(`Unable to place call. Please dial ${callNumber} manually.`); } catch {}
       });
     }, 800);
   };
@@ -194,6 +217,21 @@ const SOSButton: React.FC = () => {
               <Text style={styles.modalMessage}>
                 Do you want to call{'\n'}emergency services?
               </Text>
+
+              {emergencyName || emergencyPhone ? (
+                <View style={styles.contactBanner}>
+                  <Ionicons name="person-circle-outline" size={20} color="#D32F2F" />
+                  <View style={styles.contactBannerText}>
+                    <Text style={styles.contactBannerName}>
+                      {emergencyName || 'Emergency Contact'}
+                      {emergencyRel ? ` · ${emergencyRel}` : ''}
+                    </Text>
+                    {emergencyPhone ? (
+                      <Text style={styles.contactBannerPhone}>{emergencyPhone}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
 
               <View style={styles.countdownCircle}>
                 <Text style={styles.countdownNumber}>{countdown}</Text>
@@ -353,6 +391,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+
+  // Emergency contact banner inside modal
+  contactBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFEBEE',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 20,
+    width: '100%',
+  },
+  contactBannerText: {
+    flex: 1,
+  },
+  contactBannerName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B71C1C',
+  },
+  contactBannerPhone: {
+    fontSize: 12,
+    color: '#C62828',
+    marginTop: 2,
   },
 });
 

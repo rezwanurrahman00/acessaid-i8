@@ -160,7 +160,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           try {
             const { data: profile } = await supabase
               .from('profiles')
-              .select('avatar_url, name, bio')
+              .select('avatar_url, name, bio, weight, height, blood_group, allergies, medical_conditions, medications, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone')
               .eq('id', userWithJoinDate.id)
               .single();
             if (profile) {
@@ -168,6 +168,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               if (profile.avatar_url) updates.profilePhoto = profile.avatar_url;
               if (profile.name) updates.name = profile.name;
               if (profile.bio) updates.bio = profile.bio;
+              if (profile.weight) updates.weight = profile.weight;
+              if (profile.height) updates.height = profile.height;
+              if (profile.blood_group) updates.bloodGroup = profile.blood_group;
+              if (profile.allergies) updates.allergies = profile.allergies;
+              if (profile.medical_conditions) updates.medicalConditions = profile.medical_conditions;
+              if (profile.medications) updates.medications = profile.medications;
+              if (profile.emergency_contact_name) updates.emergencyContactName = profile.emergency_contact_name;
+              if (profile.emergency_contact_relationship) updates.emergencyContactRelationship = profile.emergency_contact_relationship;
+              if (profile.emergency_contact_phone) updates.emergencyContactPhone = profile.emergency_contact_phone;
               if (Object.keys(updates).length > 0) {
                 dispatch({ type: 'UPDATE_USER', payload: updates });
               }
@@ -199,7 +208,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('avatar_url, name, bio')
+          .select('avatar_url, name, bio, weight, height, blood_group, allergies, medical_conditions, medications, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone')
           .eq('id', state.user!.id)
           .single();
         if (profile) {
@@ -207,6 +216,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (profile.avatar_url) updates.profilePhoto = profile.avatar_url;
           if (profile.name) updates.name = profile.name;
           if (profile.bio) updates.bio = profile.bio;
+          if (profile.weight) updates.weight = profile.weight;
+          if (profile.height) updates.height = profile.height;
+          if (profile.blood_group) updates.bloodGroup = profile.blood_group;
+          if (profile.allergies) updates.allergies = profile.allergies;
+          if (profile.medical_conditions) updates.medicalConditions = profile.medical_conditions;
+          if (profile.medications) updates.medications = profile.medications;
+          if (profile.emergency_contact_name) updates.emergencyContactName = profile.emergency_contact_name;
+          if (profile.emergency_contact_relationship) updates.emergencyContactRelationship = profile.emergency_contact_relationship;
+          if (profile.emergency_contact_phone) updates.emergencyContactPhone = profile.emergency_contact_phone;
           if (Object.keys(updates).length > 0) {
             dispatch({ type: 'UPDATE_USER', payload: updates });
           }
