@@ -1,5 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Brightness from 'expo-brightness';
+
+// Voice-to-text (dev build only)
+let ExpoSpeechRecognitionModule: any = null;
+try {
+  ExpoSpeechRecognitionModule = require('expo-speech-recognition').ExpoSpeechRecognitionModule;
+} catch {};
 import * as Haptics from 'expo-haptics';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -201,8 +207,8 @@ const JoinDateModal: React.FC<JoinDateModalProps> = ({ visible, onClose, theme, 
 // Main Component
 const ProfileScreen = () => {
   const { state, dispatch } = useApp();
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const isEditingProfileRef = useRef(false); // mirrors isEditingProfile for voice command closures
+  const [isEditingPersonal, setIsEditingPersonal] = useState(false);
+  const isEditingProfileRef = useRef(false); // mirrors isEditingPersonal for voice command closures
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(state.accessibilitySettings.isDarkMode);
@@ -215,8 +221,12 @@ const ProfileScreen = () => {
     height: state.user?.height || '',
     bloodGroup: state.user?.bloodGroup || '',
     allergies: state.user?.allergies || '',
-    interests: state.user?.interests || '',
+    medicalConditions: state.user?.medicalConditions || '',
+    medications: state.user?.medications || '',
     profilePhoto: state.user?.profilePhoto || '',
+    emergencyContactName: state.user?.emergencyContactName || '',
+    emergencyContactRelationship: state.user?.emergencyContactRelationship || '',
+    emergencyContactPhone: state.user?.emergencyContactPhone || '',
   });
 
   // Local state for sliders — only used to drive the slider visual; context is NOT updated mid-drag
@@ -230,6 +240,51 @@ const ProfileScreen = () => {
   const brightnessDebounceRef = useRef<any>(null);
   // Disable ScrollView scrolling while a slider is being dragged
   const [scrollEnabled, setScrollEnabled] = useState(true);
+
+  // Voice-to-text
+  const [listeningField, setListeningField] = useState<string | null>(null);
+  const voiceListenersRef = useRef<any[]>([]);
+
+  const cleanupVoiceListeners = () => {
+    voiceListenersRef.current.forEach(l => { try { l?.remove(); } catch {} });
+    voiceListenersRef.current = [];
+  };
+
+  const startVoiceInput = (field: string) => {
+    if (!ExpoSpeechRecognitionModule) {
+      Alert.alert('Voice Input', 'Voice input requires a development build. You can still type in the field directly.');
+      return;
+    }
+    cleanupVoiceListeners();
+    setListeningField(field);
+
+    const onResult = ExpoSpeechRecognitionModule.addListener('result', (e: any) => {
+      const transcript = e.results?.[0]?.transcript;
+      if (transcript && e.isFinal) {
+        updateProfileField(field as any, transcript);
+        setListeningField(null);
+        cleanupVoiceListeners();
+      }
+    });
+    const onEnd = ExpoSpeechRecognitionModule.addListener('end', () => {
+      setListeningField(null);
+      cleanupVoiceListeners();
+    });
+    const onError = ExpoSpeechRecognitionModule.addListener('error', () => {
+      setListeningField(null);
+      cleanupVoiceListeners();
+    });
+    voiceListenersRef.current = [onResult, onEnd, onError];
+
+    ExpoSpeechRecognitionModule.requestPermissionsAsync().then((r: any) => {
+      if (r.granted) {
+        ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: false, maxAlternatives: 1 });
+      } else {
+        setListeningField(null);
+        cleanupVoiceListeners();
+      }
+    });
+  };
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -248,19 +303,28 @@ const ProfileScreen = () => {
   // (e.g. after the Supabase profiles fetch that runs on login restores avatar_url / name / bio).
   // Skip while the user is actively editing so we don't overwrite their in-progress changes.
   useEffect(() => {
-    if (isEditingProfile) return;
+    if (isEditingPersonal) return;
     setProfileData(prev => ({
       ...prev,
       name: state.user?.name || prev.name,
       bio: state.user?.bio || prev.bio,
       profilePhoto: state.user?.profilePhoto || prev.profilePhoto,
+      weight: state.user?.weight || prev.weight,
+      height: state.user?.height || prev.height,
+      bloodGroup: state.user?.bloodGroup || prev.bloodGroup,
+      allergies: state.user?.allergies || prev.allergies,
+      medicalConditions: state.user?.medicalConditions || prev.medicalConditions,
+      medications: state.user?.medications || prev.medications,
+      emergencyContactName: state.user?.emergencyContactName || prev.emergencyContactName,
+      emergencyContactRelationship: state.user?.emergencyContactRelationship || prev.emergencyContactRelationship,
+      emergencyContactPhone: state.user?.emergencyContactPhone || prev.emergencyContactPhone,
     }));
-  }, [state.user?.name, state.user?.bio, state.user?.profilePhoto]);
+  }, [state.user?.name, state.user?.bio, state.user?.profilePhoto, state.user?.weight, state.user?.height, state.user?.bloodGroup, state.user?.allergies, state.user?.medicalConditions, state.user?.medications, state.user?.emergencyContactName, state.user?.emergencyContactRelationship, state.user?.emergencyContactPhone]);
 
   // Keep ref in sync so voice command closures always read the current value
   useEffect(() => {
-    isEditingProfileRef.current = isEditingProfile;
-  }, [isEditingProfile]);
+    isEditingProfileRef.current = isEditingPersonal;
+  }, [isEditingPersonal]);
 
   // Initialize animations and voice commands
   useEffect(() => {
@@ -302,7 +366,7 @@ const ProfileScreen = () => {
       keywords: ['edit profile', 'edit information', 'update profile'],
       action: () => {
         const currently = isEditingProfileRef.current;
-        setIsEditingProfile(!currently);
+        setIsEditingPersonal(!currently);
         speakText(currently ? 'Profile editing disabled' : 'Profile editing enabled');
       },
       description: 'Toggle profile editing mode',
@@ -311,7 +375,7 @@ const ProfileScreen = () => {
 
     voiceManager.addCommand({
       keywords: ['save profile', 'save changes', 'update information'],
-      action: handleSaveProfile,
+      action: () => handleSaveProfile(),
       description: 'Save profile changes',
       category: 'general',
     });
@@ -451,19 +515,25 @@ const ProfileScreen = () => {
 
     setIsSaving(true);
     try {
-      await supabase.auth.updateUser({
-        data: { name: profileData.name.trim() },
-      });
+      await supabase.auth.updateUser({ data: { name: profileData.name.trim() } });
       await supabase.from('profiles').upsert({
         id: state.user!.id,
         name: profileData.name.trim(),
-        bio: profileData.bio.trim(),
+        blood_group: profileData.bloodGroup.trim(),
+        weight: profileData.weight.trim(),
+        height: profileData.height.trim(),
+        allergies: profileData.allergies.trim(),
+        medical_conditions: profileData.medicalConditions.trim(),
+        medications: profileData.medications.trim(),
+        emergency_contact_name: profileData.emergencyContactName.trim(),
+        emergency_contact_relationship: profileData.emergencyContactRelationship.trim(),
+        emergency_contact_phone: profileData.emergencyContactPhone.trim(),
       });
     } catch {
       console.warn('Failed to sync profile to Supabase');
     } finally {
       setIsSaving(false);
-      setIsEditingProfile(false);
+      setIsEditingPersonal(false);
       speakText('Profile updated successfully');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
@@ -582,35 +652,6 @@ const ProfileScreen = () => {
     
         </Animated.View>
 
-        <View style={styles.heroActions}>
-          <TouchableOpacity
-            style={[styles.heroActionButton, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
-            onPress={() => setIsEditingProfile(!isEditingProfile)}
-          >
-            <Ionicons name={isEditingProfile ? 'close-circle' : 'create-outline'} size={20} color={theme.accent} />
-            <Text style={[styles.heroActionText, { color: theme.textPrimary }]}>
-              {isEditingProfile ? 'Cancel' : 'Edit'}
-            </Text>
-          </TouchableOpacity>
-          {isEditingProfile && (
-            <TouchableOpacity
-              style={[styles.heroActionButton, styles.heroActionButtonPrimary]}
-              onPress={handleSaveProfile}
-              disabled={isSaving}
-            >
-              <LinearGradient colors={[theme.accent, '#357ABD']} style={styles.heroActionButtonGradient}>
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark-circle" size={20} color="white" />
-                    <Text style={styles.heroActionTextPrimary}>Save</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-        </View>
       </LinearGradient>
     </Animated.View>
   );
@@ -694,83 +735,184 @@ const ProfileScreen = () => {
         <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
           <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false} scrollEnabled={scrollEnabled}>
             {renderHeroHeader()}
-            {renderStatsCards()}
+
+            {/* ── Edit Profile Modal ── */}
+            <Modal visible={isEditingPersonal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsEditingPersonal(false)}>
+              <View style={[styles.editModalContainer, { backgroundColor: theme.background }]}>
+                {/* Modal header */}
+                <View style={[styles.editModalHeader, { borderBottomColor: theme.cardBorder, backgroundColor: theme.cardBackground }]}>
+                  <TouchableOpacity style={styles.editModalHeaderBtn} onPress={() => setIsEditingPersonal(false)}>
+                    <Text style={[styles.editModalCancelText, { color: theme.textSecondary }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.editModalTitle, { color: theme.textPrimary }]}>Edit Profile</Text>
+                  <TouchableOpacity style={styles.editModalHeaderBtn} onPress={() => handleSaveProfile()} disabled={isSaving}>
+                    {isSaving ? <ActivityIndicator size="small" color={theme.accent} /> : <Text style={[styles.editModalSaveText, { color: '#2E7D32' }]}>Save</Text>}
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView contentContainerStyle={styles.editModalScroll} keyboardShouldPersistTaps="handled">
+                  {/* Health Info section label */}
+                  <Text style={[styles.editModalSectionLabel, { color: theme.textSecondary }]}>HEALTH INFO</Text>
+
+                  {[
+                    { field: 'name',              label: 'Full Name',           placeholder: 'Enter your full name',         multiline: false, keyboard: 'default'     },
+                    { field: 'bio',               label: 'About Me',            placeholder: 'A short bio about yourself',   multiline: true,  keyboard: 'default'     },
+                    { field: 'weight',             label: 'Weight',              placeholder: 'e.g., 70 kg',                  multiline: false, keyboard: 'default'     },
+                    { field: 'height',             label: 'Height',              placeholder: 'e.g., 170 cm',                 multiline: false, keyboard: 'default'     },
+                    { field: 'bloodGroup',         label: 'Blood Group',         placeholder: 'e.g., O+',                     multiline: false, keyboard: 'default'     },
+                    { field: 'allergies',          label: 'Allergies',           placeholder: 'List any allergies',           multiline: true,  keyboard: 'default'     },
+                    { field: 'medicalConditions',  label: 'Medical Conditions',  placeholder: 'e.g., Diabetes, Hypertension', multiline: true,  keyboard: 'default'     },
+                    { field: 'medications',        label: 'Current Medications', placeholder: 'e.g., Metformin 500mg daily',  multiline: true,  keyboard: 'default'     },
+                  ].map(({ field, label, placeholder, multiline, keyboard }) => (
+                    <View key={field} style={[styles.editModalField, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+                      <Text style={[styles.editModalFieldLabel, { color: theme.textSecondary }]}>{label}</Text>
+                      <View style={styles.fieldRow}>
+                        <TextInput
+                          style={[styles.editModalInput, multiline && styles.editModalInputMultiline, { color: theme.textPrimary }]}
+                          value={(profileData as any)[field]}
+                          onChangeText={(t) => updateProfileField(field as any, t)}
+                          placeholder={placeholder}
+                          placeholderTextColor={theme.placeholder}
+                          multiline={multiline}
+                          numberOfLines={multiline ? 3 : 1}
+                          textAlignVertical={multiline ? 'top' : 'center'}
+                          keyboardType={keyboard as any}
+                        />
+                        <TouchableOpacity style={[styles.micButton, listeningField === field && styles.micButtonActive]} onPress={() => startVoiceInput(field)}>
+                          <Ionicons name={listeningField === field ? 'mic' : 'mic-outline'} size={20} color={listeningField === field ? 'white' : theme.accent} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+
+                  {/* Emergency Contact section label */}
+                  <Text style={[styles.editModalSectionLabel, { color: theme.textSecondary, marginTop: 24 }]}>EMERGENCY CONTACT</Text>
+
+                  {[
+                    { field: 'emergencyContactName',         label: 'Contact Name',  placeholder: 'e.g., Jane Doe',             keyboard: 'default'   },
+                    { field: 'emergencyContactRelationship', label: 'Relationship',  placeholder: 'e.g., Mother, Friend, Carer', keyboard: 'default'   },
+                    { field: 'emergencyContactPhone',        label: 'Phone Number',  placeholder: 'e.g., +1 555 000 0000',       keyboard: 'phone-pad' },
+                  ].map(({ field, label, placeholder, keyboard }) => (
+                    <View key={field} style={[styles.editModalField, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+                      <Text style={[styles.editModalFieldLabel, { color: theme.textSecondary }]}>{label}</Text>
+                      <View style={styles.fieldRow}>
+                        <TextInput
+                          style={[styles.editModalInput, { color: theme.textPrimary }]}
+                          value={(profileData as any)[field]}
+                          onChangeText={(t) => updateProfileField(field as any, t)}
+                          placeholder={placeholder}
+                          placeholderTextColor={theme.placeholder}
+                          keyboardType={keyboard as any}
+                        />
+                        <TouchableOpacity style={[styles.micButton, listeningField === field && styles.micButtonActive]} onPress={() => startVoiceInput(field)}>
+                          <Ionicons name={listeningField === field ? 'mic' : 'mic-outline'} size={20} color={listeningField === field ? 'white' : theme.accent} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+
+                  <View style={{ height: 40 }} />
+                </ScrollView>
+              </View>
+            </Modal>
 
             <ProfileSection title="Profile Information" icon="person-outline">
-            <ProfileField
-              label="Full Name"
-              value={profileData.name}
-              onChangeText={(text) => updateProfileField('name', text)}
-              placeholder="Enter your full name"
-              accessibilityLabel="Full name input"
-              editable={isEditingProfile}
-            />
-            <ProfileField
-              label="Email"
-              value={profileData.email}
-              onChangeText={(text) => updateProfileField('email', text)}
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              accessibilityLabel="Email input"
-              editable={false}
-            />
-            <ProfileField
-              label="Bio"
-              value={profileData.bio}
-              onChangeText={(text) => updateProfileField('bio', text)}
-              placeholder="Tell us about yourself"
-              multiline
-              accessibilityLabel="Bio input"
-              editable={isEditingProfile}
-            />
-            <View style={styles.rowContainer}>
-              <View style={styles.halfField}>
-                <ProfileField
-                  label="Weight"
-                  value={profileData.weight}
-                  onChangeText={(text) => updateProfileField('weight', text)}
-                  placeholder="e.g., 70 kg"
-                  accessibilityLabel="Weight input"
-                  editable={isEditingProfile}
-                />
+              {/* Edit button */}
+              <View style={styles.cardActionRow}>
+                <TouchableOpacity style={[styles.cardActionBtn, { borderColor: theme.cardBorder }]} onPress={() => setIsEditingPersonal(true)}>
+                  <Ionicons name="create-outline" size={18} color={theme.accent} />
+                  <Text style={[styles.cardActionBtnText, { color: theme.accent }]}>Edit</Text>
+                </TouchableOpacity>
               </View>
-              <View style={styles.halfField}>
-                <ProfileField
-                  label="Height"
-                  value={profileData.height}
-                  onChangeText={(text) => updateProfileField('height', text)}
-                  placeholder="e.g., 170 cm"
-                  accessibilityLabel="Height input"
-                  editable={isEditingProfile}
-                />
+
+              {/* Personal identity block */}
+              <View style={styles.personalBlock}>
+                {profileData.profilePhoto ? (
+                  <Image source={{ uri: profileData.profilePhoto }} style={styles.personalAvatar} />
+                ) : (
+                  <LinearGradient colors={[theme.accent, '#357ABD']} style={styles.personalAvatarPlaceholder}>
+                    <Ionicons name="person" size={22} color="white" />
+                  </LinearGradient>
+                )}
+                <View style={styles.personalInfo}>
+                  <Text style={[styles.personalName, { color: theme.textPrimary }]} numberOfLines={1}>
+                    {profileData.name || 'Tap Edit to add your name'}
+                  </Text>
+                  <View style={styles.personalEmailRow}>
+                    <Ionicons name="mail-outline" size={13} color={theme.textSecondary} />
+                    <Text style={[styles.personalEmail, { color: theme.textSecondary }]} numberOfLines={1}>
+                      {profileData.email || state.user?.email || ''}
+                    </Text>
+                  </View>
+                  {profileData.bio ? (
+                    <Text style={[styles.personalBio, { color: theme.textSecondary }]} numberOfLines={2}>
+                      {profileData.bio}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
-            </View>
-            <ProfileField
-              label="Blood Group"
-              value={profileData.bloodGroup}
-              onChangeText={(text) => updateProfileField('bloodGroup', text)}
-              placeholder="e.g., O+"
-              accessibilityLabel="Blood group input"
-              editable={isEditingProfile}
-            />
-            <ProfileField
-              label="Allergies"
-              value={profileData.allergies}
-              onChangeText={(text) => updateProfileField('allergies', text)}
-              placeholder="List any allergies"
-              multiline
-              accessibilityLabel="Allergies input"
-              editable={isEditingProfile}
-            />
-            <ProfileField
-              label="Interests"
-              value={profileData.interests}
-              onChangeText={(text) => updateProfileField('interests', text)}
-              placeholder="Your interests and hobbies"
-              multiline
-              accessibilityLabel="Interests input"
-              editable={isEditingProfile}
-            />
+
+              {/* Health info divider label */}
+              {(profileData.weight || profileData.height || profileData.bloodGroup || profileData.allergies || profileData.medicalConditions || profileData.medications) ? (
+                <Text style={[styles.subSectionLabel, { color: theme.textSecondary }]}>HEALTH INFO</Text>
+              ) : null}
+
+              {/* Compact health icon rows */}
+              {[
+                { icon: 'barbell-outline', color: '#FF7043', bg: 'rgba(255,112,67,0.12)',  label: 'Weight',      value: profileData.weight },
+                { icon: 'resize-outline',  color: '#AB47BC', bg: 'rgba(171,71,188,0.12)', label: 'Height',      value: profileData.height },
+                { icon: 'water-outline',   color: '#E53935', bg: 'rgba(229,57,53,0.12)',   label: 'Blood Group', value: profileData.bloodGroup },
+                { icon: 'warning-outline', color: '#FFA726', bg: 'rgba(255,167,38,0.12)',  label: 'Allergies',   value: profileData.allergies },
+                { icon: 'medkit-outline',  color: '#26A69A', bg: 'rgba(38,166,154,0.12)',  label: 'Conditions',  value: profileData.medicalConditions },
+                { icon: 'flask-outline',   color: '#42A5F5', bg: 'rgba(66,165,245,0.12)',  label: 'Medications', value: profileData.medications },
+              ].map(row => row.value ? (
+                <View key={row.label} style={styles.infoRow}>
+                  <View style={[styles.infoRowIcon, { backgroundColor: row.bg }]}>
+                    <Ionicons name={row.icon as any} size={15} color={row.color} />
+                  </View>
+                  <Text style={[styles.infoRowLabel, { color: theme.textSecondary }]}>{row.label}</Text>
+                  <Text style={[styles.infoRowValue, { color: theme.textPrimary }]} numberOfLines={2}>{row.value}</Text>
+                </View>
+              ) : null)}
+
+              {/* Emergency contact divider */}
+              <View style={[styles.sectionDivider, { borderColor: theme.cardBorder }]}>
+                <View style={[styles.sectionDividerLine, { backgroundColor: theme.cardBorder }]} />
+                <View style={[styles.sectionDividerBadge, { backgroundColor: '#D32F2F' }]}>
+                  <Ionicons name="call" size={12} color="white" />
+                  <Text style={styles.sectionDividerText}>Emergency Contact</Text>
+                </View>
+                <View style={[styles.sectionDividerLine, { backgroundColor: theme.cardBorder }]} />
+              </View>
+
+              {(profileData.emergencyContactName || profileData.emergencyContactPhone) ? (
+                <View style={styles.emergencyContactDisplay}>
+                  <View style={[styles.emergencyContactAvatar, { backgroundColor: '#D32F2F' }]}>
+                    <Ionicons name="person" size={24} color="white" />
+                  </View>
+                  <View style={styles.emergencyContactInfo}>
+                    <Text style={[styles.emergencyContactName, { color: theme.textPrimary }]}>
+                      {profileData.emergencyContactName || 'Unknown'}
+                    </Text>
+                    {profileData.emergencyContactRelationship ? (
+                      <Text style={[styles.emergencyContactRelLabel, { color: '#D32F2F' }]}>{profileData.emergencyContactRelationship}</Text>
+                    ) : null}
+                    {profileData.emergencyContactPhone ? (
+                      <View style={styles.emergencyContactPhoneRow}>
+                        <Ionicons name="call-outline" size={13} color={theme.textSecondary} />
+                        <Text style={[styles.emergencyContactPhoneText, { color: theme.textSecondary }]}>{profileData.emergencyContactPhone}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.emergencyContactEmpty}>
+                  <Ionicons name="alert-circle-outline" size={26} color={theme.textMuted} />
+                  <Text style={[styles.emergencyContactEmptyText, { color: theme.textMuted }]}>
+                    No emergency contact set.{'\n'}Tap Edit to add one.
+                  </Text>
+                </View>
+              )}
           </ProfileSection>
 
           <ProfileSection title="Accessibility Settings" icon="accessibility-outline">
@@ -1341,5 +1483,282 @@ const styles = StyleSheet.create({
     marginTop: 16,
     lineHeight: 18,
     textAlign: 'center',
+  },
+
+  // Voice-to-text mic button
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  textInputFlex: {
+    flex: 1,
+  },
+  micButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(74,144,226,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  micButtonActive: {
+    backgroundColor: '#E53935',
+  },
+
+  // Per-card Edit / Save / Cancel row
+  cardActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginBottom: 16,
+  },
+  cardActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1.5,
+  },
+  cardActionBtnPrimary: {
+    backgroundColor: '#2E7D32',
+    borderColor: '#2E7D32',
+  },
+  cardActionBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  cardActionBtnTextPrimary: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: 'white',
+  },
+
+  // Compact read-only icon rows
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 7,
+    gap: 10,
+  },
+  infoRowIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  infoRowLabel: {
+    width: 90,
+    fontSize: 13,
+    fontWeight: '600',
+    paddingTop: 5,
+  },
+  infoRowValue: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    paddingTop: 4,
+    lineHeight: 20,
+  },
+
+  // Section divider inside a merged card
+  sectionDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+    gap: 10,
+  },
+  sectionDividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  sectionDividerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  sectionDividerText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+
+  // Emergency contact card
+  emergencyContactDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 8,
+  },
+  emergencyContactAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emergencyContactInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  emergencyContactName: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  emergencyContactRelLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  emergencyContactPhoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  emergencyContactPhoneText: {
+    fontSize: 14,
+  },
+  emergencyContactEmpty: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 10,
+  },
+  emergencyContactEmptyText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+
+  // Compact personal identity block
+  personalBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.07)',
+  },
+  personalAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  personalAvatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  personalInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  personalName: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  personalEmailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  personalEmail: {
+    fontSize: 13,
+    flex: 1,
+  },
+  personalBio: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+
+  // Small section label inside a card
+  subSectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 2,
+  },
+
+  // Edit-profile modal (pageSheet)
+  editModalContainer: {
+    flex: 1,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  editModalHeaderBtn: {
+    minWidth: 60,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  editModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    textAlign: 'center',
+    flex: 1,
+  },
+  editModalCancelText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  editModalSaveText: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  editModalScroll: {
+    padding: 20,
+    paddingBottom: 60,
+  },
+  editModalSectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  editModalField: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  editModalFieldLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  editModalInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
+    minHeight: 24,
+  },
+  editModalInputMultiline: {
+    minHeight: 70,
+    textAlignVertical: 'top',
   },
 });
