@@ -364,8 +364,9 @@ API docs are available at `http://localhost:8000/docs` once running.
 
 ### Sprint 5: Community Feature & Dark Mode Polish ✅
 
-**Goal**: Add an opt-in social layer so users can connect with others who share similar accessibility needs, and polish dark mode across the full app.
+**Goal**: Add an opt-in social layer so users can connect with others who share similar accessibility needs, allowing them to chat, share tips, advice, and personal experiences. This feature would help users learn from each other, offer support, and build a small community within the app.
 
+Additionally, polish dark mode across the full app so that every screen, button, and menu is visually comfortable and accessible, providing a consistent experience for users who prefer dark mode.
 **Completed**:
 
 #### 🌐 Community — Go Public Profile
