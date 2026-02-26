@@ -32,6 +32,7 @@ export interface Connection {
   status: 'pending' | 'accepted' | 'declined';
   created_at: string;
   other_profile?: SocialProfile;
+  last_message?: { content: string; sender_id: string; created_at: string };
 }
 
 export interface Message {
@@ -154,13 +155,33 @@ export const getMyConnections = async (userId: string): Promise<Connection[]> =>
 
   const otherIds = (conns as Record<string, any>[]).map((c: Record<string, any>) => (c.requester_id === userId ? c.receiver_id : c.requester_id) as string);
 
-  const [{ data: social }, { data: pics }] = await Promise.all([
+  const connIds = (conns as Record<string, any>[]).map((c: Record<string, any>) => c.id as string);
+
+  const [{ data: social }, { data: pics }, { data: allMsgs }] = await Promise.all([
     supabase.from('social_profiles').select('*').in('user_id', otherIds),
     supabase.from('profiles').select('id, profile_picture').in('id', otherIds),
+    // Fetch all messages for these connections at once, newest first
+    supabase
+      .from('messages')
+      .select('connection_id, content, sender_id, created_at')
+      .in('connection_id', connIds)
+      .order('created_at', { ascending: false }),
   ]);
 
   const socialMap = new Map((social ?? []).map((p: Record<string, any>) => [p.user_id, p]));
   const picMap    = new Map((pics ?? []).map((p: { id: string; profile_picture?: string }) => [p.id, p.profile_picture]));
+
+  // Keep only the most recent message per connection
+  const lastMsgMap = new Map<string, { content: string; sender_id: string; created_at: string }>();
+  (allMsgs ?? []).forEach((m: Record<string, any>) => {
+    if (!lastMsgMap.has(m.connection_id)) {
+      lastMsgMap.set(m.connection_id, {
+        content: m.content,
+        sender_id: m.sender_id,
+        created_at: m.created_at,
+      });
+    }
+  });
 
   return (conns as Record<string, any>[]).map((c: Record<string, any>) => {
     const otherId: string = c.requester_id === userId ? c.receiver_id : c.requester_id;
@@ -170,6 +191,7 @@ export const getMyConnections = async (userId: string): Promise<Connection[]> =>
       other_profile: sp
         ? ({ ...sp, profile_picture: picMap.get(otherId) ?? undefined } as SocialProfile)
         : undefined,
+      last_message: lastMsgMap.get(c.id),
     } as Connection;
   });
 };
