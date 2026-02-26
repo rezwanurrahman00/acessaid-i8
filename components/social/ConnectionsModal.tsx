@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   FlatList,
   Modal,
+  ScrollView,
   StyleSheet,
   Image,
   ActivityIndicator,
@@ -63,6 +64,7 @@ export default function ConnectionsModal({
   const [loading, setLoading]         = useState(true);
   const [responding, setResponding]   = useState<string | null>(null);
   const [managing, setManaging]       = useState<string | null>(null);
+  const [viewingConn, setViewingConn] = useState<Connection | null>(null);
 
   const isConnections = initialTab === 'connections';
 
@@ -180,41 +182,83 @@ export default function ConnectionsModal({
     );
   };
 
-  // ── CONNECTION card — chat-focused, no request actions ────────────────────
-  const renderConnection = ({ item }: { item: Connection }) => {
-    const p = item.other_profile;
+  // ── Relative time helper ──────────────────────────────────────────────────
+  const relativeTime = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1)  return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)  return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7)  return `${days}d ago`;
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
+
+  // ── CONNECTION card — like Messenger ─────────────────────────────────────
+  const renderConnection = ({ item, userId: _uid }: { item: Connection; userId?: string }) => {
+    const p    = item.other_profile;
     const busy = managing === item.id;
+    const lm   = item.last_message;
+
     return (
-      <View style={[styles.connCard, { backgroundColor: ui.cardBg, borderColor: ui.divider }]}>
-        <View style={styles.connTop}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        style={[styles.connCard, { backgroundColor: ui.cardBg, borderColor: ui.divider }]}
+        onPress={() => { setViewingConn(item); speakIfEnabled(`Viewing ${p?.display_name}'s profile`); }}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${p?.display_name ?? 'connection'}'s profile`}
+      >
+        {/* Avatar + name + preview row */}
+        <View style={styles.connRow}>
           <View style={styles.avatarWrap}>
-            {renderAvatar(item, 56)}
+            {renderAvatar(item, 52)}
             <View style={styles.onlineDot} />
           </View>
-          <View style={styles.connInfo}>
-            <Text style={[styles.connName, { color: ui.text, fontSize: scale(16) }]}>
-              {p?.display_name ?? 'Unknown'}
-            </Text>
+
+          <View style={styles.connMeta}>
+            <View style={styles.connNameRow}>
+              <Text style={[styles.connName, { color: ui.text, fontSize: scale(15) }]} numberOfLines={1}>
+                {p?.display_name ?? 'Unknown'}
+              </Text>
+              {lm && (
+                <Text style={[styles.connTime, { color: ui.subtext, fontSize: scale(11) }]}>
+                  {relativeTime(lm.created_at)}
+                </Text>
+              )}
+            </View>
+
+            {lm ? (
+              <Text style={[styles.connPreview, { color: ui.subtext, fontSize: scale(13) }]} numberOfLines={1}>
+                {lm.sender_id === userId ? 'You: ' : ''}{lm.content}
+              </Text>
+            ) : (
+              <Text style={[styles.connPreview, { color: ui.subtext, fontSize: scale(13), fontStyle: 'italic' }]}>
+                Say hello 👋
+              </Text>
+            )}
+
             {p?.disability_tags?.length ? (
               <View style={styles.tagRow}>
                 {p.disability_tags.slice(0, 3).map((id: string) => {
                   const t = getTagInfo(id);
                   return (
                     <View key={id} style={[styles.tagPill, { backgroundColor: t.color + '22', borderColor: t.color + '55' }]}>
-                      <Text style={{ fontSize: scale(10) }}>{t.emoji}</Text>
-                      <Text style={[styles.tagPillText, { color: t.color, fontSize: scale(10) }]}>{t.label}</Text>
+                      <Text style={{ fontSize: scale(9) }}>{t.emoji}</Text>
+                      <Text style={[styles.tagPillText, { color: t.color, fontSize: scale(9) }]}>{t.label}</Text>
                     </View>
                   );
                 })}
               </View>
             ) : null}
           </View>
-          {/* Options button */}
+
+          {/* Options ⋯ */}
           {busy ? (
             <ActivityIndicator size="small" color={ui.subtext} />
           ) : (
             <TouchableOpacity
-              onPress={() => handleManage(item)}
+              onPress={(e) => { e.stopPropagation(); handleManage(item); }}
               style={[styles.optionsBtn, { backgroundColor: ui.bg }]}
               accessibilityRole="button"
               accessibilityLabel={`Options for ${p?.display_name}`}
@@ -223,33 +267,7 @@ export default function ConnectionsModal({
             </TouchableOpacity>
           )}
         </View>
-
-        {(p?.bio || p?.experiences) ? (
-          <Text
-            style={[styles.connBio, { color: ui.subtext, fontSize: scale(13), borderTopColor: ui.divider }]}
-            numberOfLines={2}
-          >
-            {p.experiences || p.bio}
-          </Text>
-        ) : null}
-
-        <TouchableOpacity
-          style={styles.msgBtn}
-          onPress={() => { onOpenChat(item); speakIfEnabled(`Opening chat with ${p?.display_name}`); }}
-          accessibilityRole="button"
-          accessibilityLabel={`Message ${p?.display_name ?? 'connection'}`}
-        >
-          <LinearGradient
-            colors={['#7C3AED', '#A855F7']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.msgBtnGrad}
-          >
-            <Text style={{ fontSize: scale(15) }}>💬</Text>
-            <Text style={[styles.msgBtnText, { fontSize: scale(14) }]}>Send Message</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -385,7 +403,7 @@ export default function ConnectionsModal({
           <FlatList
             data={list}
             keyExtractor={item => item.id}
-            renderItem={isConnections ? renderConnection : renderRequest}
+            renderItem={isConnections ? ({ item }) => renderConnection({ item, userId }) : renderRequest}
             contentContainerStyle={styles.list}
             ListEmptyComponent={
               <View style={styles.empty}>
@@ -405,6 +423,107 @@ export default function ConnectionsModal({
           />
         )}
       </SafeAreaView>
+
+      {/* ── Profile view modal ──────────────────────────────────────── */}
+      {viewingConn && (() => {
+        const vp = viewingConn.other_profile;
+        const grad = avatarGradient(viewingConn);
+        return (
+          <Modal
+            visible={!!viewingConn}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={() => setViewingConn(null)}
+          >
+            <SafeAreaView style={[styles.root, { backgroundColor: ui.bg }]}>
+              {/* back button */}
+              <View style={[styles.profNavBar, { borderBottomColor: ui.divider }]}>
+                <TouchableOpacity
+                  onPress={() => setViewingConn(null)}
+                  style={styles.backBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go back"
+                >
+                  <Text style={[styles.backBtnText, { color: ui.accent, fontSize: scale(15) }]}>← Back</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={styles.profScroll} showsVerticalScrollIndicator={false}>
+                {/* Hero gradient banner with avatar */}
+                <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.profHero}>
+                  <View style={styles.profAvatarRing}>
+                    {vp?.profile_picture ? (
+                      <Image source={{ uri: vp.profile_picture }} style={styles.profAvatar} />
+                    ) : (
+                      <View style={[styles.profAvatar, { backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' }]}>
+                        <Text style={[styles.profInitial, { fontSize: scale(52) }]}>
+                          {(vp?.display_name || '?').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.profName, { fontSize: scale(24) }]}>
+                    {vp?.display_name ?? 'Unknown'}
+                  </Text>
+                  <View style={[styles.connectedBadge]}>
+                    <Text style={[styles.connectedBadgeText, { fontSize: scale(12) }]}>🤝 Connected</Text>
+                  </View>
+                </LinearGradient>
+
+                {/* Disability tags */}
+                {vp?.disability_tags?.length ? (
+                  <View style={[styles.profSection, { backgroundColor: ui.cardBg, borderColor: ui.divider }]}>
+                    <Text style={[styles.profSectionLabel, { color: ui.subtext, fontSize: scale(11) }]}>EXPERIENCES</Text>
+                    <View style={styles.profTagsWrap}>
+                      {vp.disability_tags.map((id: string) => {
+                        const t = getTagInfo(id);
+                        return (
+                          <View key={id} style={[styles.profTag, { backgroundColor: t.color + '22', borderColor: t.color + '66' }]}>
+                            <Text style={{ fontSize: scale(16) }}>{t.emoji}</Text>
+                            <Text style={[styles.profTagText, { color: t.color, fontSize: scale(13) }]}>{t.label}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* Story / bio */}
+                {(vp?.experiences || vp?.bio) ? (
+                  <View style={[styles.profSection, { backgroundColor: ui.cardBg, borderColor: ui.divider }]}>
+                    <Text style={[styles.profSectionLabel, { color: ui.subtext, fontSize: scale(11) }]}>THEIR STORY</Text>
+                    <Text style={[styles.profBio, { color: ui.text, fontSize: scale(14) }]}>
+                      {vp.experiences || vp.bio}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* Message button */}
+                <TouchableOpacity
+                  style={styles.profMsgBtn}
+                  onPress={() => {
+                    setViewingConn(null);
+                    onOpenChat(viewingConn);
+                    speakIfEnabled(`Opening chat with ${vp?.display_name}`);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Send message to ${vp?.display_name}`}
+                >
+                  <LinearGradient
+                    colors={['#7C3AED', '#A855F7']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.profMsgBtnGrad}
+                  >
+                    <Text style={{ fontSize: scale(18) }}>💬</Text>
+                    <Text style={[styles.profMsgBtnText, { fontSize: scale(16) }]}>Send Message</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </ScrollView>
+            </SafeAreaView>
+          </Modal>
+        );
+      })()}
     </Modal>
   );
 }
@@ -447,36 +566,29 @@ const styles = StyleSheet.create({
   },
   tagPillText: { fontWeight: '600' },
 
-  // ── Connections ───────────────────────────────────────────────────────────
+  // ── Connections (Messenger style) ─────────────────────────────────────────
   connCard: {
-    borderRadius: 18, borderWidth: 1, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07, shadowRadius: 6, elevation: 3,
+    borderRadius: 16, borderWidth: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
-  connTop:  { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
-  avatarWrap: { position: 'relative' },
+  connRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  avatarWrap:  { position: 'relative' },
   onlineDot: {
-    position: 'absolute', bottom: 2, right: 2,
+    position: 'absolute', bottom: 1, right: 1,
     width: 12, height: 12, borderRadius: 6,
     backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#FFF',
   },
-  connInfo: { flex: 1 },
-  connName: { fontWeight: '800', marginBottom: 4 },
+  connMeta:    { flex: 1, gap: 3 },
+  connNameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  connName:    { fontWeight: '700', flex: 1, marginRight: 6 },
+  connTime:    { flexShrink: 0 },
+  connPreview: { lineHeight: 18 },
   optionsBtn: {
     width: 34, height: 34, borderRadius: 17,
     alignItems: 'center', justifyContent: 'center',
   },
   optionsDots: { fontWeight: '800', letterSpacing: 1 },
-  connBio:  {
-    paddingHorizontal: 16, paddingBottom: 14, paddingTop: 10,
-    lineHeight: 19, borderTopWidth: 1,
-  },
-  msgBtn: { marginHorizontal: 14, marginBottom: 14, borderRadius: 12, overflow: 'hidden' },
-  msgBtnGrad: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 13,
-  },
-  msgBtnText: { color: '#FFF', fontWeight: '700' },
 
   // ── Requests ──────────────────────────────────────────────────────────────
   reqCard: {
@@ -508,4 +620,77 @@ const styles = StyleSheet.create({
   acceptBtn:   { flex: 2, borderRadius: 12, overflow: 'hidden' },
   acceptBtnGrad: { paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
   acceptTxt:   { color: '#FFF', fontWeight: '700' },
+
+  // ── Profile view ──────────────────────────────────────────────────────────
+  profNavBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  backBtn: { paddingVertical: 4, paddingRight: 12 },
+  backBtnText: { fontWeight: '600' },
+
+  profScroll: { paddingBottom: 40 },
+
+  profHero: {
+    alignItems: 'center',
+    paddingTop: 36,
+    paddingBottom: 28,
+    gap: 12,
+  },
+  profAvatarRing: {
+    width: 112, height: 112, borderRadius: 56,
+    borderWidth: 4, borderColor: 'rgba(255,255,255,0.6)',
+    overflow: 'hidden',
+  },
+  profAvatar:  { width: '100%', height: '100%' },
+  profInitial: { color: '#FFF', fontWeight: '800' },
+  profName:    { color: '#FFF', fontWeight: '800', letterSpacing: 0.3 },
+  connectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 99,
+  },
+  connectedBadgeText: { color: '#FFF', fontWeight: '600' },
+
+  profSection: {
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  profSectionLabel: {
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginBottom: 12,
+  },
+  profTagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  profTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 99, borderWidth: 1.5,
+  },
+  profTagText: { fontWeight: '600' },
+  profBio: { lineHeight: 22 },
+
+  profMsgBtn: {
+    marginHorizontal: 16,
+    marginTop: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  profMsgBtnGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 16,
+  },
+  profMsgBtnText: { color: '#FFF', fontWeight: '800' },
 });
