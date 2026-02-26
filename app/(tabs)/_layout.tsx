@@ -5,13 +5,13 @@ import { TouchableOpacity } from "react-native";
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import { speakIfEnabled } from "@/services/ttsService"; // 🗣 import our talk feature
+import { useAppTheme } from "@/contexts/ThemeContext";
+import { speakIfEnabled } from "@/services/ttsService";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { isDark } = useAppTheme();
+  const scheme = isDark ? "dark" : "light";
 
-  // helper: each tab speaks its title when tapped
   const handleTabPress = (label: string) => {
     speakIfEnabled(`${label} tab`);
   };
@@ -19,12 +19,13 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+        tabBarActiveTintColor:   Colors[scheme].tint,
+        tabBarInactiveTintColor: Colors[scheme].tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          backgroundColor: Colors[colorScheme ?? "light"].background,
-          borderTopColor: "#ddd",
+          backgroundColor: Colors[scheme].background,
+          borderTopColor:  isDark ? "#1E293B" : "#E0E0E0",
           height: 60,
           paddingBottom: 5,
         },
@@ -101,4 +102,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-
