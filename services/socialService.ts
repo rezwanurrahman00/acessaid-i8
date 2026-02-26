@@ -105,6 +105,23 @@ export const getDiscoverProfiles = async (userId: string): Promise<SocialProfile
   })) as SocialProfile[];
 };
 
+// ─── Remove connection + delete chat ─────────────────────────────────────────
+export const removeConnection = async (connectionId: string) => {
+  const { error } = await supabase
+    .from('connections')
+    .delete()
+    .eq('id', connectionId);
+  if (error) throw error;
+};
+
+export const deleteChatMessages = async (connectionId: string) => {
+  const { error } = await supabase
+    .from('messages')
+    .delete()
+    .eq('connection_id', connectionId);
+  if (error) throw error;
+};
+
 // ─── Connection requests ───────────────────────────────────────────────────────
 export const sendConnectionRequest = async (requesterId: string, receiverId: string) => {
   const { error } = await supabase

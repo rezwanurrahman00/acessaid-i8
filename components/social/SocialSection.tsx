@@ -44,6 +44,7 @@ export default function SocialSection({ userId, userName, ui, scale }: Props) {
   const [hasChanges, setHasChanges]         = useState(false);
   const [showDiscover, setShowDiscover]     = useState(false);
   const [showConnections, setShowConnections] = useState(false);
+  const [connectionsInitialTab, setConnectionsInitialTab] = useState<'connections' | 'requests'>('connections');
   const [chatConn, setChatConn]             = useState<Connection | null>(null);
   const [dataLoaded, setDataLoaded]         = useState(false);
 
@@ -338,12 +339,16 @@ export default function SocialSection({ userId, userName, ui, scale }: Props) {
         {/* Connections */}
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => { setShowConnections(true); speakIfEnabled('Opening connections'); }}
+          onPress={() => {
+            setConnectionsInitialTab('connections');
+            setShowConnections(true);
+            speakIfEnabled('Opening my connections');
+          }}
           accessibilityRole="button"
           accessibilityLabel={`My connections, ${connectionsCount} total`}
         >
-          <LinearGradient colors={['#1D4ED8', '#60A5FA']} style={styles.actionGrad}>
-            <Text style={{ fontSize: scale(26) }}>💬</Text>
+          <LinearGradient colors={['#1D4ED8', '#3B82F6']} style={styles.actionGrad}>
+            <Text style={{ fontSize: scale(26) }}>🤝</Text>
             <Text style={[styles.actionLabel, { fontSize: scale(12) }]}>Connections</Text>
             {connectionsCount > 0 && (
               <View style={styles.badge}>
@@ -356,12 +361,16 @@ export default function SocialSection({ userId, userName, ui, scale }: Props) {
         {/* Requests */}
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => { setShowConnections(true); speakIfEnabled(`${pendingCount} requests`); }}
+          onPress={() => {
+            setConnectionsInitialTab('requests');
+            setShowConnections(true);
+            speakIfEnabled(`${pendingCount} pending request${pendingCount !== 1 ? 's' : ''}`);
+          }}
           accessibilityRole="button"
           accessibilityLabel={`${pendingCount} pending requests`}
         >
           <LinearGradient
-            colors={pendingCount > 0 ? ['#B91C1C', '#F87171'] : ['#374151', '#6B7280']}
+            colors={pendingCount > 0 ? ['#92400E', '#D97706'] : ['#374151', '#6B7280']}
             style={styles.actionGrad}
           >
             <Text style={{ fontSize: scale(26) }}>📬</Text>
@@ -394,6 +403,7 @@ export default function SocialSection({ userId, userName, ui, scale }: Props) {
         userId={userId}
         ui={ui}
         scale={scale}
+        initialTab={connectionsInitialTab}
       />
       {chatConn && (
         <ChatModal
