@@ -14,7 +14,8 @@ AccessAid is a React Native accessibility app built for persons with disabilitie
 | 🎤 **Voice Commands** | Keyword-based voice command system with NLP reminder creation |
 | 🎙️ **Voice Input** | Speak into any text field instead of typing (dev build only) |
 | 🔊 **TTS** | Full Text-to-Speech with adjustable speed and global toggle |
-| ♿ **Accessibility** | Dynamic text zoom, brightness control, dark mode, haptic feedback, screen reader support |
+| ♿ **Accessibility** | Dynamic text zoom, brightness control, improved dark mode, haptic feedback, screen reader support |
+| 🌐 **Community (Go Public)** | Opt-in public profile with disability tags, discover other users, send/receive connection requests, and real-time chat |
 
 ---
 
@@ -155,8 +156,9 @@ CREATE POLICY "Users manage own profile" ON profiles
 **Purpose**: Authentication, database (reminders + profiles), and Row Level Security.
 
 - **Auth**: Email + PIN (padded to meet 6-char minimum)
-- **Tables**: `reminders`, `profiles`
+- **Tables**: `reminders`, `profiles`, `social_profiles`, `connections`, `messages`
 - **RLS**: Enabled — users can only access their own data
+- **Realtime**: Enabled on `messages` and `connections` for live chat and connection updates
 - **Client**: `lib/supabase.ts`
 - **Offline**: All writes are queued in `src/utils/syncQueue.ts` when Supabase is unreachable and replayed on reconnect
 
@@ -357,6 +359,29 @@ API docs are available at `http://localhost:8000/docs` once running.
 - Added the ability to directly create a reminder from OCR-extracted text
 - Users can scan or upload a document and instantly convert the extracted text into a new reminder
 - Streamlined workflow from text extraction to reminder creation without manual copy-paste
+
+---
+
+### Sprint 5: Community Feature & Dark Mode Polish ✅
+
+**Goal**: Add an opt-in social layer so users can connect with others who share similar accessibility needs, and polish dark mode across the full app.
+
+**Completed**:
+
+#### 🌐 Community — Go Public Profile
+- New **Community** section at the bottom of the Profile tab
+- **Go Public toggle** — users opt-in to make their profile visible in the community
+- **Disability tags** — users select tags (e.g. Visual, Hearing, Motor, Cognitive) to describe their needs
+- **Discover screen** — browse other public profiles card by card; send a Connect or Skip
+- **Connections & Requests** — view accepted connections and manage incoming requests (accept / decline)
+- **Real-time Chat** — message any accepted connection via Supabase Realtime subscriptions
+- All community data stored in `social_profiles`, `connections`, and `messages` Supabase tables with RLS
+
+#### 🌙 Dark Mode Improvements
+- Consistent dark theme applied across all tabs and modals
+- Color tokens in `constants/theme.ts` refined for better contrast in dark mode
+- All community components (Discover, Connections, Chat modals) fully support light and dark themes
+- Accessibility settings (brightness, text zoom) continue to work correctly alongside dark mode
 
 ---
 
