@@ -181,7 +181,7 @@ export default function ProfileTab() {
         </ThemedView>
 
         {/* ── COMMUNITY SECTION ───────────────────────────────────────── */}
-        <SocialSection ui={ui} scale={scale} />
+        <SocialSection ui={ui} scale={scale} userId={user.id} userName={user.name} />
 
         {/* Info Section */}
         <ThemedView style={[styles.infoSection, { backgroundColor: ui.cardBg }]}>

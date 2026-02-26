@@ -63,9 +63,8 @@ export default function DiscoverModal({ visible, onClose, userId, ui, scale }: P
   }, [visible, userId]);
 
   const current = profiles[index];
-  const isLast  = index >= profiles.length - 1;
 
-  // ── animate out and advance card ─────────────────────────────────────────
+  // ── animate out and advance card (loops back to start) ───────────────────
   const advanceCard = (direction: 'left' | 'right', afterAnim?: () => void) => {
     const toX = direction === 'right' ? 400 : -400;
     Animated.parallel([
@@ -73,7 +72,7 @@ export default function DiscoverModal({ visible, onClose, userId, ui, scale }: P
       Animated.timing(cardSlide, { toValue: toX, duration: 300, useNativeDriver: true }),
     ]).start(() => {
       afterAnim?.();
-      setIndex(prev => prev + 1);
+      setIndex(prev => (prev + 1) % profiles.length);
       setJustConnected(false);
       cardSlide.setValue(0);
       Animated.timing(cardAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
@@ -129,11 +128,6 @@ export default function DiscoverModal({ visible, onClose, userId, ui, scale }: P
             <Text style={[styles.headerTitle, { color: ui.text, fontSize: scale(20) }]}>
               Discover
             </Text>
-            {!loading && profiles.length > 0 && index < profiles.length && (
-              <Text style={[styles.headerSub, { color: ui.subtext, fontSize: scale(13) }]}>
-                {index + 1} of {profiles.length}
-              </Text>
-            )}
           </View>
           <TouchableOpacity
             onPress={onClose}
@@ -146,21 +140,6 @@ export default function DiscoverModal({ visible, onClose, userId, ui, scale }: P
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* ── Progress bar ───────────────────────────────────────────── */}
-        {!loading && profiles.length > 0 && (
-          <View style={[styles.progressBg, { backgroundColor: ui.divider }]}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${Math.min(((index) / profiles.length) * 100, 100)}%`,
-                  backgroundColor: '#7C3AED',
-                },
-              ]}
-            />
-          </View>
-        )}
 
         {/* ── Content ────────────────────────────────────────────────── */}
         <View style={styles.content}>
@@ -180,24 +159,6 @@ export default function DiscoverModal({ visible, onClose, userId, ui, scale }: P
               <Text style={[styles.emptyText, { color: ui.subtext, fontSize: scale(14) }]}>
                 Check back later as more people join the community.
               </Text>
-            </View>
-          ) : index >= profiles.length ? (
-            <View style={styles.centred}>
-              <Text style={styles.emptyEmoji}>🎉</Text>
-              <Text style={[styles.emptyTitle, { color: ui.text, fontSize: scale(20) }]}>
-                All caught up!
-              </Text>
-              <Text style={[styles.emptyText, { color: ui.subtext, fontSize: scale(14) }]}>
-                You've reviewed all available profiles. Come back soon!
-              </Text>
-              <TouchableOpacity
-                style={[styles.doneBtn, { backgroundColor: '#7C3AED' }]}
-                onPress={onClose}
-                accessibilityRole="button"
-                accessibilityLabel="Close discover"
-              >
-                <Text style={[styles.doneBtnText, { fontSize: scale(15) }]}>Close</Text>
-              </TouchableOpacity>
             </View>
           ) : (
             /* ── PROFILE CARD ─────────────────────────────────────── */
@@ -357,7 +318,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   headerTitle: { fontWeight: '800' },
-  headerSub: { marginTop: 2 },
   closeBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -366,18 +326,12 @@ const styles = StyleSheet.create({
   },
   closeBtnText: { fontWeight: '600' },
 
-  progressBg: { height: 4, marginHorizontal: 20, borderRadius: 4, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 4 },
-
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
 
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: 24 },
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontWeight: '800', textAlign: 'center' },
   emptyText: { textAlign: 'center', lineHeight: 22 },
-  doneBtn: { marginTop: 8, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 99 },
-  doneBtnText: { color: '#FFF', fontWeight: '700' },
-
   // Card
   cardWrap: { flex: 1, gap: 16 },
   card: {
