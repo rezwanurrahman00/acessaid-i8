@@ -74,3 +74,17 @@ export const getActivityLog = async (): Promise<ActivityEntry[]> => {
   }
 };
 
+// clears all history
+export const clearActivityLog = async () => {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+};
+
+// counts how many times each feature was used this week
+export const getWeeklyStats = async (): Promise<Record<ActivityType, number>> => {
+  const log = await getActivityLog();
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const counts = { tts: 0, ocr: 0, voice: 0, reminder: 0, sos: 0, community: 0 };
+  log.filter(e => e.timestamp >= cutoff).forEach(e => { counts[e.type]++; });
+  return counts;
+};
+
