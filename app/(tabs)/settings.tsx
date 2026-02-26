@@ -22,6 +22,7 @@ import {
   setAccessibilitySetting,
 } from "@/services/ttsService";
 import { useAccessibilitySettings } from "@/hooks/useAccessibilitySettings";
+import { useAppTheme } from "@/contexts/ThemeContext";
 
 type LocalSettings = {
   voice_speed: number;
@@ -37,6 +38,7 @@ type LocalSettings = {
 
 export default function SettingsScreen() {
   const { ui, scale } = useAccessibilitySettings();
+  const { isDark, setDarkMode } = useAppTheme();
   const [settings, setSettings] = useState<UserSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId] = useState(1);
@@ -240,6 +242,21 @@ export default function SettingsScreen() {
       {/* Visual Settings */}
       <ThemedView style={[styles.settingsSection, { backgroundColor: ui.sectionBg }]}>
         <ThemedText style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}>Visual Settings</ThemedText>
+
+        {/* Dark Mode */}
+        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
+          <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>Dark Mode</ThemedText>
+          <Switch
+            value={isDark}
+            onValueChange={async (val) => {
+              await setDarkMode(val);
+              speakIfEnabled(val ? "Dark mode enabled" : "Dark mode disabled");
+            }}
+            trackColor={{ false: ui.switchTrackOff, true: ui.switchTrackActive }}
+            thumbColor={isDark ? ui.switchThumbTrue : ui.switchThumbOff}
+          />
+        </View>
+
         <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
           <ThemedText style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}>High Contrast Mode</ThemedText>
           <Switch
