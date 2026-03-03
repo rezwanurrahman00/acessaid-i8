@@ -402,12 +402,16 @@ const ReminderScreen: React.FC = () => {
       category: 'reminder',
       captureFullTranscript: true,
     });
-    // Cleanup on unmount
+    
+        // Cleanup on unmount
     return () => {
       voiceManager.removeCommand(['set reminder', 'remind me to', 'create reminder']);
       voiceManager.removeCommand(['show reminders', 'list reminders', 'view reminders']);
       voiceManager.removeCommand(['read reminders', 'read my reminders', 'what reminders do i have']);
       voiceManager.removeCommand(['reminder help', 'help with reminders']);
+      voiceManager.removeCommand(['complete reminder', 'done reminder', 'finish reminder', 'mark complete', 'mark done', 'complete task']);
+      voiceManager.removeCommand(['delete reminder', 'remove reminder', 'cancel reminder', 'delete task', 'remove task']);
+      voiceManager.removeCommand(['snooze reminder', 'snooze task', 'remind me later', 'delay reminder', 'postpone reminder']);
     };
   }, [reminders]);
 
