@@ -347,6 +347,61 @@ const ReminderScreen: React.FC = () => {
       category: 'reminder'
     });
 
+        // Complete reminder by voice
+    voiceManager.addCommand({
+      keywords: ['complete reminder', 'done reminder', 'finish reminder', 'mark complete', 'mark done', 'complete task'],
+      action: (fullTranscript) => {
+        const transcript = fullTranscript || '';
+        const found = findReminderByVoice(transcript);
+        if (!found) {
+          const activeCount = reminders.filter(r => !r.isCompleted).length;
+          if (activeCount === 0) {
+            speakText('You have no active reminders to complete.');
+          } else {
+            speakText(`I couldn't find that reminder. You have ${activeCount} active reminders. Try saying the reminder name more clearly.`);
+          }
+          return;
+        }
+        askVoiceConfirmation('complete', found);
+      },
+      description: 'Mark a reminder as complete by voice',
+      category: 'reminder',
+      captureFullTranscript: true,
+    });
+
+    // Delete reminder by voice
+    voiceManager.addCommand({
+      keywords: ['delete reminder', 'remove reminder', 'cancel reminder', 'delete task', 'remove task'],
+      action: (fullTranscript) => {
+        const transcript = fullTranscript || '';
+        const found = findReminderByVoice(transcript);
+        if (!found) {
+          speakText(`I couldn't find that reminder. Try saying the reminder name more clearly.`);
+          return;
+        }
+        askVoiceConfirmation('delete', found);
+      },
+      description: 'Delete a reminder by voice',
+      category: 'reminder',
+      captureFullTranscript: true,
+    });
+
+    // Snooze reminder by voice
+    voiceManager.addCommand({
+      keywords: ['snooze reminder', 'snooze task', 'remind me later', 'delay reminder', 'postpone reminder'],
+      action: (fullTranscript) => {
+        const transcript = fullTranscript || '';
+        const found = findReminderByVoice(transcript);
+        if (!found) {
+          speakText(`I couldn't find that reminder. Try saying the reminder name more clearly.`);
+          return;
+        }
+        askVoiceConfirmation('snooze', found);
+      },
+      description: 'Snooze a reminder by 30 minutes',
+      category: 'reminder',
+      captureFullTranscript: true,
+    });
     // Cleanup on unmount
     return () => {
       voiceManager.removeCommand(['set reminder', 'remind me to', 'create reminder']);
