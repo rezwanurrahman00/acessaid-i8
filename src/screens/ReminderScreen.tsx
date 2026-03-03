@@ -138,6 +138,12 @@ const ReminderScreen: React.FC = () => {
   const [isVoiceInputMode, setIsVoiceInputMode] = useState(false);
   const [voiceField, setVoiceField] = useState<'title' | 'description' | null>(null);
 
+   //Advanced voice action confirmation state
+  type VoiceActionType = 'complete' | 'delete' | 'snooze';
+  const [voiceConfirmVisible, setVoiceConfirmVisible] = useState(false);
+  const [voiceConfirmAction, setVoiceConfirmAction] = useState<VoiceActionType | null>(null);
+  const [voiceConfirmReminder, setVoiceConfirmReminder] = useState<Reminder | null>(null);
+  
   // Optional import of DateTimePicker; fallback on web
   const DateTimePicker: any = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
@@ -176,6 +182,80 @@ const ReminderScreen: React.FC = () => {
         pitch: 1.0,
       });
     } catch { }
+  };
+
+//Find the best matching reminder by name using fuzzy matching
+  const findReminderByVoice = (transcript: string): Reminder | null => {
+    const active = reminders.filter(r => !r.isCompleted);
+    if (active.length === 0) return null;
+    const t = transcript.toLowerCase();
+    // Try exact title match first
+    let match = active.find(r => t.includes(r.title.toLowerCase()));
+    if (match) return match;
+    // Try partial word match (at least 3 chars)
+    match = active.find(r =>
+      r.title.toLowerCase().split(' ').some(word => word.length >= 3 && t.includes(word))
+    );
+    return match || null;
+  };
+
+  // Show a voice confirmation dialog before performing destructive/important action
+  const askVoiceConfirmation = (action: VoiceActionType, reminder: Reminder) => {
+    const actionLabel = action === 'complete' ? 'mark as complete' : action === 'delete' ? 'delete' : 'snooze by 30 minutes';
+    setVoiceConfirmAction(action);
+    setVoiceConfirmReminder(reminder);
+    setVoiceConfirmVisible(true);
+    speakText(`Did you mean to ${actionLabel} "${reminder.title}"? Say yes or no, or tap a button.`);
+  };
+
+  // Execute the confirmed voice action
+  const executeVoiceAction = async () => {
+    if (!voiceConfirmReminder || !voiceConfirmAction) return;
+    setVoiceConfirmVisible(false);
+    const rem = voiceConfirmReminder;
+
+    if (voiceConfirmAction === 'complete') {
+      await toggleComplete(rem.id);
+      speakText(`Reminder "${rem.title}" marked as complete.`);
+    } else if (voiceConfirmAction === 'delete') {
+      await cancelForReminder(rem.id);
+      animateLayout();
+      setReminders(prev => prev.filter(r => r.id !== rem.id));
+      speakText(`Reminder "${rem.title}" deleted.`);
+      (async () => {
+        try {
+          await supabase.from('reminders').delete().eq('id', rem.id);
+        } catch {
+          await addToQueue({ type: 'delete', reminderId: rem.id });
+          setPendingCount(prev => prev + 1);
+        }
+      })();
+    } else if (voiceConfirmAction === 'snooze') {
+      const newDate = new Date(Date.now() + 30 * 60 * 1000);
+      const updated = { ...rem, datetime: newDate, hasFired: false };
+      animateLayout();
+      setReminders(prev => prev.map(r => r.id === rem.id ? updated : r));
+      await scheduleForReminder(updated);
+      speakText(`Reminder "${rem.title}" snoozed for 30 minutes.`);
+      (async () => {
+        try {
+          await supabase.from('reminders').update({ reminder_datetime: newDate.toISOString() }).eq('id', rem.id);
+        } catch {
+          await addToQueue({ type: 'update', reminderId: rem.id, data: { reminder_datetime: newDate.toISOString() } });
+          setPendingCount(prev => prev + 1);
+        }
+      })();
+    }
+
+    setVoiceConfirmAction(null);
+    setVoiceConfirmReminder(null);
+  };
+
+  const cancelVoiceAction = () => {
+    setVoiceConfirmVisible(false);
+    setVoiceConfirmAction(null);
+    setVoiceConfirmReminder(null);
+    speakText('Action cancelled.');
   };
 
   // ADDED: Voice command registration with NLP support
