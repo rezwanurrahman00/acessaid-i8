@@ -1555,6 +1555,41 @@ const ReminderScreen: React.FC = () => {
           </Animated.View>
         </View>
       </Modal>
+          {/*  Voice Action Confirmation Modal */}
+      <Modal visible={voiceConfirmVisible} transparent animationType="fade" onRequestClose={cancelVoiceAction}>
+        <View style={styles.modalBackdrop}>
+          <BlurViewComponent intensity={50} tint={Platform.OS === 'ios' ? 'systemChromeMaterial' : 'light'} style={styles.blurFill} />
+          <View style={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}>
+            <View style={styles.sheet}>
+              <Text style={styles.sheetTitle}>
+                {voiceConfirmAction === 'complete' ? '✅ Complete Reminder?' :
+                 voiceConfirmAction === 'delete'   ? '🗑️ Delete Reminder?' :
+                                                     '⏰ Snooze Reminder?'}
+              </Text>
+              <Text style={[styles.preview, { fontSize: 17, color: styles.cardTitle.color, marginBottom: 6 }]}>
+                {voiceConfirmReminder?.title}
+              </Text>
+              <Text style={styles.preview}>
+                {voiceConfirmAction === 'complete' ? 'Mark this reminder as done?' :
+                 voiceConfirmAction === 'delete'   ? 'Permanently delete this reminder?' :
+                                                     'Snooze this reminder for 30 minutes?'}
+              </Text>
+              <View style={styles.actionsRow}>
+                <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={cancelVoiceAction}>
+                  <Text style={[styles.btnText, { color: styles.preview.color }]}>No, Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnPrimary,
+                    voiceConfirmAction === 'delete' && { backgroundColor: '#FF3B30' }]}
+                  onPress={executeVoiceAction}
+                >
+                  <Text style={[styles.btnText, { color: '#FFF' }]}>Yes, Confirm</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
