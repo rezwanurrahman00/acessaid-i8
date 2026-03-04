@@ -27,7 +27,9 @@ const loadMap = async (): Promise<NotifIdMap> => {
 const saveMap = async (map: NotifIdMap): Promise<void> => {
   try {
     await AsyncStorage.setItem(NOTIF_IDS_KEY, JSON.stringify(map));
-  } catch {}
+  } catch (e) {
+    console.warn('notificationService: Failed to save notification ID map:', e);
+  }
 };
 
 /** Cancel all scheduled notifications for a specific reminder and remove its stored IDs. */
@@ -38,7 +40,9 @@ export const cancelForReminder = async (reminderId: string): Promise<void> => {
   for (const id of ids) {
     try {
       await Notifications.cancelScheduledNotificationAsync(id);
-    } catch {}
+    } catch (e) {
+      console.warn(`notificationService: Failed to cancel notification ${id}:`, e);
+    }
   }
   delete map[reminderId];
   await saveMap(map);
@@ -100,7 +104,9 @@ export const scheduleForReminder = async (rem: NotifReminder): Promise<void> => 
             trigger: ({ date: nextDate } as unknown) as Notifications.NotificationTriggerInput,
           });
           collectedIds.push(id);
-        } catch {}
+        } catch (e) {
+          console.warn('notificationService: Failed to schedule recurring notification:', e);
+        }
       }
     }
   }
@@ -122,7 +128,9 @@ export const rescheduleAll = async (reminders: NotifReminder[]): Promise<void> =
 
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
-  } catch {}
+  } catch (e) {
+    console.warn('notificationService: Failed to cancel all notifications:', e);
+  }
 
   // Clear the stored ID map
   await saveMap({});
