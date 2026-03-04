@@ -369,6 +369,13 @@ API docs are available at `http://localhost:8000/docs` once running.
 Additionally, polish dark mode across the full app so that every screen, button, and menu is visually comfortable and accessible, providing a consistent experience for users who prefer dark mode.
 **Completed**:
 
+#### Database Migration — Legacy to Supabase
+- Replaced the local Python/FastAPI server and SQLite database with Supabase, moving all data to a cloud-hosted PostgreSQL database so the app works for any user without requiring a locally running server
+- Authentication was migrated from manual JWT tokens and bcrypt password hashing to Supabase Auth, which handles sign-up, sign-in, and session management out of the box
+- Row Level Security (RLS) policies were applied to all tables so users can only read and write their own data, enforced at the database level rather than in application code
+- Three new tables were added to support the community feature: `social_profiles` (public profile and disability tags), `connections` (connection requests and accepted connections), and `messages` (chat history between connected users)
+- Supabase Realtime was enabled on the `messages` and `connections` tables so chat messages and connection updates are pushed to the app instantly without polling
+
 #### 🌐 Community — Go Public Profile
 - New **Community** section at the bottom of the Profile tab
 - **Go Public toggle** — users opt-in to make their profile visible in the community
