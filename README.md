@@ -384,6 +384,18 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - All community components (Discover, Connections, Chat modals) fully support light and dark themes
 - Accessibility settings (brightness, text zoom) continue to work correctly alongside dark mode
 
+#### SOS Button
+- Floating SOS button rendered on top of all screens, always accessible regardless of current tab
+- Draggable — users can reposition the button anywhere on screen; position is saved via AsyncStorage and restored on next launch
+- Tapping the button opens a confirmation modal with a 3-second auto-countdown before placing the call
+- TTS announces the emergency contact name and countdown duration when the modal opens
+- Haptic feedback on trigger and cancellation
+- Displays emergency contact name, relationship, and phone number in the confirmation modal
+- Auto-calls the saved emergency contact phone number on countdown expiry; falls back to 911 if no contact is set
+- Cancel button stops the countdown and dismisses the modal at any point
+- Call Now button immediately places the call without waiting for the countdown
+- Emergency contact details are pulled from the user profile (name, phone, relationship)
+
 ---
 
 ## 📜 Scripts
