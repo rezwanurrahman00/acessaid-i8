@@ -240,6 +240,7 @@ function parseDateOnly(text: string, referenceDate: Date): ParsedDateTime | null
   if (dayMatch) {
     const dayName = dayMatch[1].toLowerCase();
     const targetDay = getDayOfWeekNumber(dayName);
+    if (targetDay === -1) return null;
     const currentDay = referenceDate.getDay();
     
     let daysToAdd = targetDay - currentDay;
@@ -297,7 +298,7 @@ function getDayOfWeekNumber(dayName: string): number {
     'saturday': 6, 'sat': 6,
   };
   
-  return days[dayName.toLowerCase()] ?? 1; // Default to Monday
+  return days[dayName.toLowerCase()] ?? -1;
 }
 
 /**

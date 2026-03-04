@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 interface AccessAidLogoProps {
   size?: number;
   showText?: boolean;
-  style?: any;
+  style?: ViewStyle;
   animated?: boolean;
 }
 
