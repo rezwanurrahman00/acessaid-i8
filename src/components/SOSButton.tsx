@@ -105,9 +105,9 @@ const SOSButton: React.FC = () => {
       onPanResponderRelease: (_evt, gestureState) => {
         pan.flattenOffset();
 
-        // Read current animated value
-        const newX = (pan.x as any)._value as number;
-        const newY = (pan.y as any)._value as number;
+        // Calculate new position from saved offset + drag delta
+        const newX = posRef.current.x + gestureState.dx;
+        const newY = posRef.current.y + gestureState.dy;
         const clamped = clampPosition(newX, newY);
 
         posRef.current = clamped;

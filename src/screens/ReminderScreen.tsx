@@ -298,10 +298,22 @@ const ReminderScreen: React.FC = () => {
     if (!ExpoSpeechRecognitionModule) return;
 
     try {
-      const resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
+      let cleaned = false;
+      let resultListener: any;
+      let endListener: any;
+
+      const cleanup = () => {
+        if (!cleaned) {
+          cleaned = true;
+          resultListener?.remove();
+          endListener?.remove();
+        }
+      };
+
+      resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
         if (event.isFinal) {
           const transcript = event.results?.[0]?.transcript || '';
-          resultListener.remove();
+          cleanup();
 
           // Route transcript to appropriate handler based on current step
           if (currentStep === 'select_field' && voiceEditReminder) {
@@ -324,6 +336,11 @@ const ReminderScreen: React.FC = () => {
         }
       });
 
+      // Clean up result listener if recognition ends without producing a final result
+      endListener = ExpoSpeechRecognitionModule.addListener('end', () => {
+        cleanup();
+      });
+
       // Add a small delay to ensure microphone is ready before starting recognition
       setTimeout(() => {
         try {
@@ -334,7 +351,7 @@ const ReminderScreen: React.FC = () => {
           });
         } catch (e) {
           console.error('Error starting speech recognition:', e);
-          resultListener.remove();
+          cleanup();
           speakText('Sorry, I had trouble starting voice input. Please try again.');
         }
       }, 300); // 300ms delay for microphone to be ready
@@ -1225,7 +1242,7 @@ const ReminderScreen: React.FC = () => {
       return;
     }
 
-    if (!editingReminderId && date.getTime() <= Date.now()) {
+    if (date.getTime() <= Date.now()) {
       Alert.alert('Invalid time', 'Please select a future date and time.');
       return;
     }
