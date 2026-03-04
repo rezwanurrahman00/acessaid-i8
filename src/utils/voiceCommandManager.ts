@@ -224,6 +224,10 @@ export class VoiceCommandManager {
         };
         
         rec.onerror = (err: any) => {
+          console.warn('VoiceCommandManager: Web speech recognition error:', err);
+          this.recognizing = false;
+          this.isListening = false;
+          this.onStopCallback?.();
         };
         
         rec.onend = () => {
