@@ -391,7 +391,7 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - All community components (Discover, Connections, Chat modals) fully support light and dark themes
 - Accessibility settings (brightness, text zoom) continue to work correctly alongside dark mode
 
-#### SOS Button
+#### 🔴 SOS Button
 - Floating SOS button rendered on top of all screens, always accessible regardless of current tab
 - Draggable — users can reposition the button anywhere on screen; position is saved via AsyncStorage and restored on next launch
 - Tapping the button opens a confirmation modal with a 3-second auto-countdown before placing the call
