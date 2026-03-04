@@ -41,11 +41,11 @@ export function parseDateTime(text: string, referenceDate: Date = new Date()): P
 function parseSpecificDateTime(text: string, referenceDate: Date): ParsedDateTime | null {
   // Pattern: [date phrase] at [time]
   const patterns = [
-    /(?:tomorrow|tmrw)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
-    /(?:day after tomorrow|overmorrow)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
-    /(?:today)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
-    /(?:next\s+)?(?:monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
-    /(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
+    /(?:tomorrow|tmrw)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*([ap].?m.?)/i,
+    /(?:day after tomorrow|overmorrow)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*([ap].?m.?)/i,
+    /(?:today)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*([ap].?m.?)/i,
+    /(?:next\s+)?(?:monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*([ap].?m.?)/i,
+    /(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})\s+at\s+(\d{1,2})(?::(\d{2}))?\s*([ap].?m.?)/i,
   ];
 
   for (const pattern of patterns) {
@@ -61,12 +61,14 @@ function parseSpecificDateTime(text: string, referenceDate: Date): ParsedDateTim
         // Month-day pattern: match groups are [fullMatch, month, day, hour, minute?, ampm]
         hour = parseInt(match[3]);
         minute = match[4] ? parseInt(match[4]) : 0;
-        isPM = match[5]?.toLowerCase() === 'pm';
+        const ampmString = match[5]?.toLowerCase().replace(/\./g, ''); // Remove dots
+        isPM = ampmString === 'pm';
       } else {
         // Other patterns: match groups are [fullMatch, hour, minute?, ampm]
         hour = parseInt(match[1]);
         minute = match[2] ? parseInt(match[2]) : 0;
-        isPM = match[3]?.toLowerCase() === 'pm';
+        const ampmString = match[3]?.toLowerCase().replace(/\./g, ''); // Remove dots
+        isPM = ampmString === 'pm';
       }
       
       const finalHour = isPM && hour !== 12 ? hour + 12 : (!isPM && hour === 12 ? 0 : hour);
@@ -131,14 +133,15 @@ function parseRelativeTime(text: string, referenceDate: Date): ParsedDateTime | 
  */
 function parseTimeOnly(text: string, referenceDate: Date): ParsedDateTime | null {
   // Pattern: [at] HH[:MM] am/pm
-  const pattern = /(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i;
+  const pattern = /(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*([ap].?m.?)/i;
   const match = text.match(pattern);
   
   if (match) {
     const hour = parseInt(match[1]);
     const minute = match[2] ? parseInt(match[2]) : 0;
-    const isPM = match[3].toLowerCase() === 'pm';
-    
+    const ampmString = match[3].toLowerCase().replace(/\./g, ''); // Remove dots: "p.m." -> "pm"
+    const isPM = ampmString === 'pm';
+
     const finalHour = isPM && hour !== 12 ? hour + 12 : (!isPM && hour === 12 ? 0 : hour);
     
     const resultDate = new Date(referenceDate);

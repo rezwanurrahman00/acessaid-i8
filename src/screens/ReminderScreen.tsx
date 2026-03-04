@@ -7,31 +7,32 @@ import * as Notifications from 'expo-notifications';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
-  Animated,
-  AppState,
-  FlatList,
-  LayoutAnimation,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  UIManager,
-  View,
+    Alert,
+    Animated,
+    AppState,
+    FlatList,
+    LayoutAnimation,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    UIManager,
+    View,
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
-import { addToQueue, getQueueLength, processQueue } from '../utils/syncQueue';
-import { cancelForReminder, rescheduleAll, scheduleForReminder } from '../utils/notificationService';
 import { BackgroundLogo } from '../components/BackgroundLogo';
 import { useApp } from '../contexts/AppContext';
 import type { MainTabParamList } from '../types';
+import { cancelForReminder, rescheduleAll, scheduleForReminder } from '../utils/notificationService';
+import { addToQueue, getQueueLength, processQueue } from '../utils/syncQueue';
 import { voiceManager } from '../utils/voiceCommandManager'; // ADDED: Import voice manager
 // ADDED: NLP imports for natural language reminder creation
 import { describeReminder, getReminderHelpText, isValidParsedReminder, parseReminderFromSpeech } from '../utils/nlpParser';
+import { generateUUID } from '../utils/uuid'; // ADDED: UUID generator for temporary reminder IDs
 
 // BlurView fallback for environments without expo-blur
 const BlurViewComponent: any = (() => {
@@ -139,10 +140,22 @@ const ReminderScreen: React.FC = () => {
   const [voiceField, setVoiceField] = useState<'title' | 'description' | null>(null);
 
    //Advanced voice action confirmation state
-  type VoiceActionType = 'complete' | 'delete' | 'snooze';
+  type VoiceActionType = 'complete' | 'delete' | 'snooze' | 'edit';
   const [voiceConfirmVisible, setVoiceConfirmVisible] = useState(false);
   const [voiceConfirmAction, setVoiceConfirmAction] = useState<VoiceActionType | null>(null);
   const [voiceConfirmReminder, setVoiceConfirmReminder] = useState<Reminder | null>(null);
+
+  // Voice edit wizard state
+  type VoiceEditField = 'title' | 'description' | 'datetime' | 'category' | 'priority' | 'recurrence';
+  type VoiceEditStep = 'select_reminder' | 'select_field' | 'capture_input' | 'confirm_change' | 'ask_continue';
+
+  const [voiceEditActive, setVoiceEditActive] = useState(false);
+  const [voiceEditReminder, setVoiceEditReminder] = useState<Reminder | null>(null);
+  const [voiceEditStep, setVoiceEditStep] = useState<VoiceEditStep>('select_reminder');
+  const [editReminderModalVisible, setEditReminderModalVisible] = useState(false);
+  const [voiceEditField, setVoiceEditField] = useState<VoiceEditField | null>(null);
+  const [voiceEditPending, setVoiceEditPending] = useState<Partial<Reminder>>({});
+  const [voiceEditFlowVisible, setVoiceEditFlowVisible] = useState(false);
   
   // Optional import of DateTimePicker; fallback on web
   const DateTimePicker: any = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
@@ -245,6 +258,25 @@ const ReminderScreen: React.FC = () => {
           setPendingCount(prev => prev + 1);
         }
       })();
+    } else if (voiceConfirmAction === 'edit') {
+      // Handle edit confirmation flow
+      if (voiceEditStep === 'select_reminder') {
+        // User confirmed the reminder selection - move to field selection
+        setVoiceEditStep('select_field');
+        setVoiceEditFlowVisible(true);
+        speakText(`What would you like to edit? You can say title, description, time, category, priority, or repeat.`);
+        setupVoiceEditListener('select_field');
+      } else if (voiceEditStep === 'select_field') {
+        // User confirmed the field selection - move to input capture
+        captureVoiceEditValue();
+      } else if (voiceEditStep === 'confirm_change') {
+        // User confirmed the change value - save to pending and ask to continue
+        setVoiceEditPending(prev => ({
+          ...prev,
+          [voiceEditField!]: voiceEditPending[voiceEditField!],
+        }));
+        askVoiceEditContinue();
+      }
     }
 
     setVoiceConfirmAction(null);
@@ -256,6 +288,380 @@ const ReminderScreen: React.FC = () => {
     setVoiceConfirmAction(null);
     setVoiceConfirmReminder(null);
     speakText('Action cancelled.');
+  };
+
+  // Helper function to set up voice listeners for edit flow
+  const setupVoiceEditListener = (step?: VoiceEditStep, field?: VoiceEditField) => {
+    const currentStep = step || voiceEditStep;
+    const currentField = field || voiceEditField;
+
+    if (!ExpoSpeechRecognitionModule) return;
+
+    try {
+      const resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
+        if (event.isFinal) {
+          const transcript = event.results?.[0]?.transcript || '';
+          resultListener.remove();
+
+          // Route transcript to appropriate handler based on current step
+          if (currentStep === 'select_field' && voiceEditReminder) {
+            handleVoiceEditFieldSelection(transcript);
+          } else if (currentStep === 'capture_input' && currentField) {
+            // Process captured value based on field type
+            processCapturedEditValue(transcript);
+          } else if (currentStep === 'ask_continue') {
+            // Handle yes/no for continuing edit
+            const t = transcript.toLowerCase();
+            if (t.includes('yes') || t.includes('yeah') || t.includes('yep')) {
+              setVoiceEditStep('select_field');
+              setVoiceEditFlowVisible(true);
+              speakText('What field would you like to edit now? You can say title, description, time, category, priority, or repeat.');
+              setupVoiceEditListener('select_field', null); // Reset field for new selection
+            } else {
+              finalizeVoiceEdit();
+            }
+          }
+        }
+      });
+
+      // Add a small delay to ensure microphone is ready before starting recognition
+      setTimeout(() => {
+        try {
+          ExpoSpeechRecognitionModule.start({
+            language: 'en-US',
+            maxResults: 1,
+            timeout: 8000, // 8 second timeout for user to speak
+          });
+        } catch (e) {
+          console.error('Error starting speech recognition:', e);
+          resultListener.remove();
+          speakText('Sorry, I had trouble starting voice input. Please try again.');
+        }
+      }, 300); // 300ms delay for microphone to be ready
+    } catch (e) {
+      console.error('Voice listener setup error:', e);
+      speakText('Sorry, I had trouble with voice input. Please try again.');
+    }
+  };
+
+  // Process captured value and format for field type
+  const processCapturedEditValue = async (transcript: string) => {
+    if (!voiceEditField) return;
+
+    let processedValue: any = transcript;
+
+    try {
+      // Field-specific processing
+      if (voiceEditField === 'datetime') {
+        const parsed = parseReminderFromSpeech(transcript);
+        if (parsed && parsed.datetime) {
+          processedValue = parsed.datetime;
+        } else {
+          speakText('Sorry, I couldn\'t parse that time. Please try again.');
+          captureVoiceEditValue();
+          return;
+        }
+      } else if (voiceEditField === 'priority') {
+        const t = transcript.toLowerCase();
+        if (t.includes('high')) processedValue = 'high';
+        else if (t.includes('medium') || t.includes('mid')) processedValue = 'medium';
+        else if (t.includes('low')) processedValue = 'low';
+        else {
+          speakText('Please say high, medium, or low.');
+          captureVoiceEditValue();
+          return;
+        }
+      } else if (voiceEditField === 'category') {
+        const t = transcript.toLowerCase();
+        const categories: VoiceEditField[] = [];
+        if (t.includes('personal')) processedValue = 'personal';
+        else if (t.includes('work')) processedValue = 'work';
+        else if (t.includes('health')) processedValue = 'health';
+        else if (t.includes('finance') || t.includes('money') || t.includes('cash')) processedValue = 'finance';
+        else if (t.includes('shopping') || t.includes('shop')) processedValue = 'shopping';
+        else if (t.includes('other')) processedValue = 'other';
+        else {
+          speakText('Please say personal, work, health, finance, shopping, or other.');
+          captureVoiceEditValue();
+          return;
+        }
+      } else if (voiceEditField === 'recurrence') {
+        const t = transcript.toLowerCase();
+        if (t.includes('once') || t.includes('one time')) processedValue = 'once';
+        else if (t.includes('daily')) processedValue = 'daily';
+        else if (t.includes('weekly')) processedValue = 'weekly';
+        else if (t.includes('monthly')) processedValue = 'monthly';
+        else {
+          speakText('Please say once, daily, weekly, or monthly.');
+          captureVoiceEditValue();
+          return;
+        }
+      }
+
+      // Store the processed value in pending
+      setVoiceEditPending(prev => ({
+        ...prev,
+        [voiceEditField]: processedValue,
+      }));
+
+      // Move to confirmation step
+      confirmVoiceEditChange();
+    } catch (e) {
+      console.error('Error processing value:', e);
+      speakText('Sorry, I had trouble processing that. Please try again.');
+      captureVoiceEditValue();
+    }
+  };
+
+  // Voice edit wizard functions
+  const startVoiceEditWizard = () => {
+    setVoiceEditActive(true);
+    setVoiceEditStep('select_reminder');
+    setVoiceEditReminder(null);
+    setVoiceEditField(null);
+    setVoiceEditPending({});
+    setVoiceEditFlowVisible(true);
+    speakText('Say the name or number of the reminder you want to edit');
+
+    if (!ExpoSpeechRecognitionModule) {
+      Alert.alert('Voice Input Not Available', 'Voice input is only available in development builds');
+      setVoiceEditActive(false);
+      setVoiceEditFlowVisible(false);
+      return;
+    }
+
+    try {
+      // Set up listener for reminder selection
+      const resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
+        if (event.isFinal) {
+          const transcript = event.results?.[0]?.transcript || '';
+          resultListener.remove();
+          handleVoiceEditReminderSelection(transcript);
+        }
+      });
+
+      // Add delay to ensure microphone is ready
+      setTimeout(() => {
+        try {
+          ExpoSpeechRecognitionModule.start({
+            language: 'en-US',
+            maxResults: 1,
+            timeout: 8000, // 8 second timeout for user to speak
+          });
+        } catch (e) {
+          console.error('Voice input error:', e);
+          resultListener.remove();
+          speakText('Sorry, I had trouble starting voice input. Please try again.');
+          setVoiceEditActive(false);
+          setVoiceEditFlowVisible(false);
+        }
+      }, 300); // 300ms delay for microphone to be ready
+    } catch (e) {
+      console.error('Voice input error:', e);
+      speakText('Sorry, I had trouble starting voice input. Please try again.');
+      setVoiceEditActive(false);
+      setVoiceEditFlowVisible(false);
+    }
+  };
+
+  const handleVoiceEditReminderSelection = (transcript: string) => {
+    if (!transcript.trim()) {
+      speakText('I did not hear anything. Please say the reminder name or number again.');
+      startVoiceEditWizard();
+      return;
+    }
+
+    // Try fuzzy matching first
+    let found = findReminderByVoice(transcript);
+
+    // Try number matching if no name match (e.g., "number 2" or "2")
+    if (!found) {
+      const numberMatch = transcript.match(/(?:number\s+)?(\d+)/i);
+      if (numberMatch) {
+        const activeReminders = reminders.filter(r => !r.isCompleted);
+        const index = parseInt(numberMatch[1], 10) - 1;
+        if (index >= 0 && index < activeReminders.length) {
+          found = activeReminders[index];
+        }
+      }
+    }
+
+    if (!found) {
+      const activeReminders = reminders.filter(r => !r.isCompleted);
+      if (activeReminders.length === 0) {
+        speakText('You have no reminders to edit.');
+        setVoiceEditActive(false);
+        setVoiceEditFlowVisible(false);
+        return;
+      }
+
+      const firstFew = activeReminders.slice(0, 3).map(r => r.title).join(', ');
+      speakText(`I couldn't find that. You have reminders: ${firstFew}. Try saying the reminder name more clearly.`);
+      startVoiceEditWizard();
+      return;
+    }
+
+    // Found a reminder - ask for confirmation
+    setVoiceEditReminder(found);
+    setVoiceConfirmAction('edit');
+    setVoiceConfirmReminder(found);
+    setVoiceConfirmVisible(true);
+    speakText(`Did you mean to edit "${found.title}"? Say yes or no.`);
+  };
+
+  const handleVoiceEditFieldSelection = (transcript: string) => {
+    if (!transcript.trim()) {
+      speakText('I did not hear anything. Please say the field name again. You can say: title, description, time, category, priority, or repeat.');
+      return;
+    }
+
+    const t = transcript.toLowerCase();
+    let field: VoiceEditField | null = null;
+
+    // Match variations of field names
+    if (t.includes('title') || t.includes('name') || t.includes('task')) {
+      field = 'title';
+    } else if (t.includes('time') || t.includes('datetime') || t.includes('date') || t.includes('when')) {
+      field = 'datetime';
+    } else if (t.includes('description') || t.includes('details') || t.includes('note')) {
+      field = 'description';
+    } else if (t.includes('category') || t.includes('type') || t.includes('tag')) {
+      field = 'category';
+    } else if (t.includes('priority') || t.includes('importance') || t.includes('level')) {
+      field = 'priority';
+    } else if (t.includes('repeat') || t.includes('recurrence') || t.includes('frequency')) {
+      field = 'recurrence';
+    }
+
+    if (!field) {
+      speakText('I didn\'t recognize that field. You can say: title, description, time, category, priority, or repeat.');
+      return;
+    }
+
+    setVoiceEditField(field);
+    setVoiceConfirmAction('edit');
+    setVoiceConfirmVisible(true);
+    speakText(`Edit the ${field}? Say yes or no.`);
+  };
+
+  const captureVoiceEditValue = () => {
+    if (!voiceEditField) return;
+
+    setVoiceEditStep('capture_input');
+    setVoiceEditFlowVisible(true);
+
+    const fieldLabels: Record<VoiceEditField, string> = {
+      title: 'reminder title',
+      description: 'description',
+      datetime: 'reminder time, for example: tomorrow at 3 PM',
+      category: 'category: personal, work, health, finance, shopping, or other',
+      priority: 'priority: high, medium, or low',
+      recurrence: 'repeat option: once, daily, weekly, or monthly',
+    };
+
+    speakText(`Say the new ${fieldLabels[voiceEditField]}`);
+    setupVoiceEditListener();
+  };
+
+  const confirmVoiceEditChange = () => {
+    if (!voiceEditField) return;
+
+    setVoiceEditStep('confirm_change');
+    let confirmationText = '';
+
+    const fieldValue = voiceEditPending[voiceEditField];
+
+    switch (voiceEditField) {
+      case 'title':
+        confirmationText = `Change title to "${fieldValue}"?`;
+        break;
+      case 'description':
+        confirmationText = `Change description to "${fieldValue}"?`;
+        break;
+      case 'datetime':
+        if (fieldValue instanceof Date) {
+          const formatted = fieldValue.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+          confirmationText = `Change time to ${formatted}?`;
+        } else {
+          confirmationText = `Change time to "${fieldValue}"?`;
+        }
+        break;
+      case 'category':
+        confirmationText = `Change category to ${fieldValue}?`;
+        break;
+      case 'priority':
+        confirmationText = `Change priority to ${fieldValue}?`;
+        break;
+      case 'recurrence':
+        confirmationText = `Change repeat to ${fieldValue}?`;
+        break;
+    }
+
+    setVoiceConfirmVisible(true);
+    speakText(confirmationText);
+  };
+
+  const askVoiceEditContinue = () => {
+    setVoiceEditStep('ask_continue');
+    setVoiceEditFlowVisible(true);
+    speakText('Edit another field? Say yes or no.');
+    setupVoiceEditListener();
+  };
+
+  const finalizeVoiceEdit = async () => {
+    if (!voiceEditReminder || Object.keys(voiceEditPending).length === 0) {
+      setVoiceEditActive(false);
+      setVoiceEditFlowVisible(false);
+      return;
+    }
+
+    const updated: Reminder = {
+      ...voiceEditReminder,
+      ...voiceEditPending,
+    };
+
+    // Update local state immediately
+    animateLayout();
+    setReminders(prev => prev.map(r => r.id === updated.id ? updated : r));
+
+    // Reschedule if datetime changed
+    if (voiceEditPending.datetime) {
+      await cancelForReminder(updated.id);
+      await scheduleForReminder(updated);
+    }
+
+    // Announce what was changed
+    const editedFields = Object.keys(voiceEditPending).join(', ');
+    speakText(`Reminder updated: ${editedFields}`);
+
+    // Sync to Supabase (or queue if offline)
+    try {
+      const updateData: any = {};
+      if (voiceEditPending.title) updateData.title = voiceEditPending.title;
+      if (voiceEditPending.description) updateData.description = voiceEditPending.description;
+      if (voiceEditPending.datetime) updateData.reminder_datetime = voiceEditPending.datetime.toISOString();
+      if (voiceEditPending.category) updateData.category = voiceEditPending.category;
+      if (voiceEditPending.priority) updateData.priority = voiceEditPending.priority;
+      if (voiceEditPending.recurrence) updateData.frequency = voiceEditPending.recurrence;
+
+      await supabase.from('reminders').update(updateData).eq('id', updated.id);
+    } catch (error) {
+      // Queue if offline
+      await addToQueue({
+        type: 'update',
+        reminderId: updated.id,
+        data: voiceEditPending,
+      });
+      setPendingCount(prev => prev + 1);
+      speakText('Changes queued. Will sync when online.');
+    }
+
+    // Reset state
+    setVoiceEditActive(false);
+    setVoiceEditFlowVisible(false);
+    setVoiceEditReminder(null);
+    setVoiceEditField(null);
+    setVoiceEditPending({});
   };
 
   // ADDED: Voice command registration with NLP support
@@ -402,7 +808,33 @@ const ReminderScreen: React.FC = () => {
       category: 'reminder',
       captureFullTranscript: true,
     });
-    
+
+    // Edit reminder by voice (guided wizard)
+    voiceManager.addCommand({
+      keywords: ['edit reminder', 'modify reminder', 'change reminder', 'update reminder'],
+      action: (fullTranscript) => {
+        console.log('🎯 Edit reminder command triggered');
+        const transcript = fullTranscript || '';
+        // Try to find reminder directly if mentioned in same sentence
+        const found = findReminderByVoice(transcript);
+        if (found) {
+          console.log('✅ Found reminder by voice:', found.title);
+          setVoiceEditReminder(found);
+          setVoiceEditStep('select_field');
+          setVoiceEditFlowVisible(true);
+          speakText(`Editing "${found.title}". What would you like to edit? You can say title, description, time, category, priority, or repeat.`);
+        } else {
+          // Show visual reminder selection modal instead of voice input
+          console.log('📋 Opening reminder selection modal');
+          setEditReminderModalVisible(true);
+          speakText('Please select a reminder to edit from the list.');
+        }
+      },
+      description: 'Edit a reminder using guided voice steps',
+      category: 'reminder',
+      captureFullTranscript: true,
+    });
+
         // Cleanup on unmount
     return () => {
       voiceManager.removeCommand(['set reminder', 'remind me to', 'create reminder']);
@@ -412,6 +844,7 @@ const ReminderScreen: React.FC = () => {
       voiceManager.removeCommand(['complete reminder', 'done reminder', 'finish reminder', 'mark complete', 'mark done', 'complete task']);
       voiceManager.removeCommand(['delete reminder', 'remove reminder', 'cancel reminder', 'delete task', 'remove task']);
       voiceManager.removeCommand(['snooze reminder', 'snooze task', 'remind me later', 'delay reminder', 'postpone reminder']);
+      voiceManager.removeCommand(['edit reminder', 'modify reminder', 'change reminder', 'update reminder']);
     };
   }, [reminders]);
 
@@ -754,13 +1187,25 @@ const ReminderScreen: React.FC = () => {
         }
       });
 
-      // Start recognition
-      await ExpoSpeechRecognitionModule.start({
-        lang: 'en-US',
-        interimResults: false,
-        maxAlternatives: 1,
-        continuous: false,
-      });
+      // Add a small delay to ensure microphone is ready before starting recognition
+      setTimeout(() => {
+        try {
+          // Start recognition with extended timeout
+          ExpoSpeechRecognitionModule.start({
+            lang: 'en-US',
+            interimResults: false,
+            maxAlternatives: 1,
+            continuous: false,
+            timeout: 8000, // 8 second timeout for user to speak
+          });
+        } catch (error) {
+          console.error('Error starting speech recognition:', error);
+          resultListener.remove();
+          setIsVoiceInputMode(false);
+          setVoiceField(null);
+          Alert.alert('Voice Error', 'Could not start voice input');
+        }
+      }, 300); // 300ms delay for microphone to be ready
 
     } catch (error) {
       console.error('Voice input error:', error);
@@ -836,8 +1281,9 @@ const ReminderScreen: React.FC = () => {
     }
 
     // Build the reminder object immediately so UI updates instantly
+    const reminderId = generateUUID(); // Generate UUID once and reuse
     const newReminder: Reminder = {
-      id: Date.now().toString(),
+      id: reminderId,
       title: title.trim(),
       description: description.trim() || undefined,
       datetime: date,
@@ -856,6 +1302,7 @@ const ReminderScreen: React.FC = () => {
 
     // Do the slow work (Supabase sync + scheduling) in the background
     const createData = {
+      id: reminderId, // Include the generated UUID
       title: title.trim(),
       description: description.trim() || undefined,
       reminder_datetime: date.toISOString(),
@@ -867,8 +1314,6 @@ const ReminderScreen: React.FC = () => {
         if (userId) {
           try {
             await supabase.from('reminders').insert({ user_id: userId, ...createData });
-            // Refresh so the temp Date.now() ID is replaced with the real Supabase UUID
-            await fetchReminders();
           } catch {
             // Offline — queue the create for later sync
             await addToQueue({ type: 'create', userId, data: createData });
@@ -940,7 +1385,11 @@ const ReminderScreen: React.FC = () => {
         return;
       }
 
+      // Generate UUID for this reminder
+      const reminderId = generateUUID();
+
       const createData = {
+        id: reminderId, // Include the generated UUID
         title: parsed.title,
         description: parsed.description,
         reminder_datetime: reminderDatetime.toISOString(),
@@ -950,7 +1399,7 @@ const ReminderScreen: React.FC = () => {
 
       // Add to local state immediately so user sees it right away
       const tempReminder: Reminder = {
-        id: Date.now().toString(),
+        id: reminderId,
         title: parsed.title,
         description: parsed.description,
         datetime: reminderDatetime,
@@ -978,9 +1427,8 @@ const ReminderScreen: React.FC = () => {
 
         if (insertError) throw insertError;
 
-        // Refresh so temp ID is replaced with real Supabase UUID
-        await fetchReminders();
-        await scheduleForReminder({ ...tempReminder, id: backendReminder.id });
+        // Success - backend created the reminder with the ID we provided
+        await scheduleForReminder(tempReminder);
       } catch {
         // Offline — queue for later sync, keep temp reminder in local state
         await addToQueue({ type: 'create', userId, data: createData });
@@ -1564,7 +2012,8 @@ const ReminderScreen: React.FC = () => {
               <Text style={styles.sheetTitle}>
                 {voiceConfirmAction === 'complete' ? '✅ Complete Reminder?' :
                  voiceConfirmAction === 'delete'   ? '🗑️ Delete Reminder?' :
-                                                     '⏰ Snooze Reminder?'}
+                 voiceConfirmAction === 'snooze'   ? '⏰ Snooze Reminder?' :
+                                                     '✏️ Edit Reminder?'}
               </Text>
               <Text style={[styles.preview, { fontSize: 17, color: styles.cardTitle.color, marginBottom: 6 }]}>
                 {voiceConfirmReminder?.title}
@@ -1572,7 +2021,8 @@ const ReminderScreen: React.FC = () => {
               <Text style={styles.preview}>
                 {voiceConfirmAction === 'complete' ? 'Mark this reminder as done?' :
                  voiceConfirmAction === 'delete'   ? 'Permanently delete this reminder?' :
-                                                     'Snooze this reminder for 30 minutes?'}
+                 voiceConfirmAction === 'snooze'   ? 'Snooze this reminder for 30 minutes?' :
+                                                     'Confirm this change?'}
               </Text>
               <View style={styles.actionsRow}>
                 <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={cancelVoiceAction}>
@@ -1586,6 +2036,109 @@ const ReminderScreen: React.FC = () => {
                   <Text style={[styles.btnText, { color: '#FFF' }]}>Yes, Confirm</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Voice Edit Flow Modal */}
+      <Modal visible={voiceEditFlowVisible && voiceEditActive} transparent animationType="fade" onRequestClose={() => {
+        setVoiceEditActive(false);
+        setVoiceEditFlowVisible(false);
+      }}>
+        <View style={styles.modalBackdrop}>
+          <BlurViewComponent intensity={50} tint={Platform.OS === 'ios' ? 'systemChromeMaterial' : 'light'} style={styles.blurFill} />
+          <View style={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}>
+            <View style={styles.sheet}>
+              <Text style={styles.sheetTitle}>✏️ Edit Reminder</Text>
+              <Text style={styles.preview}>
+                {voiceEditStep === 'select_reminder' ? '🎤 Say reminder name or number' :
+                 voiceEditStep === 'select_field' ? `🎤 What field to edit? (title, time, category...)` :
+                 voiceEditStep === 'capture_input' ? `🎤 Say new ${voiceEditField} value` :
+                 voiceEditStep === 'confirm_change' ? '✓ Confirm change?' :
+                 '🎤 Edit another field?'}
+              </Text>
+              {voiceEditReminder && (
+                <Text style={[styles.preview, { marginTop: 10, fontSize: 12, color: theme.textSecondary }]}>
+                  Editing: {voiceEditReminder.title}
+                  {voiceEditField && ` • Current field: ${voiceEditField}`}
+                </Text>
+              )}
+              {Object.keys(voiceEditPending).length > 0 && (
+                <Text style={[styles.preview, { marginTop: 6, fontSize: 11, color: theme.textSecondary }]}>
+                  Changes pending: {Object.keys(voiceEditPending).join(', ')}
+                </Text>
+              )}
+              <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={() => {
+                setVoiceEditActive(false);
+                setVoiceEditFlowVisible(false);
+                speakText('Edit cancelled.');
+              }}>
+                <Text style={[styles.btnText, { color: styles.preview.color }]}>Cancel Edit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Reminder Selection Modal for Voice Edit */}
+      <Modal visible={editReminderModalVisible} transparent animationType="slide" onRequestClose={() => setEditReminderModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <BlurViewComponent intensity={40} tint={Platform.OS === 'ios' ? 'systemThinMaterial' : 'light'} style={styles.blurFill} />
+          <View style={{ flex: 1, justifyContent: 'center', padding: 20 }}>
+            <View style={[styles.sheet]}>
+              <Text style={styles.sheetTitle}>Select Reminder to Edit</Text>
+              <Text style={[styles.preview, { marginBottom: 16, fontSize: 14 }]}>
+                Tap on the reminder you want to edit
+              </Text>
+
+              <View style={{ maxHeight: 400, marginBottom: 12 }}>
+                <FlatList
+                  data={reminders.filter(r => !r.isCompleted)}
+                  keyExtractor={(item) => item.id}
+                  scrollEnabled={true}
+                  showsVerticalScrollIndicator={true}
+                  nestedScrollEnabled={true}
+                  renderItem={({ item, index }) => (
+                    <TouchableOpacity
+                      style={[styles.reminderSelectItem, { paddingVertical: 12, paddingHorizontal: 14, marginVertical: 6 }]}
+                      onPress={() => {
+                        // Close the selection modal
+                        console.log('📝 Selected reminder:', item.title);
+                        setEditReminderModalVisible(false);
+                        // Open the regular edit modal with this reminder
+                        showEditModal(item.id);
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.cardTitle, { marginBottom: 4 }]}>{index + 1}. {item.title}</Text>
+                        <Text style={[styles.cardSubtitle, { fontSize: 12 }]}>
+                          {formatPreview(item.datetime)} • {item.category || 'personal'}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={
+                    <View style={{ padding: 20, alignItems: 'center' }}>
+                      <Text style={[styles.preview, { color: theme.textSecondary }]}>
+                        No active reminders to edit
+                      </Text>
+                    </View>
+                  }
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.btn, styles.btnCancel]}
+                onPress={() => {
+                  console.log('❌ Cancelled reminder selection');
+                  setEditReminderModalVisible(false);
+                  setVoiceEditFlowVisible(false);
+                }}
+              >
+                <Text style={[styles.btnText, { color: styles.preview.color }]}>Cancel</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1934,6 +2487,16 @@ const createStyles = (theme: AppTheme) =>
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: 12,
+    },
+
+    // Reminder selection item
+    reminderSelectItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.cardBackground,
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.cardBorder,
     },
 
     actionButton: {
