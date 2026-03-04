@@ -52,7 +52,6 @@ const SOSButton: React.FC = () => {
   const posRef = useRef(getDefaultPosition());
 
   // Track whether the gesture is a drag or a tap
-  const dragStartRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
 
   // Load saved position from AsyncStorage
@@ -82,9 +81,7 @@ const SOSButton: React.FC = () => {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
 
-      onPanResponderGrant: (_evt, gestureState) => {
-        // Record where the drag started for tap-vs-drag detection
-        dragStartRef.current = { x: gestureState.x0, y: gestureState.y0 };
+      onPanResponderGrant: (_evt, _gestureState) => {
         isDraggingRef.current = false;
         // Offset so the button doesn't jump to finger origin
         pan.setOffset({ x: posRef.current.x, y: posRef.current.y });
@@ -127,6 +124,7 @@ const SOSButton: React.FC = () => {
   ).current;
 
   const openConfirmation = () => {
+    if (modalVisible) return;
     hasTriggeredRef.current = false;
     setCountdown(COUNTDOWN_SECONDS);
     setModalVisible(true);
