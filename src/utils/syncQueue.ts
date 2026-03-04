@@ -6,6 +6,7 @@ const QUEUE_KEY = 'reminder_sync_queue_v1';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type CreateData = {
+  id: string; // UUID generated client-side
   title: string;
   description?: string;
   reminder_datetime: string;
