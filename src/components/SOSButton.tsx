@@ -128,6 +128,10 @@ const SOSButton: React.FC = () => {
 
   const openConfirmation = () => {
     if (modalVisible) return;
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
     hasTriggeredRef.current = false;
     setCountdown(COUNTDOWN_SECONDS);
     setModalVisible(true);
