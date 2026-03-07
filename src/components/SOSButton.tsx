@@ -177,7 +177,7 @@ const SOSButton: React.FC = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
     // Use saved emergency contact number, fall back to 911
-    const callNumber = emergencyPhoneRef.current ? emergencyPhoneRef.current.replace(/\s+/g, '') : '911';
+    const callNumber = emergencyPhoneRef.current ? emergencyPhoneRef.current.replace(/[\s\-().+]/g, '') : '911';
     const speakName = emergencyNameRef.current || 'emergency services';
 
     try { Speech.stop(); } catch {}
