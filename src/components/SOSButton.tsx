@@ -54,6 +54,9 @@ const SOSButton: React.FC = () => {
   // Track whether the gesture is a drag or a tap
   const isDraggingRef = useRef(false);
 
+  // Ref to the latest openConfirmation so PanResponder (created once) always calls the current version
+  const openConfirmationRef = useRef<() => void>(() => {});
+
   // Load saved position from AsyncStorage
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then(raw => {
@@ -115,7 +118,7 @@ const SOSButton: React.FC = () => {
 
         // Treat as tap if movement was tiny
         if (!isDraggingRef.current) {
-          openConfirmation();
+          openConfirmationRef.current();
         }
 
         isDraggingRef.current = false;
@@ -147,6 +150,8 @@ const SOSButton: React.FC = () => {
       }
     }, 1000);
   };
+  // Keep the PanResponder ref pointing to the latest version of openConfirmation on every render
+  openConfirmationRef.current = openConfirmation;
 
   const cancelSOS = () => {
     if (countdownRef.current) {
