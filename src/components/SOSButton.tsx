@@ -146,11 +146,12 @@ const SOSButton: React.FC = () => {
     let remaining = COUNTDOWN_SECONDS;
     countdownRef.current = setInterval(() => {
       remaining -= 1;
-      setCountdown(remaining);
       if (remaining <= 0) {
         clearInterval(countdownRef.current!);
         countdownRef.current = null;
         triggerSOS();
+      } else {
+        setCountdown(remaining);
       }
     }, 1000);
   };
