@@ -104,3 +104,45 @@ export const NetworkBanner: React.FC = () => {
   );
 };
 
+const styles = StyleSheet.create({
+  banner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 9999,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  offlineBanner: {
+    backgroundColor: '#E53E3E', // red
+  },
+  onlineBanner: {
+    backgroundColor: '#38A169', // green
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  icon: {
+    fontSize: 22,
+  },
+  title: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  subtitle: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    marginTop: 1,
+  },
+});
+
