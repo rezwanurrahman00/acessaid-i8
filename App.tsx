@@ -4,8 +4,15 @@ import * as Notifications from 'expo-notifications';
 import { AppProvider } from './src/contexts/AppContext';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import AppNavigator, { navigationRef } from './src/navigation/AppNavigator';
+import { NetworkBanner } from './src/components/NetworkBanner';
+import { networkMonitor } from './src/utils/networkMonitor';
+
 
 export default function App() {
+  useEffect(() => {
+  networkMonitor.start();
+  return () => networkMonitor.stop();
+}, []);
   useEffect(() => {
     // Handle notification tap while the app is open or backgrounded
     const sub = Notifications.addNotificationResponseReceivedListener(() => {
@@ -37,6 +44,7 @@ export default function App() {
       <AppProvider>
         <StatusBar style="auto" />
         <AppNavigator />
+        <NetworkBanner />
       </AppProvider>
     </ErrorBoundary>
   );
