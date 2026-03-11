@@ -502,9 +502,14 @@ export default function ConnectionsModal({
                 <TouchableOpacity
                   style={styles.profMsgBtn}
                   onPress={() => {
+                    const conn = viewingConn;
                     setViewingConn(null);
-                    onOpenChat(viewingConn);
-                    speakIfEnabled(`Opening chat with ${vp?.display_name}`);
+                    // Wait for inner profile modal to finish closing before
+                    // triggering the outer modal close + ChatModal open.
+                    setTimeout(() => {
+                      onOpenChat(conn!);
+                      speakIfEnabled(`Opening chat with ${vp?.display_name}`);
+                    }, 400);
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={`Send message to ${vp?.display_name}`}

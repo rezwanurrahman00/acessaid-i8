@@ -398,7 +398,9 @@ export default function SocialSection({ userId, userName, ui, scale }: Props) {
         onClose={() => { setShowConnections(false); loadData(); }}
         onOpenChat={(conn) => {
           setShowConnections(false);
-          setChatConn(conn);
+          // Wait for the outer ConnectionsModal to finish closing before
+          // presenting ChatModal. iOS can't handle concurrent modal transitions.
+          setTimeout(() => setChatConn(conn), 400);
         }}
         userId={userId}
         ui={ui}
