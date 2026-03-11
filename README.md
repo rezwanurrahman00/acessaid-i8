@@ -404,6 +404,25 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - Emergency contact details are pulled from the user profile (name, phone, relationship)
 
 ---
+### Sprint 6: Performance Optimization & Network Reliability ✅
+
+**Goal**: Enhance performance optimization for real-time cloud interactions by adding network-aware sync management and offline/online user feedback.
+
+**Completed**:
+
+#### 🌐 Network Monitoring & Auto-Sync
+- Added `NetworkMonitor` utility (`src/utils/networkMonitor.ts`) that watches device connectivity in real time using `@react-native-community/netinfo`
+- Automatically flushes the offline sync queue (`syncQueue.ts`) the moment internet is restored — no manual action needed from the user
+- Singleton pattern ensures the monitor runs once across the entire app lifecycle
+
+#### 📴 Offline/Online Status Banner
+- Added `NetworkBanner` component (`src/components/NetworkBanner.tsx`) that slides in at the top of the screen when connectivity changes
+- Shows a **red banner** with a message when the device goes offline
+- Shows a **green banner** confirming reconnection and sync, then auto-hides after 2.5 seconds
+- Fully accessible with `accessibilityRole="alert"` and `accessibilityLiveRegion="polite"`
+- Integrated into `App.tsx` so it appears across every screen automatically
+
+---
 
 ## 📜 Scripts
 
