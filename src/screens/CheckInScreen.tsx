@@ -298,4 +298,177 @@ const CheckInScreen = () => {
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
+           {/* Header */}
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: theme.textPrimary }]}>Daily Check-In</Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+              {todayDone
+                ? "✅ You've checked in today — keep it up!"
+                : 'How are you feeling right now?'}
+            </Text>
+          </View>
+ 
+          {/* Form card */}
+          {!todayDone && (
+            <ModernCard variant="elevated" style={[styles.formCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+ 
+              {/* Mood */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="happy-outline" size={20} color={theme.accent} />
+                  <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Mood</Text>
+                </View>
+                <OptionSelector
+                  options={MOOD_OPTIONS}
+                  selected={mood}
+                  onSelect={(v, l) => { setMood(v); speak(`Mood set to ${l}`); Haptics.selectionAsync(); }}
+                  themeTextPrimary={theme.textPrimary}
+                  themeCardBackground={theme.inputBackground}
+                  themeCardBorder={theme.cardBorder}
+                />
+              </View>
+ 
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+ 
+              {/* Pain */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="fitness-outline" size={20} color={theme.danger} />
+                  <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Pain Level</Text>
+                </View>
+                <OptionSelector
+                  options={PAIN_OPTIONS}
+                  selected={pain}
+                  onSelect={(v, l) => { setPain(v); speak(`Pain set to ${l}`); Haptics.selectionAsync(); }}
+                  themeTextPrimary={theme.textPrimary}
+                  themeCardBackground={theme.inputBackground}
+                  themeCardBorder={theme.cardBorder}
+                />
+              </View>
+ 
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+ 
+              {/* Energy */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="flash-outline" size={20} color={theme.warning} />
+                  <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Energy</Text>
+                </View>
+                <OptionSelector
+                  options={ENERGY_OPTIONS}
+                  selected={energy}
+                  onSelect={(v, l) => { setEnergy(v); speak(`Energy set to ${l}`); Haptics.selectionAsync(); }}
+                  themeTextPrimary={theme.textPrimary}
+                  themeCardBackground={theme.inputBackground}
+                  themeCardBorder={theme.cardBorder}
+                />
+              </View>
+ 
+              {/* Save button */}
+              <TouchableOpacity
+                style={[
+                  styles.saveBtn,
+                  {
+                    backgroundColor: (mood !== null && pain !== null && energy !== null)
+                      ? theme.accent
+                      : theme.inputBorder,
+                  },
+                ]}
+                onPress={handleSubmit}
+                disabled={isSaving}
+                accessibilityRole="button"
+                accessibilityLabel="Save check-in"
+              >
+                {isSaving
+                  ? <ActivityIndicator color="#fff" />
+                  : (
+                    <>
+                      <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
+                      <Text style={styles.saveBtnText}>Save Check-In</Text>
+                    </>
+                  )}
+              </TouchableOpacity>
+            </ModernCard>
+          )}
+ 
+          {/* History */}
+          <View style={styles.historyHeader}>
+            <Ionicons name="time-outline" size={20} color={theme.accent} />
+            <Text style={[styles.historyTitle, { color: theme.textPrimary }]}>Past Check-Ins</Text>
+          </View>
+ 
+          {isLoading ? (
+            <ActivityIndicator color={theme.accent} style={{ marginTop: 20 }} />
+          ) : history.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={{ fontSize: 40 }}>📋</Text>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                No check-ins yet.{'\n'}Complete your first one above!
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={history}
+              keyExtractor={item => item.id}
+              renderItem={renderHistoryItem}
+              scrollEnabled={false}
+              contentContainerStyle={{ gap: 10 }}
+            />
+          )}
+ 
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </Animated.View>
+    </LinearGradient>
+  );
+};
+ 
+export default CheckInScreen;
+ 
+//Styles 
+ 
+const styles = StyleSheet.create({
+  container:   { flex: 1 },
+  content:     { flex: 1 },
+  scroll:      { padding: 20, paddingTop: 60 },
+  header:      { marginBottom: 20 },
+  title:       { fontSize: 28, fontWeight: '800', marginBottom: 6 },
+  subtitle:    { fontSize: 15, lineHeight: 22 },
+  formCard:    { padding: 20, borderRadius: 20, borderWidth: 1, marginBottom: 28 },
+  section:     { paddingVertical: 4 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  sectionTitle:  { fontSize: 17, fontWeight: '700' },
+  divider:     { height: 1, marginVertical: 16 },
+  saveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 20,
+    paddingVertical: 16,
+    borderRadius: 16,
+  },
+  saveBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  historyTitle: { fontSize: 20, fontWeight: '700' },
+  emptyState: { alignItems: 'center', gap: 10, paddingVertical: 30 },
+  emptyText:  { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+});
+ 
+const histStyles = StyleSheet.create({
+  card:  { padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 2 },
+  date:  { fontSize: 12, fontWeight: '600', marginBottom: 10 },
+  row:   { flexDirection: 'row', gap: 10 },
+  pill:  { flex: 1, alignItems: 'center', gap: 4 },
+  pillEmoji: { fontSize: 22 },
+  pillBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  pillText:  { fontSize: 11, fontWeight: '700' },
+});
+ 
+
       
