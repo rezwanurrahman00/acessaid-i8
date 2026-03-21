@@ -194,5 +194,108 @@ const CheckInScreen = () => {
         .eq('user_id', state.user.id)
         .order('created_at', { ascending: false })
         .limit(20);
+      
+      
+      if (error) throw error;
+ 
+      setHistory(data || []);
+ 
+      // Check if user already checked in today
+      if (data && data.length > 0) {
+        const latest = new Date(data[0].created_at);
+        const today  = new Date();
+        const sameDay =
+          latest.getFullYear() === today.getFullYear() &&
+          latest.getMonth()    === today.getMonth()    &&
+          latest.getDate()     === today.getDate();
+        setTodayDone(sameDay);
+      }
+    } catch (err) {
+      console.warn('CheckIn: failed to load history:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [state.user?.id]);
+ 
+  //  On mount  
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    loadHistory();
+    speak('Daily check-in screen. How are you feeling today?');
+  }, []);
+ 
+  // Save check-in  
+  const handleSubmit = async () => {
+    if (mood === null || pain === null || energy === null) {
+      Alert.alert('Almost there!', 'Please select an option for mood, pain, and energy.');
+      speak('Please fill in all three sections before saving.');
+      return;
+    }
+ 
+    setIsSaving(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+ 
+    try {
+      const { error } = await supabase.from('check_ins').insert({
+        user_id: state.user!.id,
+        mood,
+        pain,
+        energy,
+      });
+ 
+      if (error) throw error;
+ 
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      speak(`Check-in saved. Mood ${moodLabel(mood)}, pain ${painLabel(pain)}, energy ${energyLabel(energy)}.`);
+      setTodayDone(true);
+      setMood(null);
+      setPain(null);
+      setEnergy(null);
+      await loadHistory();
+    } catch (err) {
+      console.warn('CheckIn: save failed:', err);
+      Alert.alert('Save failed', 'Could not save your check-in. Please try again.');
+      speak('Save failed. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+ 
+  // History item  
+  const renderHistoryItem = ({ item }: { item: CheckIn }) => (
+    <ModernCard variant="elevated" style={[histStyles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+      <Text style={[histStyles.date, { color: theme.textSecondary }]}>{formatDate(item.created_at)}</Text>
+      <View style={histStyles.row}>
+        {/* Mood */}
+        <View style={histStyles.pill}>
+          <Text style={histStyles.pillEmoji}>{moodEmoji(item.mood)}</Text>
+          <View style={[histStyles.pillBadge, { backgroundColor: moodColor(item.mood) + '22' }]}>
+            <Text style={[histStyles.pillText, { color: moodColor(item.mood) }]}>{moodLabel(item.mood)}</Text>
+          </View>
+        </View>
+        {/* Pain */}
+        <View style={histStyles.pill}>
+          <Text style={histStyles.pillEmoji}>{painEmoji(item.pain)}</Text>
+          <View style={[histStyles.pillBadge, { backgroundColor: painColor(item.pain) + '22' }]}>
+            <Text style={[histStyles.pillText, { color: painColor(item.pain) }]}>{painLabel(item.pain)}</Text>
+          </View>
+        </View>
+        {/* Energy */}
+        <View style={histStyles.pill}>
+          <Text style={histStyles.pillEmoji}>{energyEmoji(item.energy)}</Text>
+          <View style={[histStyles.pillBadge, { backgroundColor: energyColor(item.energy) + '22' }]}>
+            <Text style={[histStyles.pillText, { color: energyColor(item.energy) }]}>{energyLabel(item.energy)}</Text>
+          </View>
+        </View>
+      </View>
+    </ModernCard>
+  );
+ 
+  //  Render 
+  return (
+    <LinearGradient colors={theme.gradient as any} style={styles.container}>
+      <BackgroundLogo />
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
       
