@@ -11,6 +11,7 @@ import { getThemeConfig } from '../../constants/theme';
 import { RootStackParamList, MainTabParamList } from '../types';
 import SOSButton from '../components/SOSButton';
 
+
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 // Screen imports
@@ -19,6 +20,7 @@ import AccessibilitySetupScreen from '../screens/AccessibilitySetupScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ReminderScreen from '../screens/ReminderScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import CheckInScreen from '../screens/CheckInScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -38,6 +40,8 @@ const MainTabNavigator = () => {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Reminders') {
             iconName = focused ? 'alarm' : 'alarm-outline';
+          } else if (route.name === 'CheckIn') {
+            iconName = focused ? 'heart' : 'heart-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           } else {
@@ -87,6 +91,14 @@ const MainTabNavigator = () => {
         options={{
           title: 'Reminders',
           tabBarAccessibilityLabel: 'Reminders screen',
+        }}
+      />
+      <Tab.Screen
+        name="CheckIn"
+        component={CheckInScreen}
+        options={{
+          title: 'Check In',
+          tabBarAccessibilityLabel: 'Daily wellness check-in screen',
         }}
       />
       <Tab.Screen 
