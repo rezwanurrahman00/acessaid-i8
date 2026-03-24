@@ -55,6 +55,7 @@ export type RootStackParamList = {
   AccessibilitySetup: undefined;
   Main: undefined;
   AccessiblePlaces: undefined;
+  HealthDashboard: undefined;
 };
 
 export type MainTabParamList = {

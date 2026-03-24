@@ -34,6 +34,7 @@ import { ModernCard } from '../components/ModernCard';
 import { useApp } from '../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
 import { voiceManager } from '../utils/voiceCommandManager';
+import { navigationRef } from '../navigation/AppNavigator';
 
 //  Types  
 type MoodOption = { emoji: string; label: string; value: number; color: string };
@@ -311,7 +312,7 @@ const CheckInScreen = () => {
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-           {/* Header */}
+          {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: theme.textPrimary }]}>Daily Check-In</Text>
             <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
@@ -319,6 +320,24 @@ const CheckInScreen = () => {
                 ? "✅ You've checked in today — keep it up!"
                 : 'How are you feeling right now?'}
             </Text>
+
+            {/* Dashboard card */}
+            <TouchableOpacity
+              onPress={() => navigationRef.current?.navigate('HealthDashboard')}
+              style={styles.dashCard}
+              accessibilityLabel="View health dashboard"
+            >
+              <View style={styles.dashCardLeft}>
+                <View style={styles.dashIconWrap}>
+                  <Ionicons name="stats-chart" size={22} color="#7C3AED" />
+                </View>
+                <View>
+                  <Text style={styles.dashCardTitle}>Health Dashboard</Text>
+                  <Text style={styles.dashCardSub}>Charts · Streaks · Report</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#7C3AED" />
+            </TouchableOpacity>
           </View>
  
           {/* Form card */}
@@ -462,6 +481,19 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   saveBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  dashCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#fff', borderRadius: 16, padding: 14, marginTop: 14,
+    shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15, shadowRadius: 10, elevation: 5,
+  },
+  dashCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dashIconWrap: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center',
+  },
+  dashCardTitle: { fontSize: 15, fontWeight: '700', color: '#1F2937' },
+  dashCardSub:   { fontSize: 12, color: '#7C3AED', fontWeight: '600', marginTop: 2 },
   historyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
