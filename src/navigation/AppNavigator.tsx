@@ -21,6 +21,7 @@ import HomeScreen from '../screens/HomeScreen';
 import ReminderScreen from '../screens/ReminderScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import CheckInScreen from '../screens/CheckInScreen';
+import AIAssistantScreen from '../screens/AIAssistantScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -42,6 +43,8 @@ const MainTabNavigator = () => {
             iconName = focused ? 'alarm' : 'alarm-outline';
           } else if (route.name === 'CheckIn') {
             iconName = focused ? 'heart' : 'heart-outline';
+          } else if (route.name === 'Assistant') {
+            iconName = focused ? 'sparkles' : 'sparkles-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           } else {
@@ -101,8 +104,16 @@ const MainTabNavigator = () => {
           tabBarAccessibilityLabel: 'Daily wellness check-in screen',
         }}
       />
-      <Tab.Screen 
-        name="Profile" 
+      <Tab.Screen
+        name="Assistant"
+        component={AIAssistantScreen}
+        options={{
+          title: 'Assistant',
+          tabBarAccessibilityLabel: 'AI health assistant screen',
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
         component={ProfileScreen}
         options={{
           title: 'Profile',

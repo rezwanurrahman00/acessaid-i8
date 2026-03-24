@@ -59,5 +59,6 @@ export type MainTabParamList = {
   Home: undefined;
   Reminders: { prefillDescription?: string } | undefined;
   CheckIn: undefined;
+  Assistant: undefined;
   Profile: undefined;
 };
