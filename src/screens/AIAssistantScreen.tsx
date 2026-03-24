@@ -8,6 +8,14 @@ import * as Haptics from 'expo-haptics';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Speech from 'expo-speech';
+
+// Conditional import — not available in Expo Go
+let ExpoSpeechRecognitionModule: any = null;
+try {
+  ExpoSpeechRecognitionModule = require('expo-speech-recognition').ExpoSpeechRecognitionModule;
+} catch {
+  // running in Expo Go — voice input disabled
+}
 import React, {
   useCallback,
   useEffect,
@@ -190,11 +198,52 @@ const AIAssistantScreen = () => {
   const isDark = state.accessibilitySettings.isDarkMode;
   const theme  = useMemo(() => getThemeConfig(isDark), [isDark]);
 
-  const [messages,  setMessages]  = useState<Message[]>([]);
-  const [input,     setInput]     = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [messages,     setMessages]     = useState<Message[]>([]);
+  const [input,        setInput]        = useState('');
+  const [isLoading,    setIsLoading]    = useState(false);
+  const [isListening,  setIsListening]  = useState(false);
 
   const listRef = useRef<FlatList>(null);
+
+  const toggleMic = useCallback(async () => {
+    if (!ExpoSpeechRecognitionModule) {
+      Alert.alert('Not available', 'Voice input requires a development build.\n\nnpx expo run:ios\nnpx expo run:android');
+      return;
+    }
+    if (isListening) {
+      ExpoSpeechRecognitionModule.stop();
+      setIsListening(false);
+      return;
+    }
+    try {
+      const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!granted) { Alert.alert('Permission needed', 'Microphone access is required for voice input.'); return; }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setIsListening(true);
+
+      const resultSub = ExpoSpeechRecognitionModule.addListener('result', (e: any) => {
+        const transcript = e.results?.[0]?.transcript ?? '';
+        if (transcript) setInput(prev => (prev ? prev + ' ' + transcript : transcript));
+      });
+      const endSub = ExpoSpeechRecognitionModule.addListener('end', () => {
+        setIsListening(false);
+        resultSub.remove();
+        endSub.remove();
+        errorSub.remove();
+      });
+      const errorSub = ExpoSpeechRecognitionModule.addListener('error', () => {
+        setIsListening(false);
+        resultSub.remove();
+        endSub.remove();
+        errorSub.remove();
+      });
+
+      await ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: false, continuous: false });
+    } catch (e) {
+      console.warn('Speech recognition error:', e);
+      setIsListening(false);
+    }
+  }, [isListening]);
 
   const speak = useCallback((text: string) => {
     if (!state.voiceAnnouncementsEnabled) return;
@@ -385,6 +434,19 @@ const AIAssistantScreen = () => {
               accessibilityLabel="Send image"
             >
               <Ionicons name="image-outline" size={22} color={theme.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={toggleMic}
+              disabled={isLoading}
+              style={[styles.inputIcon, isListening && { backgroundColor: theme.accent + '22', borderRadius: 18 }]}
+              accessibilityLabel={isListening ? 'Stop recording' : 'Voice input'}
+            >
+              <Ionicons
+                name={isListening ? 'mic' : 'mic-outline'}
+                size={22}
+                color={isListening ? theme.accent : theme.textMuted}
+              />
             </TouchableOpacity>
 
             <TextInput
