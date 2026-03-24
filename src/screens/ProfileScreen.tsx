@@ -18,7 +18,9 @@ import {
   Dimensions,
   Image,
   Modal,
+  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -27,9 +29,6 @@ import {
   View,
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
-import { BackgroundLogo } from '../components/BackgroundLogo';
-import { ModernButton } from '../components/ModernButton';
-import { ModernCard } from '../components/ModernCard';
 import { TouchSlider } from '../components/TouchSlider';
 import { useApp } from '../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
@@ -67,91 +66,42 @@ const getVoiceSpeedLabel = (value: number): string => {
   return 'Fast';
 };
 
-// Components
-interface ProfileSectionProps {
-  title: string;
-  children: React.ReactNode;
-  icon?: string;
-}
+// ── Reusable sub-components ────────────────────────────────────────────────
 
-const ProfileSection: React.FC<ProfileSectionProps> = ({ title, children, icon }) => {
-  const { state } = useApp();
-  const isDarkMode = state.accessibilitySettings.isDarkMode;
-  const theme = getThemeConfig(isDarkMode);
-  
-  return (
-    <ModernCard variant="elevated" style={createSectionStyle(theme)}>
-      <View style={styles.sectionHeaderContainer}>
-        {icon && (
-          <View style={styles.sectionIconContainer}>
-            <Ionicons name={icon as any} size={22} color={theme.accent} />
-          </View>
-        )}
-        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>{title}</Text>
-      </View>
-      {children}
-    </ModernCard>
-  );
-};
-
-interface ProfileFieldProps {
+interface InfoRowProps {
+  icon: string;
+  color: string;
   label: string;
   value: string;
-  onChangeText: (text: string) => void;
-  placeholder: string;
-  multiline?: boolean;
-  keyboardType?: 'default' | 'email-address' | 'numeric';
-  accessibilityLabel: string;
-  editable?: boolean;
+  isLast?: boolean;
+  theme: AppTheme;
 }
 
-const ProfileField: React.FC<ProfileFieldProps> = ({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  multiline = false,
-  keyboardType = 'default',
-  accessibilityLabel,
-  editable = false,
-}) => {
-  const { state } = useApp();
-  const isDarkMode = state.accessibilitySettings.isDarkMode;
-  const theme = getThemeConfig(isDarkMode);
-  
-  return (
-    <View style={styles.fieldContainer}>
-      <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>{label}</Text>
-      <TextInput
-        style={[
-          styles.textInput,
-          multiline && styles.multilineInput,
-          editable
-            ? {
-                borderColor: theme.inputBorder,
-                backgroundColor: theme.inputBackground,
-                color: theme.textPrimary,
-              }
-            : {
-                borderColor: 'transparent',
-                backgroundColor: 'transparent',
-                color: theme.textSecondary,
-              },
-        ]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={theme.placeholder}
-        multiline={multiline}
-        numberOfLines={multiline ? 3 : 1}
-        keyboardType={keyboardType}
-        textAlignVertical={multiline ? 'top' : 'center'}
-        accessibilityLabel={accessibilityLabel}
-        editable={editable}
-      />
+const InfoRow: React.FC<InfoRowProps> = ({ icon, color, label, value, isLast = false, theme }) => (
+  <View style={[s.row, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}>
+    <View style={[s.rowIcon, { backgroundColor: color + '22' }]}>
+      <Ionicons name={icon as any} size={16} color={color} />
     </View>
-  );
-};
+    <View style={s.rowContent}>
+      <Text style={[s.rowLabel, { color: theme.textMuted }]}>{label}</Text>
+      <Text style={[s.rowValue, { color: theme.textPrimary }]} numberOfLines={2}>{value}</Text>
+    </View>
+  </View>
+);
+
+interface AppInfoRowProps {
+  label: string;
+  value: string;
+  isLast?: boolean;
+  theme: AppTheme;
+}
+
+const AppInfoRow: React.FC<AppInfoRowProps> = ({ label, value, isLast = false, theme }) => (
+  <View style={[s.infoSimpleRow, !isLast && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder }]}>
+    <Text style={[s.infoSimpleLabel, { color: theme.textMuted }]}>{label}</Text>
+    <Text style={[s.infoSimpleValue, { color: theme.textPrimary }]}>{value}</Text>
+  </View>
+);
 
 interface JoinDateModalProps {
   visible: boolean;
@@ -163,18 +113,18 @@ interface JoinDateModalProps {
 
 const JoinDateModal: React.FC<JoinDateModalProps> = ({ visible, onClose, theme, joinDate, formattedJoinDate }) => (
   <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
-    <View style={styles.modalBackdrop}>
-      <TouchableOpacity style={styles.modalBackdropTouchable} onPress={onClose} accessible={false}>
+    <View style={s.modalBackdrop}>
+      <TouchableOpacity style={s.modalBackdropTouchable} onPress={onClose} accessible={false}>
         <View />
       </TouchableOpacity>
-      <View style={[styles.joinDateModal, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-        <View style={styles.modalHeaderRow}>
-          <View style={[styles.calendarBadge, { backgroundColor: theme.accent }]}>
+      <View style={[s.joinDateModal, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+        <View style={s.modalHeaderRow}>
+          <View style={[s.calendarBadge, { backgroundColor: theme.accent }]}>
             <Ionicons name="calendar" size={20} color="white" />
           </View>
-          <View style={styles.modalHeaderTextWrapper}>
-            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Membership details</Text>
-            <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>Tap anywhere outside to close</Text>
+          <View style={s.modalHeaderTextWrapper}>
+            <Text style={[s.modalTitle, { color: theme.textPrimary }]}>Membership details</Text>
+            <Text style={[s.modalSubtitle, { color: theme.textSecondary }]}>Tap anywhere outside to close</Text>
           </View>
           <TouchableOpacity
             onPress={onClose}
@@ -185,19 +135,19 @@ const JoinDateModal: React.FC<JoinDateModalProps> = ({ visible, onClose, theme, 
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.calendarCard, { backgroundColor: theme.inputBackground, borderColor: theme.cardBorder }]}>
-          <Text style={[styles.calendarMonth, { color: theme.accent }]}>
+        <View style={[s.calendarCard, { backgroundColor: theme.inputBackground, borderColor: theme.cardBorder }]}>
+          <Text style={[s.calendarMonth, { color: theme.accent }]}>
             {joinDate ? joinDate.toLocaleString(undefined, { month: 'short' }) : '--'}
           </Text>
-          <Text style={[styles.calendarDay, { color: theme.textPrimary }]}>
+          <Text style={[s.calendarDay, { color: theme.textPrimary }]}>
             {joinDate ? joinDate.getDate() : '--'}
           </Text>
-          <Text style={[styles.calendarYear, { color: theme.textSecondary }]}>
+          <Text style={[s.calendarYear, { color: theme.textSecondary }]}>
             {joinDate ? joinDate.getFullYear() : 'N/A'}
           </Text>
         </View>
 
-        <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
+        <Text style={[s.modalDescription, { color: theme.textSecondary }]}>
           {joinDate ? `You joined AccessAid on ${formattedJoinDate}.` : 'We could not find your join date yet.'}
         </Text>
       </View>
@@ -205,8 +155,8 @@ const JoinDateModal: React.FC<JoinDateModalProps> = ({ visible, onClose, theme, 
   </Modal>
 );
 
+// ── Main Component ─────────────────────────────────────────────────────────
 
-// Main Component
 const ProfileScreen = () => {
   const { state, dispatch } = useApp();
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
@@ -302,8 +252,6 @@ const ProfileScreen = () => {
   );
 
   // Sync profileData from context whenever AppContext updates user fields asynchronously
-  // (e.g. after the Supabase profiles fetch that runs on login restores avatar_url / name / bio).
-  // Skip while the user is actively editing so we don't overwrite their in-progress changes.
   useEffect(() => {
     if (isEditingPersonal) return;
     setProfileData(prev => ({
@@ -572,155 +520,27 @@ const ProfileScreen = () => {
     setProfileData({ ...profileData, [field]: value });
   };
 
-  const renderHeroHeader = () => (
-    <Animated.View
-      style={[
-        styles.heroHeader,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
-        },
-      ]}
-    >
-      <LinearGradient
-        colors={
-          (isDarkMode
-            ? ['rgba(74, 144, 226, 0.3)', 'rgba(106, 90, 205, 0.3)', 'rgba(74, 144, 226, 0.2)']
-            : ['rgba(74, 144, 226, 0.15)', 'rgba(106, 90, 205, 0.15)', 'rgba(74, 144, 226, 0.1)']) as any
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroGradient}
-      >
-        <Animated.View
-          style={[styles.profileHeaderContent, { transform: [{ scale: profileScaleAnim }] }]}
-        >
-          <View style={styles.profilePictureHeroContainer}>
-            <View style={styles.profileRing}>
-              <View style={[styles.profileRingInner, { borderColor: theme.accent }]} />
-            </View>
-            <TouchableOpacity
-              style={styles.profilePictureHeroWrapper}
-              onPress={handleProfilePicture}
-              disabled={isUploadingPhoto}
-              accessibilityLabel="Profile picture"
-            >
-              {profileData.profilePhoto ? (
-                <Image source={{ uri: profileData.profilePhoto }} style={styles.profilePictureHero} />
-              ) : (
-                <LinearGradient colors={[theme.accent, '#357ABD']} style={styles.profilePictureHeroPlaceholder}>
-                  <Ionicons name="person" size={50} color="white" />
-                </LinearGradient>
-              )}
-              {isUploadingPhoto && (
-                <View style={styles.photoUploadOverlay}>
-                  <ActivityIndicator size="large" color="white" />
-                </View>
-              )}
-              <View style={[styles.profileEditBadge, { backgroundColor: theme.accent }]}>
-                {isUploadingPhoto
-                  ? <ActivityIndicator size="small" color="white" />
-                  : <Ionicons name="camera" size={16} color="white" />}
-              </View>
-            </TouchableOpacity>
-          </View>
+  // ── Health info rows config ──
+  const healthRows = [
+    { icon: 'barbell-outline',  color: '#FF7043', label: 'Weight',     value: profileData.weight },
+    { icon: 'resize-outline',   color: '#AB47BC', label: 'Height',     value: profileData.height },
+    { icon: 'water-outline',    color: '#E53935', label: 'Blood Group',value: profileData.bloodGroup },
+    { icon: 'warning-outline',  color: '#FFA726', label: 'Allergies',  value: profileData.allergies },
+    { icon: 'medkit-outline',   color: '#26A69A', label: 'Conditions', value: profileData.medicalConditions },
+    { icon: 'flask-outline',    color: '#42A5F5', label: 'Medications',value: profileData.medications },
+  ].filter(r => r.value);
 
-          <View style={styles.userInfoHero}>
-            <Text style={[styles.userNameHero, { color: theme.textPrimary }]}>{state.user?.name || 'User'}</Text>
-            <View style={styles.userMetaRow}>
-              <Ionicons name="mail-outline" size={14} color={theme.textSecondary} />
-              <Text style={[styles.userEmailHero, { color: theme.textSecondary }]}>
-                {state.user?.email || 'user@example.com'}
-              </Text>
-            </View>
-            <View style={styles.userStatsRow}>
-              <View style={[styles.statBadge, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-                <Ionicons name="shield-checkmark" size={14} color={theme.accent} />
-                <Text style={[styles.statText, { color: theme.textPrimary }]}>Verified</Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.statBadge, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
-                onPress={() => setIsJoinDateModalVisible(true)}
-                accessibilityLabel="Membership status"
-                accessibilityHint="Shows the date you joined"
-              >
-                <Ionicons name="calendar-outline" size={14} color={theme.accent} />
-                <Text style={[styles.statText, { color: theme.textPrimary }]}>Member</Text>
-            </TouchableOpacity>
+  const emergencyRows = [
+    { icon: 'person-outline',   color: '#D32F2F', label: 'Contact',      value: profileData.emergencyContactName },
+    { icon: 'heart-outline',    color: '#D32F2F', label: 'Relationship', value: profileData.emergencyContactRelationship },
+    { icon: 'call-outline',     color: '#D32F2F', label: 'Phone',        value: profileData.emergencyContactPhone },
+  ].filter(r => r.value);
 
-          </View>
-         </View>
-
-    
-        </Animated.View>
-
-      </LinearGradient>
-    </Animated.View>
-  );
-
-  const renderStatsCards = () => {
-    const stats = [
-      { icon: 'settings-outline', value: `${state.accessibilitySettings.brightness}%`, label: 'Brightness', color: theme.accent },
-      { icon: 'text-outline', value: `${state.accessibilitySettings.textZoom}%`, label: 'Text Size', color: '#6A5ACD' },
-      { icon: 'volume-high-outline', value: `${state.accessibilitySettings.voiceSpeed.toFixed(1)}x`, label: 'Voice Speed', color: '#42BB66' },
-    ];
-
-    const getGradientColors = (isDark: boolean) => {
-      return [
-        [isDark ? 'rgba(74, 144, 226, 0.2)' : 'rgba(74, 144, 226, 0.1)', isDark ? 'rgba(74, 144, 226, 0.1)' : 'rgba(74, 144, 226, 0.05)'],
-        [isDark ? 'rgba(106, 90, 205, 0.2)' : 'rgba(106, 90, 205, 0.1)', isDark ? 'rgba(106, 90, 205, 0.1)' : 'rgba(106, 90, 205, 0.05)'],
-        [isDark ? 'rgba(66, 187, 102, 0.2)' : 'rgba(66, 187, 102, 0.1)', isDark ? 'rgba(66, 187, 102, 0.1)' : 'rgba(66, 187, 102, 0.05)'],
-      ];
-    };
-
-    const gradientColors = getGradientColors(isDarkMode);
-
-    return (
-      <Animated.View style={[styles.statsContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        {stats.map((stat, index) => (
-          <ModernCard key={stat.label} variant="elevated" style={styles.statCard}>
-            <LinearGradient colors={gradientColors[index] as any} style={styles.statCardGradient}>
-              <Ionicons name={stat.icon as any} size={28} color={stat.color} />
-              <Text style={[styles.statNumber, { color: theme.textPrimary }]}>{stat.value}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{stat.label}</Text>
-            </LinearGradient>
-          </ModernCard>
-        ))}
-      </Animated.View>
-    );
-  };
-
-  const renderSettingCard = (
-    icon: string,
-    iconColor: string,
-    title: string,
-    value: string,
-    children: React.ReactNode,
-    gradientColors: string[]
-  ) => (
-    <ModernCard 
-      variant="elevated" 
-      style={{
-        ...styles.settingCardEnhanced,
-        borderColor: theme.cardBorder,
-      } as any}
-    >
-      <LinearGradient colors={gradientColors as any} style={styles.settingCardGradient}>
-        <View style={styles.settingHeader}>
-          <View style={[styles.settingIconWrapper, { backgroundColor: `${iconColor}33` }]}>
-            <Ionicons name={icon as any} size={26} color={iconColor} />
-          </View>
-          <View style={styles.settingHeaderText}>
-            <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>{title}</Text>
-            <Text style={[styles.settingValue, { color: theme.accent, backgroundColor: theme.tagBackground }]}>
-              {value}
-            </Text>
-          </View>
-        </View>
-        {children}
-      </LinearGradient>
-    </ModernCard>
-  );
+  const profileRows = [
+    ...(profileData.bio ? [{ icon: 'document-text-outline', color: theme.accent, label: 'Bio', value: profileData.bio }] : []),
+    ...healthRows,
+    ...emergencyRows,
+  ];
 
   return (
     <>
@@ -732,113 +552,281 @@ const ProfileScreen = () => {
         formattedJoinDate={formattedJoinDate}
       />
 
-      <LinearGradient colors={theme.gradient as any} style={styles.container}>
-        <BackgroundLogo />
-        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-          <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false} scrollEnabled={scrollEnabled}>
-            {renderHeroHeader()}
+      <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.background} />
 
-            {/* ── Emergency Card button ── */}
+        <Animated.View style={[s.flex, { opacity: fadeAnim }]}>
+          <ScrollView
+            scrollEnabled={scrollEnabled}
+            contentContainerStyle={s.scroll}
+            showsVerticalScrollIndicator={false}
+          >
+
+            {/* ── Hero ── */}
+            <View style={s.hero}>
+              <TouchableOpacity
+                onPress={handleProfilePicture}
+                disabled={isUploadingPhoto}
+                accessibilityLabel="Profile picture"
+                style={s.avatarWrap}
+              >
+                <LinearGradient
+                  colors={[theme.accent, '#357ABD']}
+                  style={s.avatarRing}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  {profileData.profilePhoto ? (
+                    <Image source={{ uri: profileData.profilePhoto }} style={s.avatarImg} />
+                  ) : (
+                    <View style={[s.avatarPlaceholder, { backgroundColor: theme.cardBackground }]}>
+                      <Ionicons name="person" size={46} color={theme.accent} />
+                    </View>
+                  )}
+                  {isUploadingPhoto && (
+                    <View style={s.avatarOverlay}>
+                      <ActivityIndicator size="large" color="white" />
+                    </View>
+                  )}
+                </LinearGradient>
+                <View style={[s.cameraBadge, { backgroundColor: theme.accent }]}>
+                  {isUploadingPhoto
+                    ? <ActivityIndicator size="small" color="white" />
+                    : <Ionicons name="camera" size={14} color="white" />}
+                </View>
+              </TouchableOpacity>
+
+              <Text style={[s.heroName, { color: theme.textPrimary }]}>
+                {state.user?.name || 'User'}
+              </Text>
+              <Text style={[s.heroEmail, { color: theme.textMuted }]}>
+                {state.user?.email || 'user@example.com'}
+              </Text>
+
+              <View style={s.heroBadges}>
+                <View style={[s.badge, { backgroundColor: theme.accent + '22' }]}>
+                  <Ionicons name="shield-checkmark" size={12} color={theme.accent} />
+                  <Text style={[s.badgeText, { color: theme.accent }]}>Verified</Text>
+                </View>
+                <TouchableOpacity
+                  style={[s.badge, { backgroundColor: '#10b981' + '22' }]}
+                  onPress={() => setIsJoinDateModalVisible(true)}
+                  accessibilityLabel="Membership status"
+                  accessibilityHint="Shows the date you joined"
+                >
+                  <Ionicons name="calendar-outline" size={12} color="#10b981" />
+                  <Text style={[s.badgeText, { color: '#10b981' }]}>Member</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* ── Emergency Card banner ── */}
             <TouchableOpacity
               onPress={() => navigationRef.current?.navigate('EmergencyCard')}
-              style={styles.emergencyCardBtn}
+              style={s.emergencyBtn}
               accessibilityLabel="Open emergency card"
             >
-              <LinearGradient colors={['#DC2626', '#EF4444']} style={styles.emergencyCardGrad}>
-                <View style={styles.emergencyCardLeft}>
-                  <View style={styles.emergencyCardIcon}>
+              <LinearGradient
+                colors={['#DC2626', '#EF4444']}
+                style={s.emergencyGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <View style={s.emergencyLeft}>
+                  <View style={s.emergencyIcon}>
                     <Text style={{ fontSize: 22 }}>🆘</Text>
                   </View>
                   <View>
-                    <Text style={styles.emergencyCardTitle}>Emergency Card</Text>
-                    <Text style={styles.emergencyCardSub}>Blood type · Allergies · Emergency contact</Text>
+                    <Text style={s.emergencyTitle}>Emergency Card</Text>
+                    <Text style={s.emergencySub}>Blood type · Allergies · Emergency contact</Text>
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* ── Edit Profile Modal ── */}
-            <Modal visible={isEditingPersonal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsEditingPersonal(false)}>
-              <View style={[styles.editModalContainer, { backgroundColor: theme.background }]}>
-                {/* Modal header */}
-                <View style={[styles.editModalHeader, { borderBottomColor: theme.cardBorder, backgroundColor: theme.cardBackground }]}>
-                  <TouchableOpacity style={styles.editModalHeaderBtn} onPress={() => setIsEditingPersonal(false)}>
-                    <Text style={[styles.editModalCancelText, { color: theme.textSecondary }]}>Cancel</Text>
-                  </TouchableOpacity>
-                  <Text style={[styles.editModalTitle, { color: theme.textPrimary }]}>Edit Profile</Text>
-                  <TouchableOpacity style={styles.editModalHeaderBtn} onPress={() => handleSaveProfile()} disabled={isSaving}>
-                    {isSaving ? <ActivityIndicator size="small" color={theme.accent} /> : <Text style={[styles.editModalSaveText, { color: '#2E7D32' }]}>Save</Text>}
-                  </TouchableOpacity>
+            {/* ── Profile Information ── */}
+            <View style={s.section}>
+              <Text style={[s.sectionLabel, { color: theme.textMuted }]}>PROFILE</Text>
+
+              {/* Prominent Edit Profile button */}
+              <TouchableOpacity
+                onPress={() => setIsEditingPersonal(true)}
+                accessibilityLabel="Edit profile"
+                style={[s.editProfileBtn, { backgroundColor: theme.cardBackground, borderColor: theme.accent + '55' }]}
+              >
+                <View style={[s.editProfileIconWrap, { backgroundColor: theme.accent + '18' }]}>
+                  <Ionicons name="person-circle-outline" size={22} color={theme.accent} />
+                </View>
+                <View style={s.editProfileTextWrap}>
+                  <Text style={[s.editProfileTitle, { color: theme.textPrimary }]}>Edit Profile</Text>
+                  <Text style={[s.editProfileSub, { color: theme.textMuted }]}>Update health info, emergency contact & more</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={theme.accent} />
+              </TouchableOpacity>
+
+              <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+                {profileRows.length === 0 ? (
+                  <View style={s.emptyState}>
+                    <Ionicons name="person-circle-outline" size={32} color={theme.textMuted} />
+                    <Text style={[s.emptyStateText, { color: theme.textMuted }]}>
+                      Tap Edit to add your health information.
+                    </Text>
+                  </View>
+                ) : (
+                  profileRows.map((row, idx) => (
+                    <InfoRow
+                      key={row.label}
+                      icon={row.icon}
+                      color={row.color}
+                      label={row.label}
+                      value={row.value}
+                      isLast={idx === profileRows.length - 1}
+                      theme={theme}
+                    />
+                  ))
+                )}
+              </View>
+            </View>
+
+            {/* ── Accessibility ── */}
+            <View style={s.section}>
+              <Text style={[s.sectionLabel, { color: theme.textMuted }]}>ACCESSIBILITY</Text>
+              <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+
+                {/* Brightness */}
+                <View style={s.sliderRow}>
+                  <View style={[s.rowIcon, { backgroundColor: '#FFA726' + '22' }]}>
+                    <Ionicons name="sunny" size={16} color="#FFA726" />
+                  </View>
+                  <View style={s.sliderContent}>
+                    <View style={s.sliderHeaderRow}>
+                      <Text style={[s.rowLabel, { color: theme.textPrimary }]}>Brightness</Text>
+                      <View style={[s.valuePill, { backgroundColor: theme.accent + '22' }]}>
+                        <Text style={[s.valuePillText, { color: theme.accent }]}>
+                          {getBrightnessLabel(brightnessValue)}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchSlider
+                      value={brightnessValue}
+                      min={0}
+                      max={100}
+                      onValueChange={(value) => {
+                        brightnessDragRef.current = value;
+                        setBrightnessValue(value);
+                        if (brightnessDebounceRef.current) clearTimeout(brightnessDebounceRef.current);
+                        brightnessDebounceRef.current = setTimeout(() => {
+                          Brightness.setBrightnessAsync(value / 100);
+                        }, 50);
+                      }}
+                      onSlidingStart={() => setScrollEnabled(false)}
+                      onSlidingComplete={() => {
+                        setScrollEnabled(true);
+                        handleAccessibilityChange('brightness', brightnessDragRef.current);
+                      }}
+                      levelLabels={['Low', 'Medium', 'High', 'Max']}
+                      unit="%"
+                      accessibilityLabel="Brightness slider"
+                    />
+                  </View>
                 </View>
 
-                <ScrollView contentContainerStyle={styles.editModalScroll} keyboardShouldPersistTaps="handled">
-                  {/* Health Info section label */}
-                  <Text style={[styles.editModalSectionLabel, { color: theme.textSecondary }]}>HEALTH INFO</Text>
+                <View style={[s.divider, { backgroundColor: theme.cardBorder }]} />
 
-                  {[
-                    { field: 'name',              label: 'Full Name',           placeholder: 'Enter your full name',         multiline: false, keyboard: 'default'     },
-                    { field: 'bio',               label: 'About Me',            placeholder: 'A short bio about yourself',   multiline: true,  keyboard: 'default'     },
-                    { field: 'weight',             label: 'Weight',              placeholder: 'e.g., 70 kg',                  multiline: false, keyboard: 'default'     },
-                    { field: 'height',             label: 'Height',              placeholder: 'e.g., 170 cm',                 multiline: false, keyboard: 'default'     },
-                    { field: 'bloodGroup',         label: 'Blood Group',         placeholder: 'e.g., O+',                     multiline: false, keyboard: 'default'     },
-                    { field: 'allergies',          label: 'Allergies',           placeholder: 'List any allergies',           multiline: true,  keyboard: 'default'     },
-                    { field: 'medicalConditions',  label: 'Medical Conditions',  placeholder: 'e.g., Diabetes, Hypertension', multiline: true,  keyboard: 'default'     },
-                    { field: 'medications',        label: 'Current Medications', placeholder: 'e.g., Metformin 500mg daily',  multiline: true,  keyboard: 'default'     },
-                  ].map(({ field, label, placeholder, multiline, keyboard }) => (
-                    <View key={field} style={[styles.editModalField, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-                      <Text style={[styles.editModalFieldLabel, { color: theme.textSecondary }]}>{label}</Text>
-                      <View style={styles.fieldRow}>
-                        <TextInput
-                          style={[styles.editModalInput, multiline && styles.editModalInputMultiline, { color: theme.textPrimary }]}
-                          value={(profileData as any)[field]}
-                          onChangeText={(t) => updateProfileField(field as any, t)}
-                          placeholder={placeholder}
-                          placeholderTextColor={theme.placeholder}
-                          multiline={multiline}
-                          numberOfLines={multiline ? 3 : 1}
-                          textAlignVertical={multiline ? 'top' : 'center'}
-                          keyboardType={keyboard as any}
-                        />
-                        <TouchableOpacity style={[styles.micButton, listeningField === field && styles.micButtonActive]} onPress={() => startVoiceInput(field)}>
-                          <Ionicons name={listeningField === field ? 'mic' : 'mic-outline'} size={20} color={listeningField === field ? 'white' : theme.accent} />
-                        </TouchableOpacity>
+                {/* Text Size */}
+                <View style={s.sliderRow}>
+                  <View style={[s.rowIcon, { backgroundColor: '#42A5F5' + '22' }]}>
+                    <Ionicons name="text" size={16} color="#42A5F5" />
+                  </View>
+                  <View style={s.sliderContent}>
+                    <View style={s.sliderHeaderRow}>
+                      <Text style={[s.rowLabel, { color: theme.textPrimary }]}>Text Size</Text>
+                      <View style={[s.valuePill, { backgroundColor: theme.accent + '22' }]}>
+                        <Text style={[s.valuePillText, { color: theme.accent }]}>
+                          {getTextZoomLabel(textZoomValue)}
+                        </Text>
                       </View>
                     </View>
-                  ))}
+                    <TouchSlider
+                      value={textZoomValue}
+                      min={80}
+                      max={180}
+                      onValueChange={(value) => {
+                        textZoomDragRef.current = value;
+                        setTextZoomValue(value);
+                      }}
+                      onSlidingStart={() => setScrollEnabled(false)}
+                      onSlidingComplete={() => {
+                        setScrollEnabled(true);
+                        handleAccessibilityChange('textZoom', textZoomDragRef.current);
+                      }}
+                      levelLabels={['Small', 'Normal', 'Large', 'XL']}
+                      unit="%"
+                      accessibilityLabel="Text size slider"
+                    />
+                  </View>
+                </View>
 
-                  {/* Emergency Contact section label */}
-                  <Text style={[styles.editModalSectionLabel, { color: theme.textSecondary, marginTop: 24 }]}>EMERGENCY CONTACT</Text>
+                <View style={[s.divider, { backgroundColor: theme.cardBorder }]} />
 
-                  {[
-                    { field: 'emergencyContactName',         label: 'Contact Name',  placeholder: 'e.g., Jane Doe',             keyboard: 'default'   },
-                    { field: 'emergencyContactRelationship', label: 'Relationship',  placeholder: 'e.g., Mother, Friend, Carer', keyboard: 'default'   },
-                    { field: 'emergencyContactPhone',        label: 'Phone Number',  placeholder: 'e.g., +1 555 000 0000',       keyboard: 'phone-pad' },
-                  ].map(({ field, label, placeholder, keyboard }) => (
-                    <View key={field} style={[styles.editModalField, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-                      <Text style={[styles.editModalFieldLabel, { color: theme.textSecondary }]}>{label}</Text>
-                      <View style={styles.fieldRow}>
-                        <TextInput
-                          style={[styles.editModalInput, { color: theme.textPrimary }]}
-                          value={(profileData as any)[field]}
-                          onChangeText={(t) => updateProfileField(field as any, t)}
-                          placeholder={placeholder}
-                          placeholderTextColor={theme.placeholder}
-                          keyboardType={keyboard as any}
-                        />
-                        <TouchableOpacity style={[styles.micButton, listeningField === field && styles.micButtonActive]} onPress={() => startVoiceInput(field)}>
-                          <Ionicons name={listeningField === field ? 'mic' : 'mic-outline'} size={20} color={listeningField === field ? 'white' : theme.accent} />
-                        </TouchableOpacity>
+                {/* Voice Speed */}
+                <View style={s.sliderRow}>
+                  <View style={[s.rowIcon, { backgroundColor: '#66BB6A' + '22' }]}>
+                    <Ionicons name="volume-high" size={16} color="#66BB6A" />
+                  </View>
+                  <View style={s.sliderContent}>
+                    <View style={s.sliderHeaderRow}>
+                      <Text style={[s.rowLabel, { color: theme.textPrimary }]}>Voice Speed</Text>
+                      <View style={[s.valuePill, { backgroundColor: theme.accent + '22' }]}>
+                        <Text style={[s.valuePillText, { color: theme.accent }]}>
+                          {getVoiceSpeedLabel(voiceSpeedValue)}
+                        </Text>
                       </View>
                     </View>
-                  ))}
+                    <TouchSlider
+                      value={voiceSpeedValue}
+                      min={0.5}
+                      max={2.0}
+                      step={0.1}
+                      onValueChange={(value) => {
+                        voiceSpeedDragRef.current = value;
+                        setVoiceSpeedValue(value);
+                      }}
+                      onSlidingStart={() => setScrollEnabled(false)}
+                      onSlidingComplete={() => {
+                        setScrollEnabled(true);
+                        handleAccessibilityChange('voiceSpeed', voiceSpeedDragRef.current);
+                      }}
+                      levelLabels={['Slow', 'Normal', 'Fast']}
+                      unit="x"
+                      accessibilityLabel="Voice speed slider"
+                    />
+                  </View>
+                </View>
 
-                  <View style={{ height: 40 }} />
-                </ScrollView>
+                <View style={[s.divider, { backgroundColor: theme.cardBorder }]} />
+
+                {/* Dark Mode */}
+                <View style={s.darkModeRow}>
+                  <View style={[s.rowIcon, { backgroundColor: '#6366f1' + '22' }]}>
+                    <Ionicons name="moon" size={16} color="#6366f1" />
+                  </View>
+                  <Text style={[s.darkModeLabel, { color: theme.textPrimary }]}>Dark Mode</Text>
+                  <Switch
+                    value={isDarkMode}
+                    onValueChange={handleDarkModeToggle}
+                    trackColor={{ false: theme.inputBorder, true: theme.accent }}
+                    thumbColor={isDarkMode ? theme.accent : '#FFFFFF'}
+                    ios_backgroundColor={theme.inputBorder}
+                    accessibilityLabel="Dark mode toggle"
+                  />
+                </View>
+
               </View>
-            </Modal>
+            </View>
 
-            {/* ── Community / Social Section ── */}
+            {/* ── Community / Social ── */}
             {state.user && (
               <SocialSection
                 userId={state.user.id}
@@ -859,292 +847,480 @@ const ProfileScreen = () => {
               />
             )}
 
-            <ProfileSection title="Profile Information" icon="person-outline">
-              {/* Edit button */}
-              <View style={styles.cardActionRow}>
-                <TouchableOpacity style={[styles.cardActionBtn, { borderColor: theme.cardBorder }]} onPress={() => setIsEditingPersonal(true)}>
-                  <Ionicons name="create-outline" size={18} color={theme.accent} />
-                  <Text style={[styles.cardActionBtnText, { color: theme.accent }]}>Edit</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Personal identity block */}
-              <View style={styles.personalBlock}>
-                {profileData.profilePhoto ? (
-                  <Image source={{ uri: profileData.profilePhoto }} style={styles.personalAvatar} />
-                ) : (
-                  <LinearGradient colors={[theme.accent, '#357ABD']} style={styles.personalAvatarPlaceholder}>
-                    <Ionicons name="person" size={22} color="white" />
-                  </LinearGradient>
-                )}
-                <View style={styles.personalInfo}>
-                  <Text style={[styles.personalName, { color: theme.textPrimary }]} numberOfLines={1}>
-                    {profileData.name || 'Tap Edit to add your name'}
-                  </Text>
-                  <View style={styles.personalEmailRow}>
-                    <Ionicons name="mail-outline" size={13} color={theme.textSecondary} />
-                    <Text style={[styles.personalEmail, { color: theme.textSecondary }]} numberOfLines={1}>
-                      {profileData.email || state.user?.email || ''}
-                    </Text>
-                  </View>
-                  {profileData.bio ? (
-                    <Text style={[styles.personalBio, { color: theme.textSecondary }]} numberOfLines={2}>
-                      {profileData.bio}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-
-              {/* Health info divider label */}
-              {(profileData.weight || profileData.height || profileData.bloodGroup || profileData.allergies || profileData.medicalConditions || profileData.medications) ? (
-                <Text style={[styles.subSectionLabel, { color: theme.textSecondary }]}>HEALTH INFO</Text>
-              ) : null}
-
-              {/* Compact health icon rows */}
-              {[
-                { icon: 'barbell-outline', color: '#FF7043', bg: 'rgba(255,112,67,0.12)',  label: 'Weight',      value: profileData.weight },
-                { icon: 'resize-outline',  color: '#AB47BC', bg: 'rgba(171,71,188,0.12)', label: 'Height',      value: profileData.height },
-                { icon: 'water-outline',   color: '#E53935', bg: 'rgba(229,57,53,0.12)',   label: 'Blood Group', value: profileData.bloodGroup },
-                { icon: 'warning-outline', color: '#FFA726', bg: 'rgba(255,167,38,0.12)',  label: 'Allergies',   value: profileData.allergies },
-                { icon: 'medkit-outline',  color: '#26A69A', bg: 'rgba(38,166,154,0.12)',  label: 'Conditions',  value: profileData.medicalConditions },
-                { icon: 'flask-outline',   color: '#42A5F5', bg: 'rgba(66,165,245,0.12)',  label: 'Medications', value: profileData.medications },
-              ].map(row => row.value ? (
-                <View key={row.label} style={styles.infoRow}>
-                  <View style={[styles.infoRowIcon, { backgroundColor: row.bg }]}>
-                    <Ionicons name={row.icon as any} size={15} color={row.color} />
-                  </View>
-                  <Text style={[styles.infoRowLabel, { color: theme.textSecondary }]}>{row.label}</Text>
-                  <Text style={[styles.infoRowValue, { color: theme.textPrimary }]} numberOfLines={2}>{row.value}</Text>
-                </View>
-              ) : null)}
-
-              {/* Emergency contact divider */}
-              <View style={[styles.sectionDivider, { borderColor: theme.cardBorder }]}>
-                <View style={[styles.sectionDividerLine, { backgroundColor: theme.cardBorder }]} />
-                <View style={[styles.sectionDividerBadge, { backgroundColor: '#D32F2F' }]}>
-                  <Ionicons name="call" size={12} color="white" />
-                  <Text style={styles.sectionDividerText}>Emergency Contact</Text>
-                </View>
-                <View style={[styles.sectionDividerLine, { backgroundColor: theme.cardBorder }]} />
-              </View>
-
-              {(profileData.emergencyContactName || profileData.emergencyContactPhone) ? (
-                <View style={styles.emergencyContactDisplay}>
-                  <View style={[styles.emergencyContactAvatar, { backgroundColor: '#D32F2F' }]}>
-                    <Ionicons name="person" size={24} color="white" />
-                  </View>
-                  <View style={styles.emergencyContactInfo}>
-                    <Text style={[styles.emergencyContactName, { color: theme.textPrimary }]}>
-                      {profileData.emergencyContactName || 'Unknown'}
-                    </Text>
-                    {profileData.emergencyContactRelationship ? (
-                      <Text style={[styles.emergencyContactRelLabel, { color: '#D32F2F' }]}>{profileData.emergencyContactRelationship}</Text>
-                    ) : null}
-                    {profileData.emergencyContactPhone ? (
-                      <View style={styles.emergencyContactPhoneRow}>
-                        <Ionicons name="call-outline" size={13} color={theme.textSecondary} />
-                        <Text style={[styles.emergencyContactPhoneText, { color: theme.textSecondary }]}>{profileData.emergencyContactPhone}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.emergencyContactEmpty}>
-                  <Ionicons name="alert-circle-outline" size={26} color={theme.textMuted} />
-                  <Text style={[styles.emergencyContactEmptyText, { color: theme.textMuted }]}>
-                    No emergency contact set.{'\n'}Tap Edit to add one.
-                  </Text>
-                </View>
-              )}
-          </ProfileSection>
-
-          <ProfileSection title="Accessibility Settings" icon="accessibility-outline">
-            {renderSettingCard(
-              'sunny',
-              '#FFA726',
-              'Display Brightness',
-              `${brightnessValue}% • ${getBrightnessLabel(brightnessValue)}`,
-              (
-                <>
-                  <TouchSlider
-                    value={brightnessValue}
-                    min={0}
-                    max={100}
-                    onValueChange={(value) => {
-                      // During drag: update local display + debounced live brightness.
-                      // Debounce the native call so it fires at most every 50ms,
-                      // preventing excessive native bridge calls during fast drags.
-                      brightnessDragRef.current = value;
-                      setBrightnessValue(value);
-                      if (brightnessDebounceRef.current) clearTimeout(brightnessDebounceRef.current);
-                      brightnessDebounceRef.current = setTimeout(() => {
-                        Brightness.setBrightnessAsync(value / 100);
-                      }, 50);
-                    }}
-                    onSlidingStart={() => setScrollEnabled(false)}
-                    onSlidingComplete={() => {
-                      setScrollEnabled(true);
-                      handleAccessibilityChange('brightness', brightnessDragRef.current);
-                    }}
-                    levelLabels={['Low', 'Medium', 'High', 'Max']}
-                    unit="%"
-                    accessibilityLabel="Brightness slider"
-                  />
-                  <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
-                    Adjust screen brightness for comfortable viewing
-                  </Text>
-                </>
-              ),
-              isDarkMode
-                ? ['rgba(255, 167, 38, 0.15)', 'rgba(255, 167, 38, 0.05)']
-                : ['rgba(255, 167, 38, 0.1)', 'rgba(255, 167, 38, 0.03)']
-            )}
-
-            {renderSettingCard(
-              'text',
-              '#42A5F5',
-              'Text Size',
-              `${textZoomValue}% • ${getTextZoomLabel(textZoomValue)}`,
-              (
-                <>
-                  <TouchSlider
-                    value={textZoomValue}
-                    min={80}
-                    max={180}
-                    onValueChange={(value) => {
-                      // During drag: local display only. Dispatching textZoom mid-drag causes
-                      // text reflow → page height changes → ScrollView jumps.
-                      textZoomDragRef.current = value;
-                      setTextZoomValue(value);
-                    }}
-                    onSlidingStart={() => setScrollEnabled(false)}
-                    onSlidingComplete={() => {
-                      setScrollEnabled(true);
-                      handleAccessibilityChange('textZoom', textZoomDragRef.current);
-                    }}
-                    levelLabels={['Small', 'Normal', 'Large', 'XL']}
-                    unit="%"
-                    accessibilityLabel="Text size slider"
-                  />
-                  <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
-                    Make text larger or smaller for better readability
-                  </Text>
-                </>
-              ),
-              isDarkMode
-                ? ['rgba(66, 165, 245, 0.15)', 'rgba(66, 165, 245, 0.05)']
-                : ['rgba(66, 165, 245, 0.1)', 'rgba(66, 165, 245, 0.03)']
-            )}
-
-            {renderSettingCard(
-              'volume-high',
-              '#66BB6A',
-              'Voice Speed',
-              `${voiceSpeedValue.toFixed(1)}x • ${getVoiceSpeedLabel(voiceSpeedValue)}`,
-              (
-                <>
-                  <TouchSlider
-                    value={voiceSpeedValue}
-                    min={0.5}
-                    max={2.0}
-                    step={0.1}
-                    onValueChange={(value) => {
-                      // During drag: local display only.
-                      voiceSpeedDragRef.current = value;
-                      setVoiceSpeedValue(value);
-                    }}
-                    onSlidingStart={() => setScrollEnabled(false)}
-                    onSlidingComplete={() => {
-                      setScrollEnabled(true);
-                      handleAccessibilityChange('voiceSpeed', voiceSpeedDragRef.current);
-                    }}
-                    levelLabels={['Slow', 'Normal', 'Fast']}
-                    unit="x"
-                    accessibilityLabel="Voice speed slider"
-                  />
-                  <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
-                    Control how fast text is spoken aloud
-                  </Text>
-                </>
-              ),
-              isDarkMode
-                ? ['rgba(102, 187, 106, 0.15)', 'rgba(102, 187, 106, 0.05)']
-                : ['rgba(102, 187, 106, 0.1)', 'rgba(102, 187, 106, 0.03)']
-            )}
-
-            <View style={styles.switchContainer}>
-              <Text style={[styles.switchLabel, { color: theme.textPrimary }]}>Dark Mode</Text>
-              <Switch
-                value={isDarkMode}
-                onValueChange={handleDarkModeToggle}
-                trackColor={{ false: theme.inputBorder, true: theme.accent }}
-                thumbColor={isDarkMode ? theme.accent : '#FFFFFF'}
-                ios_backgroundColor={theme.inputBorder}
-                accessibilityLabel="Dark mode toggle"
-              />
-            </View>
-          </ProfileSection>
-
-          <ProfileSection title="App Information" icon="information-circle-outline">
-            <View style={styles.infoContainer}>
-              <View style={styles.infoItem}>
-                <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Version</Text>
-                <Text style={[styles.infoValue, { color: theme.textPrimary }]}>1.0.0</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Account Created</Text>
-                <Text style={[styles.infoValue, { color: theme.textPrimary }]}>
-                  {formattedJoinDate}
-                </Text>
+            {/* ── App Info ── */}
+            <View style={s.section}>
+              <Text style={[s.sectionLabel, { color: theme.textMuted }]}>ABOUT</Text>
+              <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+                <AppInfoRow label="Version" value="1.0.0" theme={theme} />
+                <AppInfoRow label="Member Since" value={formattedJoinDate} isLast theme={theme} />
               </View>
             </View>
-          </ProfileSection>
 
-          <ModernButton
-            title="Logout"
-            onPress={handleLogout}
-            variant="danger"
-            size="large"
-            icon={<Ionicons name="log-out-outline" size={20} color="white" />}
-            style={styles.logoutButton}
-          />
-        </ScrollView>
-      </Animated.View>
-    </LinearGradient>
+            {/* ── Logout ── */}
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={s.logoutBtn}
+              accessibilityLabel="Sign out"
+            >
+              <LinearGradient
+                colors={['#ef4444', '#dc2626']}
+                style={s.logoutGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="log-out-outline" size={20} color="white" />
+                <Text style={s.logoutText}>Sign Out</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </Animated.View>
+      </SafeAreaView>
+
+      {/* ── Edit Profile Modal (pageSheet) ── */}
+      <Modal
+        visible={isEditingPersonal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsEditingPersonal(false)}
+      >
+        <View style={[s.editModalContainer, { backgroundColor: theme.background }]}>
+          {/* Modal header */}
+          <View style={[s.editModalHeader, { borderBottomColor: theme.cardBorder, backgroundColor: theme.cardBackground }]}>
+            <TouchableOpacity style={s.editModalHeaderBtn} onPress={() => setIsEditingPersonal(false)}>
+              <Text style={[s.editModalCancelText, { color: theme.textSecondary }]}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={[s.editModalTitle, { color: theme.textPrimary }]}>Edit Profile</Text>
+            <TouchableOpacity style={s.editModalHeaderBtn} onPress={() => handleSaveProfile()} disabled={isSaving}>
+              {isSaving
+                ? <ActivityIndicator size="small" color={theme.accent} />
+                : <Text style={[s.editModalSaveText, { color: '#2E7D32' }]}>Save</Text>}
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={s.editModalScroll} keyboardShouldPersistTaps="handled">
+            {/* Health Info section label */}
+            <Text style={[s.editModalSectionLabel, { color: theme.textSecondary }]}>HEALTH INFO</Text>
+
+            {[
+              { field: 'name',             label: 'Full Name',           placeholder: 'Enter your full name',         multiline: false, keyboard: 'default'     },
+              { field: 'bio',              label: 'About Me',            placeholder: 'A short bio about yourself',   multiline: true,  keyboard: 'default'     },
+              { field: 'weight',           label: 'Weight',              placeholder: 'e.g., 70 kg',                  multiline: false, keyboard: 'default'     },
+              { field: 'height',           label: 'Height',              placeholder: 'e.g., 170 cm',                 multiline: false, keyboard: 'default'     },
+              { field: 'bloodGroup',       label: 'Blood Group',         placeholder: 'e.g., O+',                     multiline: false, keyboard: 'default'     },
+              { field: 'allergies',        label: 'Allergies',           placeholder: 'List any allergies',           multiline: true,  keyboard: 'default'     },
+              { field: 'medicalConditions',label: 'Medical Conditions',  placeholder: 'e.g., Diabetes, Hypertension', multiline: true,  keyboard: 'default'     },
+              { field: 'medications',      label: 'Current Medications', placeholder: 'e.g., Metformin 500mg daily',  multiline: true,  keyboard: 'default'     },
+            ].map(({ field, label, placeholder, multiline, keyboard }) => (
+              <View key={field} style={[s.editModalField, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+                <Text style={[s.editModalFieldLabel, { color: theme.textSecondary }]}>{label}</Text>
+                <View style={s.fieldRow}>
+                  <TextInput
+                    style={[s.editModalInput, multiline && s.editModalInputMultiline, { color: theme.textPrimary }]}
+                    value={(profileData as any)[field]}
+                    onChangeText={(t) => updateProfileField(field as any, t)}
+                    placeholder={placeholder}
+                    placeholderTextColor={theme.placeholder}
+                    multiline={multiline}
+                    numberOfLines={multiline ? 3 : 1}
+                    textAlignVertical={multiline ? 'top' : 'center'}
+                    keyboardType={keyboard as any}
+                  />
+                  <TouchableOpacity
+                    style={[s.micButton, listeningField === field && s.micButtonActive]}
+                    onPress={() => startVoiceInput(field)}
+                  >
+                    <Ionicons
+                      name={listeningField === field ? 'mic' : 'mic-outline'}
+                      size={20}
+                      color={listeningField === field ? 'white' : theme.accent}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+
+            {/* Emergency Contact section label */}
+            <Text style={[s.editModalSectionLabel, { color: theme.textSecondary, marginTop: 24 }]}>EMERGENCY CONTACT</Text>
+
+            {[
+              { field: 'emergencyContactName',         label: 'Contact Name',  placeholder: 'e.g., Jane Doe',             keyboard: 'default'   },
+              { field: 'emergencyContactRelationship', label: 'Relationship',  placeholder: 'e.g., Mother, Friend, Carer', keyboard: 'default'   },
+              { field: 'emergencyContactPhone',        label: 'Phone Number',  placeholder: 'e.g., +1 555 000 0000',       keyboard: 'phone-pad' },
+            ].map(({ field, label, placeholder, keyboard }) => (
+              <View key={field} style={[s.editModalField, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+                <Text style={[s.editModalFieldLabel, { color: theme.textSecondary }]}>{label}</Text>
+                <View style={s.fieldRow}>
+                  <TextInput
+                    style={[s.editModalInput, { color: theme.textPrimary }]}
+                    value={(profileData as any)[field]}
+                    onChangeText={(t) => updateProfileField(field as any, t)}
+                    placeholder={placeholder}
+                    placeholderTextColor={theme.placeholder}
+                    keyboardType={keyboard as any}
+                  />
+                  <TouchableOpacity
+                    style={[s.micButton, listeningField === field && s.micButtonActive]}
+                    onPress={() => startVoiceInput(field)}
+                  >
+                    <Ionicons
+                      name={listeningField === field ? 'mic' : 'mic-outline'}
+                      size={20}
+                      color={listeningField === field ? 'white' : theme.accent}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </View>
+      </Modal>
     </>
   );
-  
 };
 
 export default ProfileScreen;
 
-// Styles
-const createSectionStyle = (theme: AppTheme) => ({
-  padding: 20,
-  marginBottom: 20,
-  backgroundColor: theme.cardBackground,
-  borderRadius: 20,
-  borderWidth: theme.isDark ? 1 : 0.5,
-  borderColor: theme.cardBorder,
-  shadowColor: theme.cardShadow,
-  shadowOffset: { width: 0, height: theme.isDark ? 6 : 3 },
-  shadowOpacity: theme.isDark ? 0.35 : 0.1,
-  shadowRadius: theme.isDark ? 16 : 8,
-  elevation: theme.isDark ? 8 : 4,
-});
+// ── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
+const s = StyleSheet.create({
+  safe: {
     flex: 1,
   },
-  content: {
+  flex: {
     flex: 1,
   },
-  scrollContainer: {
-    flexGrow: 1,
+  scroll: {
+    paddingBottom: 20,
+  },
+
+  // ── Hero ──
+  hero: {
+    alignItems: 'center',
+    paddingTop: 32,
+    paddingBottom: 24,
     paddingHorizontal: 20,
-    paddingVertical: 20,
   },
+  avatarWrap: {
+    marginBottom: 16,
+    position: 'relative',
+  },
+  avatarRing: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    padding: 3,
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 57,
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 57,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 57,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: 'white',
+  },
+  heroName: {
+    fontSize: 26,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  heroEmail: {
+    fontSize: 14,
+    marginTop: 4,
+    marginBottom: 14,
+    textAlign: 'center',
+  },
+  heroBadges: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // ── Emergency banner ──
+  emergencyBtn: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  emergencyGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  emergencyLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  emergencyIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emergencyTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  emergencySub: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  // ── Section wrapper ──
+  section: {
+    marginHorizontal: 16,
+    marginTop: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  editBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // ── Edit Profile prominent button ──
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  editProfileIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editProfileTextWrap: {
+    flex: 1,
+  },
+  editProfileTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  editProfileSub: {
+    fontSize: 12,
+  },
+
+  // ── Card ──
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  // ── Info row (profile data) ──
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  rowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  rowContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  rowLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    width: 88,
+  },
+  rowValue: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'right',
+    lineHeight: 20,
+  },
+
+  // ── Empty state ──
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    gap: 10,
+    paddingHorizontal: 20,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  // ── Slider rows ──
+  sliderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  sliderContent: {
+    flex: 1,
+  },
+  sliderHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  valuePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  valuePillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // ── Divider ──
+  divider: {
+    height: 1,
+    marginHorizontal: 14,
+  },
+
+  // ── Dark mode row ──
+  darkModeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  darkModeLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+
+  // ── App info rows ──
+  infoSimpleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  infoSimpleLabel: {
+    fontSize: 15,
+    fontWeight: '400',
+  },
+  infoSimpleValue: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+
+  // ── Logout ──
+  logoutBtn: {
+    marginHorizontal: 16,
+    marginTop: 28,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  logoutGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 10,
+  },
+  logoutText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+
+  // ── JoinDate modal ──
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -1217,527 +1393,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
   },
-  heroHeader: {
-    marginBottom: 20,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginHorizontal: 20,
-    marginTop: 20,
-  },
-  heroGradient: {
-    padding: 24,
-  },
-  profileHeaderContent: {
-    alignItems: 'center',
-  },
-  profilePictureHeroContainer: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  profileRing: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    top: -5,
-    left: -5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileRingInner: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 70,
-    borderWidth: 3,
-    borderStyle: 'dashed',
-    opacity: 0.5,
-  },
-  profilePictureHeroWrapper: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    overflow: 'hidden',
-    borderWidth: 4,
-    borderColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  profilePictureHero: {
-    width: '100%',
-    height: '100%',
-  },
-  profilePictureHeroPlaceholder: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileEditBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  userInfoHero: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  userNameHero: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  userMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 6,
-  },
-  userEmailHero: {
-    fontSize: 15,
-    textAlign: 'center',
-  },
-  userStatsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  statBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-    borderWidth: 1,
-  },
-  statText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  heroActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-    justifyContent: 'center',
-  },
-  heroActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    gap: 8,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  heroActionButtonPrimary: {
-    borderWidth: 0,
-    overflow: 'hidden',
-    shadowColor: '#4A90E2',
-    shadowOpacity: 0.3,
-  },
-  heroActionButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  heroActionText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  heroActionTextPrimary: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: 'white',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginHorizontal: 20,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    padding: 0,
-    overflow: 'hidden',
-  },
-  statCardGradient: {
-    padding: 20,
-    alignItems: 'center',
-    minHeight: 120,
-    justifyContent: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  sectionHeaderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  sectionIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(74, 144, 226, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    flex: 1,
-  },
-  fieldContainer: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  textInput: {
-    borderWidth: 2,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  multilineInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfField: {
-    flex: 1,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    paddingVertical: 8,
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  infoContainer: {
-    gap: 12,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  infoLabel: {
-    fontSize: 16,
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    marginTop: 20,
-  },
-  photoUploadOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 65,
-  },
-  settingCardEnhanced: {
-    marginBottom: 16,
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 1,
-  },
-  settingCardGradient: {
-    padding: 20,
-  },
-  settingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  settingIconWrapper: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  settingHeaderText: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  settingValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  settingDescription: {
-    fontSize: 13,
-    marginTop: 16,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
 
-  // Voice-to-text mic button
-  fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  textInputFlex: {
-    flex: 1,
-  },
-  micButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(74,144,226,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  micButtonActive: {
-    backgroundColor: '#E53935',
-  },
-
-  // Per-card Edit / Save / Cancel row
-  cardActionRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginBottom: 16,
-  },
-  cardActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    borderWidth: 1.5,
-  },
-  cardActionBtnPrimary: {
-    backgroundColor: '#2E7D32',
-    borderColor: '#2E7D32',
-  },
-  cardActionBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  cardActionBtnTextPrimary: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: 'white',
-  },
-
-  // Compact read-only icon rows
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 7,
-    gap: 10,
-  },
-  infoRowIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  infoRowLabel: {
-    width: 90,
-    fontSize: 13,
-    fontWeight: '600',
-    paddingTop: 5,
-  },
-  infoRowValue: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    paddingTop: 4,
-    lineHeight: 20,
-  },
-
-  // Section divider inside a merged card
-  sectionDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-    gap: 10,
-  },
-  sectionDividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  sectionDividerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  sectionDividerText: {
-    color: 'white',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-
-  // Emergency contact card
-  emergencyContactDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    paddingVertical: 8,
-  },
-  emergencyContactAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emergencyContactInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  emergencyContactName: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  emergencyContactRelLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  emergencyContactPhoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-  emergencyContactPhoneText: {
-    fontSize: 14,
-  },
-  emergencyContactEmpty: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    gap: 10,
-  },
-  emergencyContactEmptyText: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-
-  // Compact personal identity block
-  personalBlock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.07)',
-  },
-  personalAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-  },
-  personalAvatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  personalInfo: {
-    flex: 1,
-    gap: 3,
-  },
-  personalName: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  personalEmailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  personalEmail: {
-    fontSize: 13,
-    flex: 1,
-  },
-  personalBio: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 2,
-  },
-
-  // Small section label inside a card
-  subSectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 8,
-    marginTop: 2,
-  },
-
-  // Edit-profile modal (pageSheet)
+  // ── Edit Profile Modal ──
   editModalContainer: {
     flex: 1,
   },
@@ -1804,10 +1461,21 @@ const styles = StyleSheet.create({
     minHeight: 70,
     textAlignVertical: 'top',
   },
-  emergencyCardBtn: { marginHorizontal: 20, marginBottom: 16, borderRadius: 16, overflow: 'hidden' },
-  emergencyCardGrad: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
-  emergencyCardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  emergencyCardIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  emergencyCardTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  emergencyCardSub:   { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 },
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  micButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(74,144,226,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  micButtonActive: {
+    backgroundColor: '#E53935',
+  },
 });
