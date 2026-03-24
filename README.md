@@ -19,6 +19,7 @@ AccessAid is a React Native accessibility app built for persons with disabilitie
 | 👋 **Onboarding** | 5-slide animated walkthrough shown once after sign-up, introducing every key feature |
 | 🤖 **AI Health Assistant** | Groq/Llama-powered chat assistant for health, medication, and disability rights questions |
 | 💚 **Daily Check-Ins** | Log mood, pain, and energy daily; data stored in Supabase for health history |
+| 🗺️ **Accessible Places** | Find wheelchair-friendly restaurants, hospitals, pharmacies and more within 8 km — free, no API key |
 
 ---
 
@@ -435,6 +436,19 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - Standalone Check-In tab for logging daily mood, pain level, and energy
 - Data stored in Supabase `check_ins` table with full RLS
 - Voice command: say "save check in" to submit the form hands-free
+
+#### 🗺️ Accessible Places
+- New **Accessible Places** screen accessible from the Home tab via a feature card
+- Interactive map showing the user's current location with colour-coded pins:
+  - 🟢 Green = fully wheelchair accessible
+  - 🟡 Yellow = limited accessibility
+  - ⚫ Grey = accessibility status unknown
+- **5 category filters**: ♿ All, 🍽️ Food, 🏥 Hospitals, 💊 Pharmacy, 🚻 Toilets
+- Food category covers 12 amenity types: restaurant, café, fast food, bar, pub, food court, ice cream, canteen, juice bar, BBQ, beer garden
+- Results sorted by distance, each card shows name, type, address, wheelchair badge, and distance
+- **Navigate button** on every card — opens directions in Apple Maps (iOS) or Google Maps (Android)
+- **15-minute cache** so repeat visits and category switches load instantly
+- Search radius of **8 km** for wide coverage
 
 ---
 ### Sprint 7: Performance Optimization & Network Reliability ✅
