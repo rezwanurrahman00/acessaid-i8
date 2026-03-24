@@ -71,19 +71,20 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
 }
 
 function formatDistance(m: number) {
-  return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
+  const miles = m / 1609.344;
+  return miles < 0.1 ? `${Math.round(m)}m` : `${miles.toFixed(1)} mi`;
 }
 
 function wheelchairColor(w?: string) {
   if (w === 'yes') return '#22C55E';
   if (w === 'limited') return '#F59E0B';
-  return '#9CA3AF';
+  return null;
 }
 
 function wheelchairLabel(w?: string) {
   if (w === 'yes') return '✅ Accessible';
-  if (w === 'limited') return '⚠️ Limited';
-  return '❓ Unknown';
+  if (w === 'limited') return '⚠️ Limited Access';
+  return null;
 }
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
@@ -303,8 +304,8 @@ export default function AccessiblePlacesScreen() {
           <Text style={styles.bannerTitle}>Find Accessible Places</Text>
           <Text style={styles.bannerSub}>
             {places.length > 0
-              ? <><Text style={styles.bannerHighlight}>{places.length} places</Text> found within 8 km</>
-              : <>Searching within <Text style={styles.bannerHighlight}>8 km</Text> of you</>
+              ? <><Text style={styles.bannerHighlight}>{places.length} places</Text> found within 8 miles</>
+              : <>Searching within <Text style={styles.bannerHighlight}>8 miles</Text> of you</>
             }
           </Text>
           <View style={styles.bannerStats}>
@@ -315,10 +316,6 @@ export default function AccessiblePlacesScreen() {
             <View style={styles.bannerStat}>
               <View style={[styles.bannerDot, { backgroundColor: '#F59E0B' }]} />
               <Text style={styles.bannerStatText}>Limited</Text>
-            </View>
-            <View style={styles.bannerStat}>
-              <View style={[styles.bannerDot, { backgroundColor: '#9CA3AF' }]} />
-              <Text style={styles.bannerStatText}>Unknown</Text>
             </View>
           </View>
         </View>
@@ -368,7 +365,7 @@ export default function AccessiblePlacesScreen() {
               coordinate={{ latitude: place.lat, longitude: place.lon }}
               title={place.name}
               description={wheelchairLabel(place.wheelchair)}
-              pinColor={wheelchairColor(place.wheelchair)}
+              pinColor={wheelchairColor(place.wheelchair) ?? '#6B7280'}
               onPress={() => handlePlacePress(place)}
             />
           ))}
@@ -406,14 +403,16 @@ export default function AccessiblePlacesScreen() {
                 <Text style={styles.placeType}>{item.type.replace(/_/g, ' ')}</Text>
                 {item.address ? <Text style={styles.placeAddress}>{item.address}</Text> : null}
                 <View style={styles.badgeRow}>
-                  <View style={[styles.badge, {
-                    backgroundColor: wheelchairColor(item.wheelchair) + '22',
-                    borderColor: wheelchairColor(item.wheelchair),
-                  }]}>
-                    <Text style={[styles.badgeText, { color: wheelchairColor(item.wheelchair) }]}>
-                      {wheelchairLabel(item.wheelchair)}
-                    </Text>
-                  </View>
+                  {wheelchairLabel(item.wheelchair) !== null && (
+                    <View style={[styles.badge, {
+                      backgroundColor: (wheelchairColor(item.wheelchair) ?? '#9CA3AF') + '22',
+                      borderColor: wheelchairColor(item.wheelchair) ?? '#9CA3AF',
+                    }]}>
+                      <Text style={[styles.badgeText, { color: wheelchairColor(item.wheelchair) ?? '#9CA3AF' }]}>
+                        {wheelchairLabel(item.wheelchair)}
+                      </Text>
+                    </View>
+                  )}
                   {item.distance !== undefined && (
                     <Text style={styles.distance}>{formatDistance(item.distance)}</Text>
                   )}
