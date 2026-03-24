@@ -2,6 +2,15 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { AppProvider } from './src/contexts/AppContext';
+
+// Must be set at module level — controls how notifications appear when app is foregrounded
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import AppNavigator, { navigationRef } from './src/navigation/AppNavigator';
 import { NetworkBanner } from './src/components/NetworkBanner';

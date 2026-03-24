@@ -1106,7 +1106,7 @@ const ReminderScreen: React.FC = () => {
       const delayMs = Math.max(1, rem.datetime.getTime() - Date.now());
       await Notifications.scheduleNotificationAsync({
         content: { title: '⏰ Reminder', body: rem.title, sound: true, data: { reminderId: rem.id } },
-        trigger: ({ date: new Date(Date.now() + delayMs) } as unknown) as Notifications.NotificationTriggerInput,
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + delayMs) },
       });
     }
   };
@@ -1367,7 +1367,7 @@ const ReminderScreen: React.FC = () => {
             sound: true,
             data: { reminderId: reminder.id }
           },
-          trigger: ({ date: nextDate } as unknown) as Notifications.NotificationTriggerInput,
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: nextDate },
         });
       }
     }

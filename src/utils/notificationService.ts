@@ -73,7 +73,10 @@ export const scheduleForReminder = async (rem: NotifReminder): Promise<void> => 
         sound: true,
         data: { reminderId: rem.id },
       },
-      trigger: ({ date: rem.datetime } as unknown) as Notifications.NotificationTriggerInput,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: rem.datetime,
+      },
     });
     collectedIds.push(id);
   } catch (e) {
@@ -101,7 +104,10 @@ export const scheduleForReminder = async (rem: NotifReminder): Promise<void> => 
               sound: true,
               data: { reminderId: rem.id },
             },
-            trigger: ({ date: nextDate } as unknown) as Notifications.NotificationTriggerInput,
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.DATE,
+              date: nextDate,
+            },
           });
           collectedIds.push(id);
         } catch (e) {
