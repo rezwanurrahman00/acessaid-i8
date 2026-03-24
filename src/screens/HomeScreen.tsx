@@ -1010,6 +1010,14 @@ const HomeScreen = () => {
               gradientColors={['#7C3AED', '#A855F7']}
               accessibilityLabel="Find accessible places near you"
             />
+            <FeatureCard
+              title="Camera Guide"
+              description="Point camera to describe obstacles & safe paths"
+              icon="scan"
+              onPress={() => navigationRef.current?.navigate('CameraGuide')}
+              gradientColors={['#0ea5e9', '#6366f1']}
+              accessibilityLabel="AI camera guide for accessibility"
+            />
           </View>
 
           <QuickStatsCard

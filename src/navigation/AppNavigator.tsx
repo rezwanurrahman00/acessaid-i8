@@ -27,6 +27,7 @@ import AIAssistantScreen from '../screens/AIAssistantScreen';
 import AccessiblePlacesScreen from '../screens/AccessiblePlacesScreen';
 import HealthDashboardScreen from '../screens/HealthDashboardScreen';
 import EmergencyCardScreen from '../screens/EmergencyCardScreen';
+import CameraGuideScreen from '../screens/CameraGuideScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -218,6 +219,11 @@ const AppNavigator = () => {
             <Stack.Screen
               name="EmergencyCard"
               component={EmergencyCardScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="CameraGuide"
+              component={CameraGuideScreen}
               options={{ headerShown: false }}
             />
           </>
