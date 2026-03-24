@@ -35,6 +35,7 @@ import { useApp } from '../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
 import { voiceManager } from '../utils/voiceCommandManager';
 import SocialSection from '../../components/social/SocialSection';
+import { navigationRef } from '../navigation/AppNavigator';
 
 // Constants
 let ImagePicker: any = null;
@@ -736,6 +737,26 @@ const ProfileScreen = () => {
         <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
           <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false} scrollEnabled={scrollEnabled}>
             {renderHeroHeader()}
+
+            {/* ── Emergency Card button ── */}
+            <TouchableOpacity
+              onPress={() => navigationRef.current?.navigate('EmergencyCard')}
+              style={styles.emergencyCardBtn}
+              accessibilityLabel="Open emergency card"
+            >
+              <LinearGradient colors={['#DC2626', '#EF4444']} style={styles.emergencyCardGrad}>
+                <View style={styles.emergencyCardLeft}>
+                  <View style={styles.emergencyCardIcon}>
+                    <Text style={{ fontSize: 22 }}>🆘</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.emergencyCardTitle}>Emergency Card</Text>
+                    <Text style={styles.emergencyCardSub}>Blood type · Allergies · Emergency contact</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
+              </LinearGradient>
+            </TouchableOpacity>
 
             {/* ── Edit Profile Modal ── */}
             <Modal visible={isEditingPersonal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsEditingPersonal(false)}>
@@ -1783,4 +1804,10 @@ const styles = StyleSheet.create({
     minHeight: 70,
     textAlignVertical: 'top',
   },
+  emergencyCardBtn: { marginHorizontal: 20, marginBottom: 16, borderRadius: 16, overflow: 'hidden' },
+  emergencyCardGrad: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
+  emergencyCardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  emergencyCardIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  emergencyCardTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  emergencyCardSub:   { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 },
 });
