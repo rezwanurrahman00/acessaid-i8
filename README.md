@@ -16,6 +16,9 @@ AccessAid is a React Native accessibility app built for persons with disabilitie
 | 🔊 **TTS** | Full Text-to-Speech with adjustable speed and global toggle |
 | ♿ **Accessibility** | Dynamic text zoom, brightness control, improved dark mode, haptic feedback, screen reader support |
 | 🌐 **Community (Go Public)** | Opt-in public profile with disability tags, discover other users, send/receive connection requests, and real-time chat |
+| 👋 **Onboarding** | 5-slide animated walkthrough shown once after sign-up, introducing every key feature |
+| 🤖 **AI Health Assistant** | Groq/Llama-powered chat assistant for health, medication, and disability rights questions |
+| 💚 **Daily Check-Ins** | Log mood, pain, and energy daily; data stored in Supabase for health history |
 
 ---
 
@@ -404,7 +407,37 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - Emergency contact details are pulled from the user profile (name, phone, relationship)
 
 ---
-### Sprint 6: Performance Optimization & Network Reliability ✅
+### Sprint 6: Onboarding Experience & AI Assistant ✅
+
+**Goal**: Introduce new users to the app with a polished onboarding walkthrough, add a dedicated AI health assistant powered by Groq/Llama, and improve daily check-in tracking.
+
+**Completed**:
+
+#### 👋 Onboarding Walkthrough
+- Added 5-slide onboarding screen shown once after first sign-up
+- Each slide introduces a key feature: Welcome, Smart Reminders, AI Assistant, Daily Check-Ins, Community
+- Slide 1 includes a feature icon strip (Reminders, AI Chat, Check-ins, Community) for a quick overview
+- Animated fade transitions between slides with haptic feedback on each step
+- Skip button top-right for users who want to jump straight in
+- Progress dots at the bottom indicate current slide position
+- Dispatches `COMPLETE_ONBOARDING` action on finish; state persisted in AsyncStorage so it only shows once
+- Navigation flow updated: Login → Onboarding → Accessibility Setup → Main App
+
+#### 🤖 AI Health Assistant Tab
+- New dedicated **Assistant** tab powered by Groq REST API (`llama-3.3-70b-versatile`)
+- ChatGPT-style UI: user bubbles on the right, AI responses on the left with no background bubble
+- Animated 3-dot typing indicator while the AI is generating a response
+- Welcome screen with 4 quick-prompt cards shown before the first message
+- Voice command support: say "clear chat" or "new chat" to reset the conversation
+- System prompt tailored specifically for health, medication, and disability rights questions
+
+#### 💚 Daily Check-In Screen
+- Standalone Check-In tab for logging daily mood, pain level, and energy
+- Data stored in Supabase `check_ins` table with full RLS
+- Voice command: say "save check in" to submit the form hands-free
+
+---
+### Sprint 7: Performance Optimization & Network Reliability ✅
 
 **Goal**: Enhance performance optimization for real-time cloud interactions by adding network-aware sync management and offline/online user feedback.
 
