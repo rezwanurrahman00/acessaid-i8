@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NavigationProp } from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
+import type { MainTabParamList } from '../types';
+import { navigationRef } from '../navigation/AppNavigator';
 import Constants from 'expo-constants';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystemLegacy from 'expo-file-system/legacy';
@@ -28,7 +30,6 @@ import { BackgroundLogo } from '../components/BackgroundLogo';
 import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
 import { useApp } from '../contexts/AppContext';
-import type { MainTabParamList } from '../types';
 import { voiceManager } from '../utils/voiceCommandManager';
 
 
@@ -1000,6 +1001,14 @@ const HomeScreen = () => {
               }}
               gradientColors={isListening ? ['#4CAF50', '#45a049'] : ['#FF6B6B', '#E53E3E']}
               accessibilityLabel="Voice Commands feature"
+            />
+            <FeatureCard
+              title="Accessible Places"
+              description="Find wheelchair-friendly spots near you"
+              icon="location"
+              onPress={() => navigationRef.current?.navigate('AccessiblePlaces')}
+              gradientColors={['#7C3AED', '#A855F7']}
+              accessibilityLabel="Find accessible places near you"
             />
           </View>
 

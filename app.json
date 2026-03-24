@@ -22,7 +22,9 @@
         "NSCameraUsageDescription": "AccessAid uses the camera to capture images for AI text reading.",
         "NSPhotoLibraryUsageDescription": "AccessAid needs access to your photo library to pick images for text extraction.",
         "NSPhotoLibraryAddUsageDescription": "AccessAid saves processed images to your photo library.",
-        "NSMicrophoneUsageDescription": "AccessAid uses the microphone for voice commands and accessibility features."
+        "NSMicrophoneUsageDescription": "AccessAid uses the microphone for voice commands and accessibility features.",
+        "NSLocationWhenInUseUsageDescription": "AccessAid uses your location to find accessible places nearby.",
+        "NSLocationAlwaysUsageDescription": "AccessAid uses your location to find accessible places nearby."
       }
     },
     "android": {
@@ -35,7 +37,9 @@
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
       ],
       "softwareKeyboardLayoutMode": "pan"
     },
@@ -70,7 +74,13 @@
           "speechRecognitionPermission": "Allow AccessAid to recognize speech for voice commands."
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "AccessAid uses your location to find accessible places nearby."
+        }
+      ]
     ],
     "experiments": {
       "tsconfigPaths": true

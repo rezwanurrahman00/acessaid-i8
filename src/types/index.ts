@@ -54,6 +54,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   AccessibilitySetup: undefined;
   Main: undefined;
+  AccessiblePlaces: undefined;
 };
 
 export type MainTabParamList = {

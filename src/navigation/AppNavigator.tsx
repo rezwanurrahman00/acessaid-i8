@@ -24,6 +24,8 @@ import ReminderScreen from '../screens/ReminderScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import CheckInScreen from '../screens/CheckInScreen';
 import AIAssistantScreen from '../screens/AIAssistantScreen';
+import AccessiblePlacesScreen from '../screens/AccessiblePlacesScreen';
+
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -195,13 +197,18 @@ const AppNavigator = () => {
             options={{ title: 'Accessibility Setup', gestureEnabled: false }}
           />
         ) : (
-          <Stack.Screen 
-            name="Main" 
-            component={MainTabNavigator}
-            options={{
-              title: 'AccessAid',
-            }}
-          />
+          <>
+            <Stack.Screen
+              name="Main"
+              component={MainTabNavigator}
+              options={{ title: 'AccessAid' }}
+            />
+            <Stack.Screen
+              name="AccessiblePlaces"
+              component={AccessiblePlacesScreen}
+              options={{ headerShown: false }}
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
