@@ -40,6 +40,7 @@ export interface Message {
   connection_id: string;
   sender_id: string;
   content: string;
+  image_url?: string | null;
   created_at: string;
 }
 
@@ -242,10 +243,11 @@ export const sendMessage = async (
   connectionId: string,
   senderId: string,
   content: string,
+  imageUrl?: string | null,
 ) => {
   const { error } = await supabase
     .from('messages')
-    .insert({ connection_id: connectionId, sender_id: senderId, content });
+    .insert({ connection_id: connectionId, sender_id: senderId, content, image_url: imageUrl ?? null });
   if (error) throw error;
 };
 
