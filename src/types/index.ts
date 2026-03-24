@@ -51,6 +51,7 @@ export interface VoiceCommand {
 
 export type RootStackParamList = {
   Login: undefined;
+  Onboarding: undefined;
   AccessibilitySetup: undefined;
   Main: undefined;
 };

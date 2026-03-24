@@ -12,7 +12,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0F172A"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.accessaid.app",
@@ -67,7 +69,8 @@
           "microphonePermission": "Allow AccessAid to use the microphone for voice commands.",
           "speechRecognitionPermission": "Allow AccessAid to recognize speech for voice commands."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "tsconfigPaths": true

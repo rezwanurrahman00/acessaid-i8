@@ -33,6 +33,7 @@ import { BackgroundLogo } from '../components/BackgroundLogo';
 import { ModernCard } from '../components/ModernCard';
 import { useApp } from '../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
+import { voiceManager } from '../utils/voiceCommandManager';
 
 //  Types  
 type MoodOption = { emoji: string; label: string; value: number; color: string };
@@ -217,11 +218,23 @@ const CheckInScreen = () => {
     }
   }, [state.user?.id]);
  
-  //  On mount  
+  //  On mount
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
     loadHistory();
-    speak('Daily check-in screen. How are you feeling today?');
+    voiceManager.announceScreenChange('checkin');
+
+    // Screen-specific voice commands
+    voiceManager.addCommand({
+      keywords: ['save check in', 'submit check in', 'log check in'],
+      description: 'Save your daily check-in',
+      category: 'general',
+      action: () => { handleSubmit(); },
+    });
+
+    return () => {
+      voiceManager.removeCommand(['save check in', 'submit check in', 'log check in']);
+    };
   }, []);
  
   // Save check-in  

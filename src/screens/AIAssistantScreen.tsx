@@ -33,6 +33,7 @@ import {
 import { getThemeConfig } from '../../constants/theme';
 import { useApp } from '../contexts/AppContext';
 import { ChatMessage, sendChatMessage, sendImageMessage } from '../services/geminiService';
+import { voiceManager } from '../utils/voiceCommandManager';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -200,6 +201,17 @@ const AIAssistantScreen = () => {
     try { Speech.stop(); } catch {}
     try { Speech.speak(text, { rate: state.accessibilitySettings.voiceSpeed }); } catch {}
   }, [state.voiceAnnouncementsEnabled, state.accessibilitySettings.voiceSpeed]);
+
+  useEffect(() => {
+    voiceManager.announceScreenChange('assistant');
+    voiceManager.addCommand({
+      keywords: ['clear chat', 'new chat', 'start over'],
+      description: 'Clear the chat history',
+      category: 'general',
+      action: () => { setMessages([]); voiceManager.speak('Chat cleared'); },
+    });
+    return () => { voiceManager.removeCommand(['clear chat', 'new chat', 'start over']); };
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);

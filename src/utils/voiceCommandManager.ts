@@ -279,25 +279,31 @@ export class VoiceCommandManager {
   }
 
   getCommandsForScreen(screen: string): VoiceCommand[] {
-    return this.commands.filter(cmd => 
-      cmd.category === 'general' || 
+    return this.commands.filter(cmd =>
+      cmd.category === 'general' ||
       (screen === 'login' && cmd.category === 'navigation') ||
       (screen === 'setup' && cmd.category === 'accessibility') ||
       (screen === 'home' && ['navigation', 'accessibility', 'reminder'].includes(cmd.category)) ||
       (screen === 'reminders' && ['navigation', 'reminder'].includes(cmd.category)) ||
-      (screen === 'profile' && ['navigation', 'accessibility'].includes(cmd.category))
+      (screen === 'profile' && ['navigation', 'accessibility'].includes(cmd.category)) ||
+      (screen === 'checkin' && cmd.category === 'navigation') ||
+      (screen === 'assistant' && cmd.category === 'navigation') ||
+      (screen === 'community' && cmd.category === 'navigation')
     );
   }
 
   announceScreenChange(screen: string) {
     const screenNames: { [key: string]: string } = {
-      'login': 'Login screen',
-      'setup': 'Accessibility setup',
-      'home': 'Home screen',
+      'login':     'Login screen',
+      'setup':     'Accessibility setup',
+      'home':      'Home screen',
       'reminders': 'Reminders screen',
-      'profile': 'Profile screen'
+      'profile':   'Profile screen',
+      'checkin':   'Daily check-in screen',
+      'assistant': 'AI Assistant screen',
+      'community': 'Community screen',
     };
-    
+
     this.speak(`Now on ${screenNames[screen] || screen}`);
     this.setCurrentScreen(screen);
   }

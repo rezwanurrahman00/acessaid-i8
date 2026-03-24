@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
-import { View } from 'react-native';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -10,19 +10,20 @@ import { useApp } from '../contexts/AppContext';
 import { getThemeConfig } from '../../constants/theme';
 import { RootStackParamList, MainTabParamList } from '../types';
 import SOSButton from '../components/SOSButton';
+import { voiceManager } from '../utils/voiceCommandManager';
 
 
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 // Screen imports
 import LoginScreen from '../screens/LoginScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 import AccessibilitySetupScreen from '../screens/AccessibilitySetupScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ReminderScreen from '../screens/ReminderScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import CheckInScreen from '../screens/CheckInScreen';
 import AIAssistantScreen from '../screens/AIAssistantScreen';
-
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -30,8 +31,38 @@ const MainTabNavigator = () => {
   const { state } = useApp();
   const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
 
+  // Register global navigation voice commands once
+  useEffect(() => {
+    const navCommands = [
+      { keywords: ['go home', 'open home', 'home screen'], tab: 'Home', label: 'Home' },
+      { keywords: ['go to reminders', 'open reminders', 'show reminders'], tab: 'Reminders', label: 'Reminders' },
+      { keywords: ['check in', 'open check in', 'daily check in'], tab: 'CheckIn', label: 'Check In' },
+      { keywords: ['open assistant', 'ai assistant', 'ask ai', 'open ai'], tab: 'Assistant', label: 'AI Assistant' },
+      { keywords: ['go to profile', 'open profile', 'my profile'], tab: 'Profile', label: 'Profile' },
+    ];
+
+    navCommands.forEach(({ keywords, tab, label }) => {
+      voiceManager.addCommand({
+        keywords,
+        description: `Navigate to ${label}`,
+        category: 'navigation',
+        action: () => {
+          navigationRef.current?.navigate('Main' as any);
+          setTimeout(() => {
+            navigationRef.current?.navigate(tab as any);
+          }, 100);
+          voiceManager.speak(`Opening ${label}`);
+        },
+      });
+    });
+
+    return () => {
+      navCommands.forEach(({ keywords }) => voiceManager.removeCommand(keywords));
+    };
+  }, []);
+
   return (
-    <View style={{ flex: 1 }}>
+    <View style={navStyles.container}>
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
@@ -121,10 +152,18 @@ const MainTabNavigator = () => {
         }}
       />
     </Tab.Navigator>
-    <SOSButton />
+    {/* SOS button — absolutely fills the container so it always floats above all tabs */}
+    <View style={navStyles.sosOverlay} pointerEvents="box-none">
+      <SOSButton />
+    </View>
     </View>
   );
 };
+
+const navStyles = StyleSheet.create({
+  container:  { flex: 1 },
+  sosOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 9999 },
+});
 
 const AppNavigator = () => {
   const { state } = useApp();
@@ -138,21 +177,22 @@ const AppNavigator = () => {
         }}
       >
         {!state.isLoggedIn ? (
-          <Stack.Screen 
-            name="Login" 
+          <Stack.Screen
+            name="Login"
             component={LoginScreen}
-            options={{
-              title: 'AccessAid Login',
-            }}
+            options={{ title: 'AccessAid Login' }}
+          />
+        ) : !state.hasSeenOnboarding ? (
+          <Stack.Screen
+            name="Onboarding"
+            component={OnboardingScreen}
+            options={{ title: 'Welcome', gestureEnabled: false }}
           />
         ) : !state.hasCompletedSetup ? (
-          <Stack.Screen 
-            name="AccessibilitySetup" 
+          <Stack.Screen
+            name="AccessibilitySetup"
             component={AccessibilitySetupScreen}
-            options={{
-              title: 'Accessibility Setup',
-              gestureEnabled: false,
-            }}
+            options={{ title: 'Accessibility Setup', gestureEnabled: false }}
           />
         ) : (
           <Stack.Screen 

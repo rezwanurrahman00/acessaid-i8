@@ -7,6 +7,7 @@ import { voiceManager } from '../utils/voiceCommandManager';
 interface AppState {
   user: User | null;
   isLoggedIn: boolean;
+  hasSeenOnboarding: boolean;
   hasCompletedSetup: boolean;
   accessibilitySettings: AccessibilitySettings;
   isVoiceEnabled: boolean;
@@ -18,6 +19,7 @@ type AppAction =
   | { type: 'LOGIN'; payload: User }
   | { type: 'UPDATE_USER'; payload: Partial<User> }
   | { type: 'LOGOUT' }
+  | { type: 'COMPLETE_ONBOARDING' }
   | { type: 'COMPLETE_SETUP' }
   | { type: 'UPDATE_ACCESSIBILITY_SETTINGS'; payload: Partial<AccessibilitySettings> }
   | { type: 'TOGGLE_VOICE'; payload: boolean }
@@ -32,6 +34,7 @@ type AppAction =
 const initialState: AppState = {
   user: null,
   isLoggedIn: false,
+  hasSeenOnboarding: false,
   hasCompletedSetup: false,
   accessibilitySettings: {
     brightness: 50,
@@ -60,6 +63,11 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'LOGOUT':
       return {
         ...initialState,
+      };
+    case 'COMPLETE_ONBOARDING':
+      return {
+        ...state,
+        hasSeenOnboarding: true,
       };
     case 'COMPLETE_SETUP':
       return {
@@ -145,6 +153,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const userData = await AsyncStorage.getItem('user');
         const settingsData = await AsyncStorage.getItem('accessibilitySettings');
         const setupData = await AsyncStorage.getItem('hasCompletedSetup');
+        const onboardingData = await AsyncStorage.getItem('hasSeenOnboarding');
 
         if (userData) {
           const parsedUser = JSON.parse(userData);
@@ -190,6 +199,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         if (setupData) {
           dispatch({ type: 'LOAD_DATA', payload: { hasCompletedSetup: JSON.parse(setupData) } });
+        }
+        if (onboardingData) {
+          dispatch({ type: 'LOAD_DATA', payload: { hasSeenOnboarding: JSON.parse(onboardingData) } });
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -319,6 +331,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         await AsyncStorage.setItem('accessibilitySettings', JSON.stringify(state.accessibilitySettings));
         await AsyncStorage.setItem('hasCompletedSetup', JSON.stringify(state.hasCompletedSetup));
+        await AsyncStorage.setItem('hasSeenOnboarding', JSON.stringify(state.hasSeenOnboarding));
         if (state.user) {
           const key = `reminders_${state.user.id}`;
           await AsyncStorage.setItem(key, JSON.stringify(state.reminders));
