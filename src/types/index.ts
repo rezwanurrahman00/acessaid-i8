@@ -58,6 +58,7 @@ export type RootStackParamList = {
   HealthDashboard: undefined;
   EmergencyCard: undefined;
   CameraGuide: undefined;
+  MedicationTracker: undefined;
 };
 
 export type MainTabParamList = {

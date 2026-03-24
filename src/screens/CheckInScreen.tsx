@@ -321,6 +321,24 @@ const CheckInScreen = () => {
                 : 'How are you feeling right now?'}
             </Text>
 
+            {/* Medication Tracker card */}
+            <TouchableOpacity
+              onPress={() => navigationRef.current?.navigate('MedicationTracker')}
+              style={[styles.dashCard, { marginBottom: 10 }]}
+              accessibilityLabel="Open medication tracker"
+            >
+              <View style={styles.dashCardLeft}>
+                <View style={[styles.dashIconWrap, { backgroundColor: '#10b98122' }]}>
+                  <Ionicons name="medical" size={22} color="#10b981" />
+                </View>
+                <View>
+                  <Text style={styles.dashCardTitle}>Medications</Text>
+                  <Text style={styles.dashCardSub}>Track daily doses · Mark as taken</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#10b981" />
+            </TouchableOpacity>
+
             {/* Dashboard card */}
             <TouchableOpacity
               onPress={() => navigationRef.current?.navigate('HealthDashboard')}
