@@ -33,6 +33,7 @@ import { voiceManager } from '../utils/voiceCommandManager'; // ADDED: Import vo
 // ADDED: NLP imports for natural language reminder creation
 import { describeReminder, getReminderHelpText, isValidParsedReminder, parseReminderFromSpeech } from '../utils/nlpParser';
 import { generateUUID } from '../utils/uuid'; // ADDED: UUID generator for temporary reminder IDs
+import { sendChatMessage } from '../services/geminiService';
 
 // BlurView fallback for environments without expo-blur
 const BlurViewComponent: any = (() => {
@@ -134,6 +135,14 @@ const ReminderScreen: React.FC = () => {
   const [sendingTest, setSendingTest] = useState(false);
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
+
+  // Briefing button states
+  const [briefingLoading, setBriefingLoading] = useState(false); // blue — AI thinking
+  const [briefingPlaying, setBriefingPlaying] = useState(false); // green — TTS speaking
+  const [briefingMuted, setBriefingMuted]   = useState(false); // gray — muted after playing
+  const briefingAbortRef  = useRef(false);
+  const briefingTextRef   = useRef('');      // last generated briefing text for unmute replay
+  const mutedByUserRef    = useRef(false);   // true when user explicitly tapped Mute
 
   // ADDED: Voice input states
   const [isVoiceInputMode, setIsVoiceInputMode] = useState(false);
@@ -1232,6 +1241,138 @@ const ReminderScreen: React.FC = () => {
     }
   };
 
+  // ── AI Briefing ──────────────────────────────────────────────────────────────
+  const speakBriefingText = (text: string) => {
+    mutedByUserRef.current = false;
+    try { Speech.stop(); } catch {}
+    setBriefingPlaying(true);
+    setBriefingMuted(false);
+
+    try {
+      Speech.speak(text, {
+        rate: Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0)),
+        onDone: () => {
+          // Natural end — only reset muted if the user didn't tap Mute
+          if (!mutedByUserRef.current) {
+            setBriefingPlaying(false);
+            setBriefingMuted(false);
+          }
+        },
+        onStopped: () => {
+          // Fired when Speech.stop() is called (mute tap or external stop)
+          setBriefingPlaying(false);
+          // Do NOT touch briefingMuted here — mute handler already set it correctly
+        },
+        onError: () => {
+          setBriefingPlaying(false);
+          if (!mutedByUserRef.current) setBriefingMuted(false);
+        },
+      });
+    } catch {
+      // Speech.speak threw synchronously (some Android versions)
+      setBriefingPlaying(false);
+      if (!mutedByUserRef.current) setBriefingMuted(false);
+    }
+  };
+
+  const handleBriefing = async () => {
+    // Mute — stop ongoing speech
+    if (briefingPlaying) {
+      mutedByUserRef.current = true;   // signal callbacks not to clear muted state
+      try { Speech.stop(); } catch {}
+      setBriefingPlaying(false);
+      setBriefingMuted(true);
+      return;
+    }
+
+    // Unmute — replay last briefing without another API call
+    if (briefingMuted) {
+      if (briefingTextRef.current) {
+        speakBriefingText(briefingTextRef.current);
+      } else {
+        setBriefingMuted(false);
+      }
+      return;
+    }
+
+    // Cancel in-progress request
+    if (briefingLoading) {
+      briefingAbortRef.current = true;
+      setBriefingLoading(false);
+      return;
+    }
+
+    // ── Generate new briefing ──
+    briefingAbortRef.current = false;
+    setBriefingLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      const now = new Date();
+      const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+      const todayEnd   = new Date(todayStart); todayEnd.setDate(todayStart.getDate() + 1);
+
+      const todayReminders = reminders
+        .filter(r => {
+          const t = r.datetime.getTime();
+          return t >= todayStart.getTime() && t < todayEnd.getTime() && !r.isCompleted;
+        })
+        .sort((a, b) => a.datetime.getTime() - b.datetime.getTime());
+
+      const overdue       = reminders.filter(r => r.datetime.getTime() < now.getTime() && !r.isCompleted);
+      const completedToday = reminders.filter(r => {
+        const t = r.datetime.getTime();
+        return r.isCompleted && t >= todayStart.getTime() && t < todayEnd.getTime();
+      });
+
+      const nextReminder      = todayReminders[0];
+      const minutesUntilNext  = nextReminder
+        ? Math.round((nextReminder.datetime.getTime() - now.getTime()) / 60000)
+        : null;
+
+      const reminderList = todayReminders
+        .map(r =>
+          `- ${r.title} at ${r.datetime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` +
+          (r.priority === 'high' ? ' (high priority)' : '')
+        )
+        .join('\n') || 'none today';
+
+      const prompt =
+        `Generate a warm, concise spoken daily briefing (2–4 sentences, under 60 words) for an accessibility app user. ` +
+        `Natural speech only — no markdown, no bullet points, no asterisks.\n\n` +
+        `Today's reminders (${todayReminders.length}): ${reminderList}\n` +
+        `Overdue: ${overdue.length}. Completed today: ${completedToday.length}.\n` +
+        (nextReminder && minutesUntilNext !== null && minutesUntilNext > 0
+          ? `Next: "${nextReminder.title}" in ${minutesUntilNext} minutes.\n`
+          : '') +
+        `Be encouraging. Start with a time-of-day greeting.`;
+
+      const briefing = await sendChatMessage([], prompt);
+
+      if (briefingAbortRef.current) {
+        setBriefingLoading(false);
+        return;
+      }
+
+      if (!briefing || !briefing.trim()) {
+        throw new Error('Empty briefing returned');
+      }
+
+      briefingTextRef.current = briefing.trim();
+      setBriefingLoading(false);
+      speakBriefingText(briefingTextRef.current);
+
+    } catch (err: any) {
+      briefingAbortRef.current = false;
+      setBriefingLoading(false);
+      setBriefingPlaying(false);
+      const msg = err?.message === 'GROQ_API_KEY_MISSING'
+        ? 'Groq API key is not configured.'
+        : 'Could not generate briefing. Check your connection and try again.';
+      Alert.alert('Briefing failed', msg);
+    }
+  };
+
   const saveReminder = async () => {
     if (!title.trim()) {
       Alert.alert('Missing title', 'Please enter a reminder title.');
@@ -1607,6 +1748,42 @@ const ReminderScreen: React.FC = () => {
     return filtered.sort((a, b) => a.datetime.getTime() - b.datetime.getTime());
   }, [reminders, searchQuery, filterCategory, filterStatus]);
 
+  type ListItem =
+    | { type: 'sectionHeader'; label: string; groupKey: string }
+    | { type: 'reminder'; reminder: Reminder };
+
+  const groupedData = useMemo((): ListItem[] => {
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(todayStart.getDate() + 1);
+    const weekEnd = new Date(todayStart); weekEnd.setDate(todayStart.getDate() + 7);
+
+    const getGroup = (d: Date): string => {
+      const ds = new Date(d); ds.setHours(0, 0, 0, 0);
+      const t = ds.getTime();
+      if (t < todayStart.getTime()) return 'overdue';
+      if (t === todayStart.getTime()) return 'today';
+      if (t === tomorrowStart.getTime()) return 'tomorrow';
+      if (t < weekEnd.getTime()) return 'thisWeek';
+      return 'later';
+    };
+
+    const labels: Record<string, string> = {
+      overdue: '⚠️ Overdue', today: '📅 Today', tomorrow: '🌅 Tomorrow',
+      thisWeek: '📆 This Week', later: '🗓️ Later',
+    };
+
+    const sections: Record<string, Reminder[]> = { overdue: [], today: [], tomorrow: [], thisWeek: [], later: [] };
+    filteredReminders.forEach(r => { sections[getGroup(r.datetime)].push(r); });
+
+    const result: ListItem[] = [];
+    (['overdue', 'today', 'tomorrow', 'thisWeek', 'later'] as const).forEach(key => {
+      if (sections[key].length > 0) {
+        result.push({ type: 'sectionHeader', label: labels[key], groupKey: key });
+        sections[key].forEach(r => result.push({ type: 'reminder', reminder: r }));
+      }
+    });
+    return result;
+  }, [filteredReminders]);
 
   const renderItem = ({ item }: { item: Reminder }) => (
     <TouchableOpacity
@@ -1615,10 +1792,13 @@ const ReminderScreen: React.FC = () => {
         item.isCompleted && styles.cardCompleted
       ]}
       activeOpacity={0.7}
-      onPress={() => {
+      onPress={() => showEditModal(item.id)}
+      onLongPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         const msg = `${item.title}. ${item.description || ''}. Scheduled for ${formatPreview(item.datetime)}`;
         speakText(msg);
       }}
+      delayLongPress={400}
     >
       <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(item.priority) }]} />
       <View style={{ flex: 1 }}>
@@ -1631,13 +1811,17 @@ const ReminderScreen: React.FC = () => {
         {item.description && (
           <Text style={styles.cardDescription} numberOfLines={2}>{item.description}</Text>
         )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 12 }}>
-          <Text style={styles.cardSubtitle}>🔔 {formatPreview(item.datetime)}</Text>
-          <Text style={[styles.recurrenceBadge, { color: theme.accent }]}>{getRecurrenceText(item.recurrence)}</Text>
+        <Text style={[styles.cardSubtitle, { marginTop: 6 }]}>🔔 {formatPreview(item.datetime)}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6, flexWrap: 'wrap' }}>
+          <View style={styles.metaChip}>
+            <Text style={[styles.metaChipText, { color: theme.accent }]}>{getRecurrenceText(item.recurrence)}</Text>
+          </View>
           {item.priority && (
-            <Text style={[styles.priorityLabel, { color: getPriorityColor(item.priority) }]}>
-              {getPriorityLabel(item.priority)}
-            </Text>
+            <View style={[styles.metaChip, { borderColor: getPriorityColor(item.priority) }]}>
+              <Text style={[styles.metaChipText, { color: getPriorityColor(item.priority) }]}>
+                {getPriorityLabel(item.priority)}
+              </Text>
+            </View>
           )}
         </View>
       </View>
@@ -1672,15 +1856,63 @@ const ReminderScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
+  const renderListItem = ({ item }: { item: ListItem }) => {
+    if (item.type === 'sectionHeader') {
+      return (
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionHeaderLabel}>{item.label}</Text>
+        </View>
+      );
+    }
+    return renderItem({ item: item.reminder });
+  };
+
   return (
     <View style={styles.container}>
       <BackgroundLogo />
       <Animated.View style={[styles.header, { opacity: fadeIn, transform: [{ translateY: slideUp }] }]}>
-        <Text style={styles.headerTitle}>✨ Reminders</Text>
-        <Text style={styles.headerSubtitle}>
-          {filteredReminders.filter(r => !r.isCompleted).length} Active • {reminders.length}/50 Total
-          {pendingCount > 0 ? `  •  ⏳ ${pendingCount} pending sync` : ''}
-        </Text>
+        {/* Title row with Briefing button */}
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.headerTitle}>✨ Reminders</Text>
+            <Text style={styles.headerSubtitle}>
+              {filteredReminders.filter(r => !r.isCompleted).length} Active • {reminders.length} Total
+              {pendingCount > 0 ? `  •  ⏳ ${pendingCount} pending sync` : ''}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[
+              styles.briefingBtn,
+              briefingLoading && styles.briefingBtnLoading,
+              briefingPlaying && styles.briefingBtnPlaying,
+              briefingMuted   && styles.briefingBtnMuted,
+            ]}
+            onPress={handleBriefing}
+            activeOpacity={0.8}
+            accessibilityLabel={
+              briefingPlaying ? 'Mute briefing' :
+              briefingMuted   ? 'Unmute briefing' :
+              'Play AI briefing'
+            }
+          >
+            <Ionicons
+              name={
+                briefingMuted   ? 'volume-mute'     :
+                briefingPlaying ? 'volume-high'      :
+                briefingLoading ? 'hourglass-outline':
+                'volume-medium'
+              }
+              size={16}
+              color="#fff"
+            />
+            <Text style={styles.briefingBtnText}>
+              {briefingMuted   ? 'Unmute'    :
+               briefingPlaying ? 'Mute'      :
+               briefingLoading ? 'Thinking…' :
+               'Briefing'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -1759,10 +1991,10 @@ const ReminderScreen: React.FC = () => {
       </Animated.View>
 
       <FlatList
-        data={filteredReminders}
-        keyExtractor={(item) => item.id}
+        data={groupedData}
+        keyExtractor={(item) => item.type === 'sectionHeader' ? `hdr-${item.groupKey}` : item.reminder.id}
         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
-        renderItem={renderItem}
+        renderItem={renderListItem}
         refreshing={refreshing}
         onRefresh={handleRefresh}
         ListEmptyComponent={
@@ -1778,14 +2010,15 @@ const ReminderScreen: React.FC = () => {
       />
 
       <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={openModal} accessibilityLabel="Add Reminder">
-        <Ionicons name="add" size={28} color={theme.textInverted} />
+        <Ionicons name="add" size={48} color={theme.textInverted} />
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <BlurViewComponent intensity={40} tint={Platform.OS === 'ios' ? 'systemThinMaterial' : 'light'} style={styles.blurFill} />
-          <View style={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}>
-            <Animated.View style={[styles.sheet, { opacity: fadeIn }]}>
+          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <Animated.View style={[styles.bottomSheet, { opacity: fadeIn }]}>
+              <View style={styles.sheetHandle} />
               <Text style={styles.sheetTitle}>{editingReminderId ? '✏️ Edit Reminder' : '⏰ Create Reminder'}</Text>
 
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '80%' }}>
@@ -2205,6 +2438,38 @@ const createStyles = (theme: AppTheme) =>
     },
     headerTitle: { fontSize: 32, fontWeight: '700', color: theme.textPrimary },
     headerSubtitle: { marginTop: 4, color: theme.textSecondary, fontSize: 15 },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+    },
+
+    // Briefing button
+    briefingBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: '#3B82F6', // blue = default/idle
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      borderRadius: 10,
+      marginTop: 6,
+    },
+    briefingBtnLoading: {
+      backgroundColor: '#3B82F6', // stays blue while loading
+      opacity: 0.75,
+    },
+    briefingBtnPlaying: {
+      backgroundColor: '#22c55e', // green while TTS is speaking
+    },
+    briefingBtnMuted: {
+      backgroundColor: '#6b7280', // gray — muted / stopped
+    },
+    briefingBtnText: {
+      color: '#fff',
+      fontSize: 13,
+      fontWeight: '700',
+    },
 
     // Search & Filters
     searchContainer: {
@@ -2356,9 +2621,9 @@ const createStyles = (theme: AppTheme) =>
       position: 'absolute',
       right: 20,
       bottom: 30,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+      width: 96,
+      height: 96,
+      borderRadius: 48,
       backgroundColor: theme.fabBackground,
       alignItems: 'center',
       justifyContent: 'center',
@@ -2369,13 +2634,40 @@ const createStyles = (theme: AppTheme) =>
       elevation: 6,
     },
 
+    // Section headers for date grouping
+    sectionHeaderRow: {
+      marginTop: 16,
+      marginBottom: 6,
+    },
+    sectionHeaderLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.9,
+    },
+
+    // Meta chips (recurrence + priority) on cards
+    metaChip: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 8,
+      backgroundColor: theme.tagBackground,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    metaChipText: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+
     //Modal
     modalBackdrop: {
       flex: 1,
       backgroundColor: theme.overlay,
-
     },
     blurFill: { ...StyleSheet.absoluteFillObject, borderRadius: 24 },
+    // Used by alert/voice modals (centred card)
     sheet: {
       backgroundColor: theme.modalBackground,
       borderRadius: 20,
@@ -2389,6 +2681,31 @@ const createStyles = (theme: AppTheme) =>
       borderWidth: theme.isDark ? 1 : StyleSheet.hairlineWidth,
       borderColor: theme.cardBorder,
       maxHeight: '90%',
+    },
+    // Used by create/edit modal (slides up from bottom)
+    bottomSheet: {
+      backgroundColor: theme.modalBackground,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      padding: 20,
+      paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+      shadowColor: theme.cardShadow,
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: theme.isDark ? 0.35 : 0.15,
+      shadowRadius: 16,
+      elevation: 8,
+      borderWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.cardBorder,
+      maxHeight: '92%',
+    },
+    sheetHandle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.textMuted,
+      alignSelf: 'center',
+      marginBottom: 14,
+      opacity: 0.4,
     },
     sheetTitle: {
       fontSize: 24,
