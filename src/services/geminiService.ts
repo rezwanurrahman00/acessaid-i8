@@ -6,9 +6,16 @@
  */
 
 const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '';
-const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+const ENDPOINT     = 'https://api.groq.com/openai/v1/chat/completions';
 const TEXT_MODEL   = 'llama-3.3-70b-versatile';
 const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+const TIMEOUT_MS   = 15000;
+
+function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
 
 const SYSTEM_PROMPT = `You are AccessAid Assistant — a compassionate, knowledgeable AI health companion built into the AccessAid app, which is designed for people with disabilities and chronic health conditions.
 
@@ -50,7 +57,7 @@ export async function sendChatMessage(
     { role: 'user', content: newMessage },
   ];
 
-  const response = await fetch(ENDPOINT, {
+  const response = await fetchWithTimeout(ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -89,7 +96,7 @@ export async function sendImageMessage(
 ): Promise<string> {
   if (!GROQ_API_KEY) throw new Error('GROQ_API_KEY_MISSING');
 
-  const response = await fetch(ENDPOINT, {
+  const response = await fetchWithTimeout(ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

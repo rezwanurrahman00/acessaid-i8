@@ -50,9 +50,20 @@ const CameraGuideScreen = ({ navigation }: { navigation: any }) => {
   const [result,     setResult]       = useState('');
   const [facing,     setFacing]       = useState<'back' | 'front'>('back');
 
-  const cameraRef  = useRef<CameraView>(null);
-  const autoTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pulseAnim  = useRef(new Animated.Value(1)).current;
+  const cameraRef          = useRef<CameraView>(null);
+  const autoTimer          = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isMountedRef       = useRef(true);
+  const captureAndAnalyseRef = useRef<() => void>(() => {});
+  const pulseAnim          = useRef(new Animated.Value(1)).current;
+
+  // Mark unmounted and clear the interval when the screen is removed
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (autoTimer.current) clearInterval(autoTimer.current);
+    };
+  }, []);
 
   // Pulse animation while scanning
   useEffect(() => {
@@ -68,11 +79,16 @@ const CameraGuideScreen = ({ navigation }: { navigation: any }) => {
     }
   }, [isScanning]);
 
-  // Auto-scan timer
+  // Keep the ref in sync so the interval always calls the latest captureAndAnalyse
+  useEffect(() => {
+    captureAndAnalyseRef.current = captureAndAnalyse;
+  }, [captureAndAnalyse]);
+
+  // Auto-scan timer — uses ref to avoid stale closure
   useEffect(() => {
     if (autoScan) {
       autoTimer.current = setInterval(() => {
-        captureAndAnalyse();
+        captureAndAnalyseRef.current();
       }, AUTO_SCAN_INTERVAL_MS);
     } else {
       if (autoTimer.current) clearInterval(autoTimer.current);
@@ -110,16 +126,19 @@ const CameraGuideScreen = ({ navigation }: { navigation: any }) => {
       if (!manipulated.base64) throw new Error('Could not encode image');
 
       const description = await sendImageMessage(manipulated.base64, 'image/jpeg', GUIDE_PROMPT);
+
+      if (!isMountedRef.current) return;
       setResult(description);
       speak(description);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
+      if (!isMountedRef.current) return;
       const msg = 'Could not analyse the scene. Please try again.';
       setResult(msg);
       if (!autoScan) speak(msg);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
-      setIsScanning(false);
+      if (isMountedRef.current) setIsScanning(false);
     }
   }, [isScanning, autoScan, speak]);
 
