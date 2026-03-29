@@ -62,6 +62,7 @@ const LoginScreen = () => {
   // Voice-to-text: which field is currently listening
   const [listeningField, setListeningField] = useState<'email' | 'name' | 'forgotEmail' | null>(null);
   const voiceListenersRef = useRef<any[]>([]);
+  const isListeningRef   = useRef(false); // synchronous guard to prevent race condition
 
   const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -216,7 +217,16 @@ const LoginScreen = () => {
   const cleanupVoiceListeners = () => {
     voiceListenersRef.current.forEach(sub => { try { sub?.remove?.(); } catch {} });
     voiceListenersRef.current = [];
+    isListeningRef.current = false;
   };
+
+  // Cleanup listeners if the component unmounts while voice is active
+  useEffect(() => {
+    return () => {
+      cleanupVoiceListeners();
+      try { ExpoSpeechRecognitionModule?.stop?.(); } catch {}
+    };
+  }, []);
 
   const applyVoiceResult = (field: 'email' | 'name' | 'forgotEmail', text: string) => {
     if (field === 'email' || field === 'forgotEmail') {
@@ -235,7 +245,8 @@ const LoginScreen = () => {
   };
 
   const startVoiceInput = async (field: 'email' | 'name' | 'forgotEmail') => {
-    if (listeningField) return; // already listening
+    if (isListeningRef.current) return; // synchronous guard — prevents race condition on rapid taps
+    isListeningRef.current = true;
 
     const label = field === 'name' ? 'your full name' : 'your email address';
 
@@ -273,12 +284,14 @@ const LoginScreen = () => {
 
     // ── Native (dev build only) ──────────────────────────────────────────────
     if (!ExpoSpeechRecognitionModule) {
+      isListeningRef.current = false;
       Alert.alert('Not Available', 'Voice input requires a development build.');
       return;
     }
 
     const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!permission.granted) {
+      isListeningRef.current = false;
       speakText('Microphone permission is required for voice input.');
       return;
     }
