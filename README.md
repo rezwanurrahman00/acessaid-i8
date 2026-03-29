@@ -450,24 +450,15 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - **15-minute cache** so repeat visits and category switches load instantly
 - Search radius of **8 km** for wide coverage
 
----
-### Sprint 7: Performance Optimization & Network Reliability ✅
+#### 🐛 Bug Fixes
 
-**Goal**: Enhance performance optimization for real-time cloud interactions by adding network-aware sync management and offline/online user feedback.
-
-**Completed**:
-
-#### 🌐 Network Monitoring & Auto-Sync
-- Added `NetworkMonitor` utility (`src/utils/networkMonitor.ts`) that watches device connectivity in real time using `@react-native-community/netinfo`
-- Automatically flushes the offline sync queue (`syncQueue.ts`) the moment internet is restored — no manual action needed from the user
-- Singleton pattern ensures the monitor runs once across the entire app lifecycle
-
-#### 📴 Offline/Online Status Banner
-- Added `NetworkBanner` component (`src/components/NetworkBanner.tsx`) that slides in at the top of the screen when connectivity changes
-- Shows a **red banner** with a message when the device goes offline
-- Shows a **green banner** confirming reconnection and sync, then auto-hides after 2.5 seconds
-- Fully accessible with `accessibilityRole="alert"` and `accessibilityLiveRegion="polite"`
-- Integrated into `App.tsx` so it appears across every screen automatically
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | **Medication adherence % could exceed 100%** — "as-needed" meds were counted in `takenToday` but excluded from `totalToday`, inflating the percentage | Fixed by filtering `takenToday` to only count logs belonging to scheduled (non-as-needed) medications |
+| 2 | **Health Dashboard stuck after failed load** — on a network error the spinner stopped but the screen silently showed empty data with no way to recover | Added an `error` state that shows a persistent error message and a **Retry** button when the Supabase fetch fails |
+| 3 | **Voice listener memory leak in Login screen** — rapid taps could bypass the listening guard (React state is async) and accumulate multiple listener sets; navigating away while listening left listeners running | Added a synchronous `isListeningRef` guard to replace the state-based check, and a `useEffect` unmount cleanup that removes all listeners and stops recognition |
+| 4 | **CameraGuide auto-scan kept running after screen unmount** — the `setInterval` callback held a stale closure of `captureAndAnalyse`, and async state updates continued firing on an unmounted component | Added `isMountedRef` to guard all state updates, a `captureAndAnalyseRef` so the interval always calls the latest function version, and a single unmount cleanup that clears the interval and marks the component as unmounted |
+| 5 | **AI requests had no timeout** — a hung or slow Groq API response would freeze the chat and camera guide UIs indefinitely | Added `fetchWithTimeout()` using `AbortController` with a 15-second limit; both `sendChatMessage` and `sendImageMessage` now use it |
 
 ---
 
