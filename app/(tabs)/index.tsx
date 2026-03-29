@@ -9,15 +9,19 @@ import {
   View,
   TextInput,
   Modal,
+  StatusBar,
 } from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Speech from "expo-speech";
 
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
 import { useAuth } from "@/contexts/AuthContext";
-import { speakIfEnabled, setAccessibilitySetting, getAccessibilitySetting } from "@/services/ttsService";
+import {
+  speakIfEnabled,
+  setAccessibilitySetting,
+  getAccessibilitySetting,
+} from "@/services/ttsService";
 import * as Haptics from "expo-haptics";
 
 export default function HomeScreen() {
@@ -30,7 +34,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
-  // Sync with settings saved by the Settings tab
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -42,30 +45,28 @@ export default function HomeScreen() {
           setLargeText(lt);
         }
       })();
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }, [])
   );
 
-  const ui = {
-    bg: highContrast ? "#000000" : "#f5f5f5",
-    cardBg: highContrast ? "#000000" : "#FFFFFF",
-    text: highContrast ? "#FFFFFF" : "#333333",
-    subtext: highContrast ? "#E6E6E6" : "#666666",
-    divider: highContrast ? "rgba(255,255,255,0.25)" : "#E0E0E0",
-    headerBg: highContrast ? "#000000" : "#4A90E2",
-    headerBorder: highContrast ? "#FFFFFF" : "transparent",
-    accent: highContrast ? "#FFD700" : "#4A90E2",
-    accentMuted: highContrast ? "#E6C200" : "#81b0ff",
-    switchTrackActive: highContrast ? "#E6C200" : "#81b0ff",
-    switchTrackOff:    highContrast ? "#888888" : "#767577",
-    switchThumbTrue:   highContrast ? "#000000" : "#f5dd4b",
-    switchThumbOff:    highContrast ? "#CCCCCC" : "#f4f3f4",
+  const C = {
+    bg: highContrast ? "#000" : "#F2F4F8",
+    card: highContrast ? "#111" : "#FFFFFF",
+    text: highContrast ? "#FFF" : "#111827",
+    sub: highContrast ? "#CCC" : "#6B7280",
+    divider: highContrast ? "#333" : "#E5E7EB",
+    blue: "#4F46E5",
+    purple: "#7C3AED",
+    green: "#059669",
+    amber: "#D97706",
+    red: "#EF4444",
   };
 
-  const scale = (n: number) => (largeText ? Math.round(n * 1.25) : n);
+  const s = (n: number) => (largeText ? Math.round(n * 1.25) : n);
 
   const speakText = async (text: string) => {
-    // only speak if talking is enabled
     const allowed = await (async () => {
       try {
         const { getTalkingPreference } = await import("@/services/ttsService");
@@ -74,9 +75,7 @@ export default function HomeScreen() {
         return true;
       }
     })();
-
     if (!allowed) return;
-
     if (isSpeaking) {
       Speech.stop();
       setIsSpeaking(false);
@@ -92,28 +91,16 @@ export default function HomeScreen() {
         language: "en-US",
         onDone: () => setIsSpeaking(false),
         onStopped: () => setIsSpeaking(false),
-        onError: (error) => {
-          console.error("TTS Error:", error);
-          setIsSpeaking(false);
-          Alert.alert(
-            "TTS Error",
-            "Unable to use text-to-speech. Please check your device volume and settings."
-          );
-        },
+        onError: () => setIsSpeaking(false),
       });
-    } catch (error) {
-      console.error("TTS Error:", error);
+    } catch {
       setIsSpeaking(false);
-      Alert.alert(
-        "TTS Error",
-        "Unable to use text-to-speech. Please check your device volume and settings."
-      );
     }
   };
 
-  const welcomeMessage = user
-    ? `Welcome back, ${user.name}! AccessAid is ready to help you. Tap the buttons below to explore features.`
-    : "Welcome to AccessAid! Your personal accessibility assistant. Tap the buttons below to explore features.";
+  const welcomeMsg = user
+    ? `Welcome back, ${user.name}! AccessAid is ready to help you.`
+    : "Welcome to AccessAid! Your personal accessibility assistant.";
 
   const handleCustomTTS = () => {
     if (!customText.trim()) {
@@ -125,381 +112,543 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
-      {/* Header */}
-      <ThemedView
-        style={[
-          styles.header,
-          { backgroundColor: ui.headerBg, borderColor: ui.headerBorder },
-          highContrast && styles.headerContrastBorder,
-        ]}
-      >
-        <Image
-          source={require("@/assets/images/partial-react-logo.png")}
-          style={styles.logo}
-        />
-        <ThemedText
-          style={[styles.title, { color: "#FFFFFF", fontSize: scale(32) }]}
-        >
-          AccessAid
-        </ThemedText>
-        <ThemedText
-          style={[styles.subtitle, { color: "#E8F4FD", fontSize: scale(18) }]}
-        >
-          Your Accessibility Assistant
-        </ThemedText>
-        <ThemedText
-          style={[styles.teamText, { color: "#B8D4F0", fontSize: scale(14) }]}
-        >
-          by Code Innovators
-        </ThemedText>
-      </ThemedView>
+    <View style={[styles.root, { backgroundColor: C.bg }]}>
+      <StatusBar barStyle="light-content" />
+      <ScrollView showsVerticalScrollIndicator={false}>
 
-      {/* Accessibility Settings */}
-      <ThemedView
-        style={[
-          styles.card,
-          { backgroundColor: ui.cardBg },
-          highContrast && { borderColor: "#FFFFFF", borderWidth: 2 },
-        ]}
-      >
-        <ThemedText
-          style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}
+        {/* ─── HEADER ─── */}
+        <LinearGradient
+          colors={highContrast ? ["#000", "#000"] : ["#0F0C29", "#4F46E5"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
         >
-          Accessibility Settings
-        </ThemedText>
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={[styles.headerGreeting, { fontSize: s(13) }]}>
+                {user ? `Hello, ${user.name} 👋` : "Hello there 👋"}
+              </Text>
+              <Text style={[styles.headerTitle, { fontSize: s(30) }]}>
+                AccessAid
+              </Text>
+              <Text style={[styles.headerSub, { fontSize: s(13) }]}>
+                Your Accessibility Assistant
+              </Text>
+            </View>
+            <View style={styles.logoWrap}>
+              <Image
+                source={require("@/assets/images/partial-react-logo.png")}
+                style={styles.logo}
+              />
+            </View>
+          </View>
 
-        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
-          <ThemedText
-            style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}
+          {/* Stats strip */}
+          <View style={styles.statsRow}>
+            {[
+              { icon: "🔊", label: "TTS" },
+              { icon: "📅", label: "Reminders" },
+              { icon: "🎤", label: "Voice" },
+              { icon: "♿", label: "Access" },
+            ].map((item) => (
+              <View key={item.label} style={styles.statPill}>
+                <Text style={styles.statIcon}>{item.icon}</Text>
+                <Text style={[styles.statLabel, { fontSize: s(11) }]}>
+                  {item.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </LinearGradient>
+
+        <View style={styles.body}>
+
+          {/* ─── FEATURES ─── */}
+          <Text style={[styles.section, { color: C.sub, fontSize: s(11) }]}>
+            FEATURES
+          </Text>
+
+          {/* TTS card */}
+          <LinearGradient
+            colors={highContrast ? ["#111", "#111"] : ["#4F46E5", "#818CF8"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.bigCard}
           >
-            High Contrast Mode
-          </ThemedText>
-          <Switch
-            value={highContrast}
-            onValueChange={(v) => {
-              Haptics.impactAsync(v ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
-              setHighContrast(v);
-              setAccessibilitySetting("highContrast", v);
-              speakIfEnabled(v ? "High contrast mode on" : "High contrast mode off");
-            }}
-            trackColor={{ false: ui.switchTrackOff, true: ui.switchTrackActive }}
-            thumbColor={highContrast ? ui.switchThumbTrue : ui.switchThumbOff}
-          />
-        </View>
+            <View style={styles.bigCardLeft}>
+              <Text style={[styles.bigCardTitle, { fontSize: s(18) }]}>
+                Text-to-Speech
+              </Text>
+              <Text style={[styles.bigCardSub, { fontSize: s(13) }]}>
+                Hear any content read aloud instantly
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.bigCardBtn,
+                  { backgroundColor: isSpeaking ? C.red : "rgba(255,255,255,0.25)" },
+                ]}
+                onPress={() => speakText(welcomeMsg)}
+              >
+                <Text style={[styles.bigCardBtnText, { fontSize: s(14) }]}>
+                  {isSpeaking ? "⏹ Stop" : "▶ Play"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.bigCardEmoji}>🔊</Text>
+          </LinearGradient>
 
-        <View style={[styles.settingRow, { borderBottomColor: ui.divider }]}>
-          <ThemedText
-            style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}
-          >
-            Large Text
-          </ThemedText>
-          <Switch
-            value={largeText}
-            onValueChange={(v) => {
-              Haptics.impactAsync(v ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
-              setLargeText(v);
-              setAccessibilitySetting("largeText", v);
-              speakIfEnabled(v ? "Large text enabled" : "Large text disabled");
-            }}
-            trackColor={{ false: ui.switchTrackOff, true: ui.switchTrackActive }}
-            thumbColor={largeText ? ui.switchThumbTrue : ui.switchThumbOff}
-          />
-        </View>
+          {/* Row: Custom Speech + Voice Nav */}
+          <View style={styles.twoCol}>
+            <TouchableOpacity
+              style={[styles.halfCard, { backgroundColor: C.card }]}
+              onPress={() => setShowTTSModal(true)}
+            >
+              <View style={[styles.halfIcon, { backgroundColor: "#F3F0FF" }]}>
+                <Text style={styles.halfEmoji}>✏️</Text>
+              </View>
+              <Text style={[styles.halfTitle, { color: C.text, fontSize: s(14) }]}>
+                Custom Speech
+              </Text>
+              <Text style={[styles.halfSub, { color: C.sub, fontSize: s(12) }]}>
+                Type & speak any text
+              </Text>
+            </TouchableOpacity>
 
-        <View style={[styles.settingRow, { borderBottomColor: "transparent" }]}>
-          <ThemedText
-            style={[styles.settingLabel, { color: ui.text, fontSize: scale(16) }]}
-          >
-            Speech Rate: {speechRate.toFixed(1)}x
-          </ThemedText>
+            <TouchableOpacity
+              style={[styles.halfCard, { backgroundColor: C.card }]}
+              onPress={() => {
+                Alert.alert("Voice Navigation", "Navigate the app using voice commands. Coming soon!");
+                speakIfEnabled("Voice navigation coming soon");
+              }}
+            >
+              <View style={[styles.halfIcon, { backgroundColor: "#FFFBEB" }]}>
+                <Text style={styles.halfEmoji}>🎤</Text>
+              </View>
+              <Text style={[styles.halfTitle, { color: C.text, fontSize: s(14) }]}>
+                Voice Nav
+              </Text>
+              <Text style={[styles.halfSub, { color: C.sub, fontSize: s(12) }]}>
+                Coming soon
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Reminders banner */}
           <TouchableOpacity
-            style={[styles.rateButton, { backgroundColor: ui.accent }]}
-            onPress={() => {
-              const next = speechRate >= 2.0 ? 0.5 : Number((speechRate + 0.5).toFixed(1));
-              setSpeechRate(next);
-              speakIfEnabled(`Speech rate set to ${next} times`);
-            }}
-          >
-            <Text style={styles.rateButtonText}>Adjust</Text>
-          </TouchableOpacity>
-        </View>
-      </ThemedView>
-
-      {/* Main Features */}
-      <ThemedView
-        style={[
-          styles.card,
-          { backgroundColor: ui.cardBg },
-          highContrast && { borderColor: "#FFFFFF", borderWidth: 2 },
-        ]}
-      >
-        <ThemedText
-          style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}
-        >
-          Main Features
-        </ThemedText>
-
-        {/* TTS */}
-        <TouchableOpacity
-          style={[
-            styles.featureButton,
-            { backgroundColor: isSpeaking ? "#FF6B6B" : "#4A90E2" },
-          ]}
-          onPress={() => speakText(welcomeMessage)}
-        >
-          <Text style={[styles.featureButtonText, { fontSize: scale(18) }]}>
-            {isSpeaking ? "🔇 Stop Speaking" : "🔊 Text-to-Speech"}
-          </Text>
-          <ThemedText
-            style={[styles.featureDescription, { color: ui.subtext, fontSize: scale(14) }]}
-          >
-            {isSpeaking ? "Tap to stop" : "Tap to hear welcome message"}
-          </ThemedText>
-        </TouchableOpacity>
-
-        {/* Reminders */}
-        <TouchableOpacity
-          style={[
-            styles.featureButton,
-            { backgroundColor: ui.success },
-          ]}
-          onPress={() => {
-            Alert.alert("Coming Soon", "Smart Reminders are coming soon!");
-            speakIfEnabled("Reminders feature coming soon");
-          }}
-        >
-          <Text style={[styles.featureButtonText, { fontSize: scale(18) }]}>
-            📅 Smart Reminders
-          </Text>
-          <ThemedText
-            style={[styles.featureDescription, { color: ui.subtext, fontSize: scale(14) }]}
-          >
-            Intelligent task and appointment reminders
-          </ThemedText>
-        </TouchableOpacity>
-
-        {/* Voice Navigation */}
-        <TouchableOpacity
-          style={[
-            styles.featureButton,
-            { backgroundColor: ui.warning, paddingVertical: 28 },
-          ]}
-          onPress={() => {
-            Alert.alert(
-              "Voice Navigation",
-              "Voice navigation helps you move through the app using voice commands. Coming soon!"
-            );
-            speakIfEnabled(
-              "Voice navigation helps you move through the app using voice commands. Coming soon!"
-            );
-          }}
-        >
-          <Text style={[styles.featureButtonText, { fontSize: scale(20) }]}>
-            🎤 Voice Navigation
-          </Text>
-          <ThemedText
-            style={[styles.featureDescription, { color: ui.subtext, fontSize: scale(14) }]}
-          >
-            Navigate the app using voice commands
-          </ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
-
-      {/* Quick Actions */}
-      <ThemedView
-        style={[
-          styles.card,
-          { backgroundColor: ui.cardBg },
-          highContrast && { borderColor: "#FFFFFF", borderWidth: 2 },
-        ]}
-      >
-        <ThemedText
-          style={[styles.sectionTitle, { color: ui.text, fontSize: scale(20) }]}
-        >
-          Quick Actions
-        </ThemedText>
-
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity
-            style={[styles.quickActionButton, { backgroundColor: ui.success }]}
             onPress={() => {
               speakIfEnabled("Opening reminders");
               router.push("/reminders");
             }}
           >
-            <Text style={[styles.quickActionText, { fontSize: scale(16) }]}>
-              📅 Reminders
-            </Text>
+            <LinearGradient
+              colors={highContrast ? ["#111", "#111"] : ["#059669", "#34D399"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.bannerCard}
+            >
+              <View>
+                <Text style={[styles.bannerTitle, { fontSize: s(16) }]}>
+                  Smart Reminders
+                </Text>
+                <Text style={[styles.bannerSub, { fontSize: s(12) }]}>
+                  Task & appointment reminders
+                </Text>
+              </View>
+              <View style={styles.bannerRight}>
+                <Text style={styles.bannerEmoji}>📅</Text>
+                <Text style={[styles.bannerArrow, { fontSize: s(13) }]}>Open →</Text>
+              </View>
+            </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.quickActionButton, { backgroundColor: ui.accent }]}
-            onPress={() => {
-              speakIfEnabled("Opening settings");
-              router.push("/settings");
-            }}
-          >
-            <Text style={[styles.quickActionText, { fontSize: scale(16) }]}>
-              ⚙️ Settings
-            </Text>
-          </TouchableOpacity>
+          {/* ─── ACCESSIBILITY ─── */}
+          <Text style={[styles.section, { color: C.sub, fontSize: s(11), marginTop: 10 }]}>
+            ACCESSIBILITY
+          </Text>
+
+          <View style={[styles.settingsBlock, { backgroundColor: C.card }]}>
+            {/* High Contrast */}
+            <View style={[styles.settRow, { borderBottomColor: C.divider }]}>
+              <View style={styles.settLeft}>
+                <View style={[styles.settIconBox, { backgroundColor: "#EEF2FF" }]}>
+                  <Text style={styles.settEmoji}>🌗</Text>
+                </View>
+                <View>
+                  <Text style={[styles.settName, { color: C.text, fontSize: s(14) }]}>
+                    High Contrast
+                  </Text>
+                  <Text style={[styles.settDesc, { color: C.sub, fontSize: s(12) }]}>
+                    Bold black & white mode
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={highContrast}
+                onValueChange={(v) => {
+                  Haptics.impactAsync(v ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
+                  setHighContrast(v);
+                  setAccessibilitySetting("highContrast", v);
+                  speakIfEnabled(v ? "High contrast on" : "High contrast off");
+                }}
+                trackColor={{ false: C.divider, true: C.blue }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            {/* Large Text */}
+            <View style={[styles.settRow, { borderBottomColor: C.divider }]}>
+              <View style={styles.settLeft}>
+                <View style={[styles.settIconBox, { backgroundColor: "#F0FDF4" }]}>
+                  <Text style={styles.settEmoji}>🔤</Text>
+                </View>
+                <View>
+                  <Text style={[styles.settName, { color: C.text, fontSize: s(14) }]}>
+                    Large Text
+                  </Text>
+                  <Text style={[styles.settDesc, { color: C.sub, fontSize: s(12) }]}>
+                    25% bigger font size
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={largeText}
+                onValueChange={(v) => {
+                  Haptics.impactAsync(v ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
+                  setLargeText(v);
+                  setAccessibilitySetting("largeText", v);
+                  speakIfEnabled(v ? "Large text on" : "Large text off");
+                }}
+                trackColor={{ false: C.divider, true: C.blue }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            {/* Speech Rate */}
+            <View style={[styles.settRow, { borderBottomColor: "transparent" }]}>
+              <View style={styles.settLeft}>
+                <View style={[styles.settIconBox, { backgroundColor: "#FFF7ED" }]}>
+                  <Text style={styles.settEmoji}>🎚️</Text>
+                </View>
+                <View>
+                  <Text style={[styles.settName, { color: C.text, fontSize: s(14) }]}>
+                    Speech Rate
+                  </Text>
+                  <Text style={[styles.settDesc, { color: C.sub, fontSize: s(12) }]}>
+                    Current: {speechRate.toFixed(1)}× speed
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.adjustBtn, { backgroundColor: C.blue }]}
+                onPress={() => {
+                  const next = speechRate >= 2.0 ? 0.5 : Number((speechRate + 0.5).toFixed(1));
+                  setSpeechRate(next);
+                  speakIfEnabled(`Speed ${next} times`);
+                }}
+              >
+                <Text style={[styles.adjustBtnText, { fontSize: s(13) }]}>Adjust</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ─── QUICK ACTIONS ─── */}
+          <Text style={[styles.section, { color: C.sub, fontSize: s(11), marginTop: 10 }]}>
+            QUICK ACTIONS
+          </Text>
+
+          <View style={styles.grid}>
+            {[
+              { icon: "📅", label: "Reminders", route: "/reminders", color: "#ECFDF5", iconBg: "#059669" },
+              { icon: "⚙️", label: "Settings",  route: "/settings",  color: "#EFF6FF", iconBg: "#4F7BFF" },
+              { icon: "📊", label: "Activity",  route: "/activity",  color: "#FDF4FF", iconBg: "#7C3AED" },
+              { icon: "👤", label: "Profile",   route: "/profile",   color: "#FFFBEB", iconBg: "#D97706" },
+            ].map((item) => (
+              <TouchableOpacity
+                key={item.label}
+                style={[styles.gridCard, { backgroundColor: C.card }]}
+                onPress={() => {
+                  speakIfEnabled(`Opening ${item.label}`);
+                  router.push(item.route as any);
+                }}
+              >
+                <View style={[styles.gridIconBox, { backgroundColor: highContrast ? "#222" : item.color }]}>
+                  <Text style={styles.gridEmoji}>{item.icon}</Text>
+                </View>
+                <Text style={[styles.gridLabel, { color: C.text, fontSize: s(13) }]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={[styles.footer, { color: C.sub, fontSize: s(12) }]}>
+            AccessAid · Making technology accessible for everyone
+          </Text>
         </View>
-      </ThemedView>
+      </ScrollView>
 
-      {/* Footer */}
-      <ThemedView style={styles.footer}>
-        <ThemedText
-          style={[styles.footerText, { color: ui.subtext, fontSize: scale(14) }]}
-        >
-          AccessAid - Making technology accessible for everyone
-        </ThemedText>
-      </ThemedView>
-
-      {/* TTS Modal */}
+      {/* ─── CUSTOM TTS MODAL ─── */}
       <Modal visible={showTTSModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <ThemedView
-            style={[styles.modalContainer, highContrast && styles.highContrastCard]}
-          >
-            <ThemedText style={[styles.modalTitle, largeText && styles.largeText]}>
-              Text-to-Speech
-            </ThemedText>
-            <ThemedText
-              style={[styles.modalSubtitle, largeText && styles.largeSubtext]}
-            >
+          <View style={[styles.modalBox, { backgroundColor: C.card }]}>
+            <View style={styles.modalHandle} />
+            <Text style={[styles.modalTitle, { color: C.text, fontSize: s(18) }]}>
+              Custom Text-to-Speech
+            </Text>
+            <Text style={[styles.modalSub, { color: C.sub, fontSize: s(13) }]}>
               Type the text you want to hear spoken
-            </ThemedText>
-
+            </Text>
             <TextInput
-              style={[styles.textInput, largeText && styles.largeTextInput]}
+              style={[
+                styles.textInput,
+                { color: C.text, borderColor: C.divider, backgroundColor: C.bg, fontSize: s(14) },
+              ]}
               placeholder="Enter text to speak..."
+              placeholderTextColor={C.sub}
               value={customText}
               onChangeText={setCustomText}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
             />
-
-            <View style={styles.modalButtons}>
+            <View style={styles.modalRow}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setShowTTSModal(false);
-                  setCustomText("");
-                }}
+                style={[styles.modalBtn, { backgroundColor: C.divider }]}
+                onPress={() => { setShowTTSModal(false); setCustomText(""); }}
               >
-                <Text style={styles.modalButtonText}>Cancel</Text>
+                <Text style={[styles.modalBtnTxt, { color: C.text, fontSize: s(14) }]}>Cancel</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
-                style={[styles.modalButton, styles.speakButton]}
+                style={[styles.modalBtn, { backgroundColor: C.blue }]}
                 onPress={handleCustomTTS}
               >
-                <Text style={styles.modalButtonText}>🔊 Speak</Text>
+                <Text style={[styles.modalBtnTxt, { color: "#FFF", fontSize: s(14) }]}>🔊 Speak</Text>
               </TouchableOpacity>
             </View>
-          </ThemedView>
+          </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  root: { flex: 1 },
+
+  // Header
   header: {
+    paddingTop: 56,
+    paddingBottom: 24,
+    paddingHorizontal: 22,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 30,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
     marginBottom: 20,
   },
-  headerContrastBorder: { borderWidth: 2 },
-  logo: { height: 80, width: 80, marginBottom: 15 },
-  title: { fontWeight: "bold", marginBottom: 5, textAlign: "center" },
-  subtitle: { marginBottom: 5, textAlign: "center" },
-  teamText: { fontStyle: "italic" },
-  card: {
-    marginHorizontal: 20,
-    marginBottom: 20,
+  headerGreeting: { color: "rgba(255,255,255,0.7)", marginBottom: 2 },
+  headerTitle: { color: "#FFF", fontWeight: "800", letterSpacing: 0.3 },
+  headerSub: { color: "rgba(255,255,255,0.6)", marginTop: 2 },
+  logoWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logo: { width: 44, height: 44, borderRadius: 10 },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  statPill: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 12,
+    paddingVertical: 8,
+    marginHorizontal: 3,
+  },
+  statIcon: { fontSize: 18, marginBottom: 2 },
+  statLabel: { color: "rgba(255,255,255,0.85)", fontWeight: "600" },
+
+  body: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 48 },
+
+  section: {
+    fontWeight: "700",
+    letterSpacing: 1.3,
+    marginBottom: 12,
+  },
+
+  // Big TTS card
+  bigCard: {
+    borderRadius: 20,
     padding: 20,
-    borderRadius: 15,
+    marginBottom: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  bigCardLeft: { flex: 1 },
+  bigCardTitle: { color: "#FFF", fontWeight: "800", marginBottom: 4 },
+  bigCardSub: { color: "rgba(255,255,255,0.75)", marginBottom: 14 },
+  bigCardBtn: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 20,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+  bigCardBtnText: { color: "#FFF", fontWeight: "700" },
+  bigCardEmoji: { fontSize: 54, marginLeft: 10 },
+
+  // Two column cards
+  twoCol: { flexDirection: "row", gap: 14, marginBottom: 14 },
+  halfCard: {
+    flex: 1,
+    borderRadius: 18,
+    padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
     elevation: 3,
   },
-  sectionTitle: { fontWeight: "bold", marginBottom: 15 },
-  settingRow: {
+  halfIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  halfEmoji: { fontSize: 22 },
+  halfTitle: { fontWeight: "700", marginBottom: 3 },
+  halfSub: {},
+
+  // Banner card
+  bannerCard: {
+    borderRadius: 20,
+    padding: 18,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
+    marginBottom: 4,
+  },
+  bannerTitle: { color: "#FFF", fontWeight: "800", marginBottom: 3 },
+  bannerSub: { color: "rgba(255,255,255,0.75)" },
+  bannerRight: { alignItems: "center" },
+  bannerEmoji: { fontSize: 34, marginBottom: 4 },
+  bannerArrow: { color: "#FFF", fontWeight: "700" },
+
+  // Settings block
+  settingsBlock: {
+    borderRadius: 20,
+    overflow: "hidden",
+    marginBottom: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  settRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
   },
-  settingLabel: { flex: 1 },
-  rateButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 8,
+  settLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
+  settIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
-  rateButtonText: { color: "#000", fontWeight: "bold", fontSize: 14 },
-  featureButton: {
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 15,
+  settEmoji: { fontSize: 19 },
+  settName: { fontWeight: "600" },
+  settDesc: { marginTop: 1 },
+  adjustBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  adjustBtnText: { color: "#FFF", fontWeight: "700" },
+
+  // Grid quick actions
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    marginBottom: 32,
+  },
+  gridCard: {
+    width: "46%",
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  featureButtonText: { color: "#FFFFFF", fontWeight: "bold", marginBottom: 5 },
-  featureDescription: { textAlign: "center" },
-  quickActionsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  quickActionButton: {
-    paddingVertical: 15,
-    paddingHorizontal: 25,
-    borderRadius: 10,
-    minWidth: 120,
+  gridIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 15,
     alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
   },
-  quickActionText: { color: "#FFFFFF", fontWeight: "bold" },
-  footer: { padding: 20, alignItems: "center", marginTop: 10 },
-  footerText: { textAlign: "center", fontStyle: "italic" },
+  gridEmoji: { fontSize: 26 },
+  gridLabel: { fontWeight: "700" },
+
+  footer: { textAlign: "center", fontStyle: "italic" },
+
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
+  modalBox: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 44,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#D1D5DB",
+    borderRadius: 4,
+    alignSelf: "center",
+    marginBottom: 18,
+  },
+  modalTitle: { fontWeight: "800", marginBottom: 5 },
+  modalSub: { marginBottom: 18 },
+  textInput: {
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 14,
+    minHeight: 110,
+    marginBottom: 18,
+  },
+  modalRow: { flexDirection: "row", gap: 12 },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 15,
+    borderRadius: 14,
     alignItems: "center",
   },
-  modalContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    width: "85%",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 15,
-  },
-  modalButton: {
-    padding: 10,
-    borderRadius: 8,
-    minWidth: 100,
-    alignItems: "center",
-  },
-  cancelButton: { backgroundColor: "#ccc" },
-  speakButton: { backgroundColor: "#4A90E2" },
-  modalButtonText: { color: "#fff", fontWeight: "bold" },
+  modalBtnTxt: { fontWeight: "700" },
 });
-
-
