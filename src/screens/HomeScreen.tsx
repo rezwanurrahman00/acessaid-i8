@@ -574,6 +574,13 @@ const HomeScreen = () => {
     </ModernCard>
   );
 
+  const STAT_META = [
+    { icon: 'sunny-outline',     color: '#F59E0B', bg: '#FFF7ED' },
+    { icon: 'text-outline',      color: '#10B981', bg: '#ECFDF5' },
+    { icon: 'mic-outline',       color: '#4F46E5', bg: '#EEF2FF' },
+    { icon: 'notifications-outline', color: '#EF4444', bg: '#FEF2F2' },
+  ];
+
   const QuickStatsCard = ({
     title,
     stats
@@ -581,22 +588,32 @@ const HomeScreen = () => {
     title: string;
     stats: { value: string; label: string }[]
   }) => (
-    <LinearGradient
-      colors={['#4A90E2', '#357ABD']}
-      style={styles.quickStatsGradient}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    >
-      <Text style={styles.quickStatsTitle}>{title}</Text>
-      <View style={styles.statsRow}>
-        {stats.map((stat, index) => (
-          <View key={index} style={styles.statItem}>
-            <Text style={styles.statNumber}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
-          </View>
-        ))}
+    <View style={styles.quickStatsCard}>
+      {/* Header */}
+      <View style={styles.quickStatsHeader}>
+        <View style={styles.quickStatsHeaderLeft}>
+          <View style={styles.quickStatsTitleDot} />
+          <Text style={styles.quickStatsTitle}>{title}</Text>
+        </View>
+        <Text style={styles.quickStatsSubtitle}>Live</Text>
       </View>
-    </LinearGradient>
+
+      {/* Grid */}
+      <View style={styles.statsGrid}>
+        {stats.map((stat, index) => {
+          const meta = STAT_META[index] ?? { icon: 'stats-chart-outline', color: '#6B7280', bg: '#F3F4F6' };
+          return (
+            <View key={index} style={styles.statCard}>
+              <View style={[styles.statIconBox, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : meta.bg }]}>
+                <Ionicons name={meta.icon as any} size={20} color={meta.color} />
+              </View>
+              <Text style={[styles.statNumber, { color: meta.color }]}>{stat.value}</Text>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
   );
 
   return (
@@ -996,22 +1013,83 @@ const createStyles = (theme: AppTheme) =>
     voiceCommandButton: {
       width: '100%',
     },
-    quickStatsGradient: {
-      borderRadius: 20,
-      padding: 20,
-      marginBottom: 15,
-      shadowColor: '#4A90E2',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.25,
+    quickStatsCard: {
+      marginBottom: 20,
+      borderRadius: 22,
+      backgroundColor: theme.cardBackground,
+      padding: 18,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: theme.isDark ? 0.3 : 0.08,
       shadowRadius: 12,
-      elevation: 8,
+      elevation: 5,
+      borderWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'transparent',
+    },
+    quickStatsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    quickStatsHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    quickStatsTitleDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: '#4F46E5',
     },
     quickStatsTitle: {
-      color: 'white',
-      fontSize: 20,
-      fontWeight: 'bold',
-      textAlign: 'center',
-      marginBottom: 16,
+      fontSize: 16,
+      fontWeight: '800',
+      color: theme.textPrimary,
+    },
+    quickStatsSubtitle: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#10B981',
+      backgroundColor: theme.isDark ? 'rgba(16,185,129,0.15)' : '#ECFDF5',
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 20,
+      overflow: 'hidden',
+      letterSpacing: 0.5,
+    },
+    statsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    statCard: {
+      width: '46%',
+      backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : '#F9FAFB',
+      borderRadius: 16,
+      padding: 14,
+      alignItems: 'flex-start',
+      borderWidth: 1,
+      borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6',
+    },
+    statIconBox: {
+      width: 38,
+      height: 38,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 10,
+    },
+    statNumber: {
+      fontSize: 22,
+      fontWeight: '800',
+      marginBottom: 2,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      fontWeight: '500',
     },
     infoText: {
       color: theme.textMuted,
@@ -1024,16 +1102,6 @@ const createStyles = (theme: AppTheme) =>
     },
     statItem: {
       alignItems: 'center',
-    },
-    statNumber: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: 'white',
-    },
-    statLabel: {
-      fontSize: 12,
-      color: 'rgba(255, 255, 255, 0.85)',
-      marginTop: 4,
     },
     aiReaderContainer: {
       marginBottom: 20,
