@@ -268,9 +268,10 @@ const MedicationTrackerScreen = ({ navigation }: { navigation: any }) => {
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 
-  const takenToday  = logs.filter(l => l.taken_at).length;
-  const totalToday  = meds.filter(m => m.frequency !== 'as_needed').length;
-  const pct         = adherencePct(takenToday, totalToday);
+  const scheduledMeds = meds.filter(m => m.frequency !== 'as_needed');
+  const takenToday    = logs.filter(l => l.taken_at && scheduledMeds.some(m => m.id === l.medication_id)).length;
+  const totalToday    = scheduledMeds.length;
+  const pct           = adherencePct(takenToday, totalToday);
 
   // ── Theme helpers ──────────────────────────────────────────────────────────
 
