@@ -189,11 +189,14 @@ export default function HealthDashboardScreen() {
   const navigation = useNavigation();
   const { state }  = useApp();
 
-  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [checkIns,   setCheckIns]   = useState<CheckIn[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [loadError,  setLoadError]  = useState(false);
 
   const load = useCallback(async () => {
     if (!state.user?.id) return;
+    setLoadError(false);
+    setLoading(true);
     try {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -206,7 +209,7 @@ export default function HealthDashboardScreen() {
       if (error) throw error;
       setCheckIns(data ?? []);
     } catch {
-      Alert.alert('Error', 'Could not load your health data.');
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -304,6 +307,16 @@ export default function HealthDashboardScreen() {
           <ActivityIndicator size="large" color="#7C3AED" />
           <Text style={styles.loadingText}>Loading your health data…</Text>
         </View>
+      ) : loadError ? (
+        <View style={styles.centred}>
+          <Text style={styles.errorEmoji}>⚠️</Text>
+          <Text style={styles.errorTitle}>Could not load health data</Text>
+          <Text style={styles.errorSub}>Check your connection and try again.</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={load}>
+            <Ionicons name="refresh" size={16} color="#fff" />
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
@@ -397,6 +410,11 @@ const styles = StyleSheet.create({
 
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { color: '#6B7280', fontSize: 14 },
+  errorEmoji: { fontSize: 48 },
+  errorTitle: { color: '#111827', fontSize: 16, fontWeight: '700' },
+  errorSub:   { color: '#6B7280', fontSize: 13, textAlign: 'center', paddingHorizontal: 32 },
+  retryBtn:   { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#7C3AED', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 4 },
+  retryText:  { color: '#fff', fontSize: 14, fontWeight: '700' },
 
   scroll: { padding: 16, paddingTop: 20 },
 
