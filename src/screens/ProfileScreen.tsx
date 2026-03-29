@@ -195,6 +195,7 @@ const ProfileScreen = () => {
 
   // Voice-to-text
   const [listeningField, setListeningField] = useState<string | null>(null);
+  const [showCommunity, setShowCommunity]   = useState(false);
   const voiceListenersRef = useRef<any[]>([]);
 
   const cleanupVoiceListeners = () => {
@@ -689,6 +690,79 @@ const ProfileScreen = () => {
               </View>
             </View>
 
+            {/* ── Community — single entry button ── */}
+            {state.user && (
+              <View style={s.section}>
+                <Text style={[s.sectionLabel, { color: theme.textMuted }]}>COMMUNITY</Text>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setShowCommunity(true)}
+                  accessibilityLabel="Open community"
+                  style={s.communityBtn}
+                >
+                  <LinearGradient
+                    colors={['#4C1D95', '#7C3AED', '#A855F7']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={s.communityBtnGradient}
+                  >
+                    <View style={s.communityBtnLeft}>
+                      <View style={s.communityIconBox}>
+                        <Text style={{ fontSize: 28 }}>🌍</Text>
+                      </View>
+                      <View>
+                        <Text style={s.communityBtnTitle}>Community</Text>
+                        <Text style={s.communityBtnSub}>
+                          Connect · Discover · Chat
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={22} color="rgba(255,255,255,0.8)" />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* ── Community Modal ── */}
+            <Modal
+              visible={showCommunity}
+              animationType="slide"
+              presentationStyle="pageSheet"
+              onRequestClose={() => setShowCommunity(false)}
+            >
+              <SafeAreaView style={[s.communityModal, { backgroundColor: theme.background }]}>
+                <View style={[s.communityModalHeader, { borderBottomColor: theme.cardBorder }]}>
+                  <Text style={[s.communityModalTitle, { color: theme.textPrimary }]}>🌍 Community</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowCommunity(false)}
+                    style={[s.communityCloseBtn, { backgroundColor: theme.cardBackground }]}
+                    accessibilityLabel="Close community"
+                  >
+                    <Ionicons name="close" size={20} color={theme.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <SocialSection
+                    userId={state.user!.id}
+                    userName={state.user!.name}
+                    ui={{
+                      bg: theme.background,
+                      cardBg: theme.cardBackground,
+                      text: theme.textPrimary,
+                      subtext: theme.textSecondary,
+                      divider: theme.cardBorder,
+                      accent: theme.accent,
+                      inputBg: theme.inputBackground,
+                      inputBorder: theme.inputBorder,
+                      inputText: theme.textPrimary,
+                      danger: theme.danger,
+                    }}
+                    scale={(n: number) => n * (state.accessibilitySettings.textZoom / 100)}
+                  />
+                </ScrollView>
+              </SafeAreaView>
+            </Modal>
+
             {/* ── Accessibility ── */}
             <View style={s.section}>
               <Text style={[s.sectionLabel, { color: theme.textMuted }]}>ACCESSIBILITY</Text>
@@ -825,27 +899,6 @@ const ProfileScreen = () => {
 
               </View>
             </View>
-
-            {/* ── Community / Social ── */}
-            {state.user && (
-              <SocialSection
-                userId={state.user.id}
-                userName={state.user.name}
-                ui={{
-                  bg: theme.background,
-                  cardBg: theme.cardBackground,
-                  text: theme.textPrimary,
-                  subtext: theme.textSecondary,
-                  divider: theme.cardBorder,
-                  accent: theme.accent,
-                  inputBg: theme.inputBackground,
-                  inputBorder: theme.inputBorder,
-                  inputText: theme.textPrimary,
-                  danger: theme.danger,
-                }}
-                scale={(n: number) => n * (state.accessibilitySettings.textZoom / 100)}
-              />
-            )}
 
             {/* ── App Info ── */}
             <View style={s.section}>
@@ -1297,6 +1350,72 @@ const s = StyleSheet.create({
   infoSimpleValue: {
     fontSize: 15,
     fontWeight: '500',
+  },
+
+  // ── Community button ──
+  communityBtn: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  communityBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  communityBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  communityIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  communityBtnTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 3,
+  },
+  communityBtnSub: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.75)',
+    fontWeight: '500',
+  },
+
+  // ── Community modal ──
+  communityModal: {
+    flex: 1,
+  },
+  communityModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  communityModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  communityCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // ── Logout ──
