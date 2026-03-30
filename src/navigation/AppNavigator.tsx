@@ -29,6 +29,7 @@ import HealthDashboardScreen from '../screens/HealthDashboardScreen';
 import EmergencyCardScreen from '../screens/EmergencyCardScreen';
 import CameraGuideScreen from '../screens/CameraGuideScreen';
 import MedicationTrackerScreen from '../screens/MedicationTrackerScreen';
+import AccessibilityFeedbackScreen from '../screens/AccessibilityFeedbackScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -230,6 +231,11 @@ const AppNavigator = () => {
             <Stack.Screen
               name="MedicationTracker"
               component={MedicationTrackerScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="AccessibilityFeedback"
+              component={AccessibilityFeedbackScreen}
               options={{ headerShown: false }}
             />
           </>

@@ -919,6 +919,33 @@ const ProfileScreen = () => {
               </View>
             </View>
 
+            {/* ── User Testing & Accessibility Feedback ── */}
+            <View style={[s.sectionCard, { borderColor: theme.cardBorder, backgroundColor: theme.cardBackground, marginBottom: 16 }]}>
+              <Text style={[s.sectionHeading, { color: theme.textPrimary }]}>♿ Accessibility Testing</Text>
+              <Text style={[s.sectionSubtitle, { color: theme.textSecondary }]}>
+                Help improve AccessAid for everyone. Share your experience or report issues.
+              </Text>
+              <TouchableOpacity
+                style={[s.testingBtn, { backgroundColor: theme.accent }]}
+                onPress={() => (navigationRef.current as any)?.navigate('AccessibilityFeedback')}
+                accessibilityLabel="Open accessibility feedback form"
+                accessibilityRole="button"
+                accessibilityHint="Opens a form to share your testing experience and rate accessibility features"
+              >
+                <Ionicons name="clipboard-outline" size={18} color="#fff" />
+                <Text style={s.testingBtnText}>Submit Feedback & Ratings</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.testingBtn, { backgroundColor: '#EF4444', marginTop: 8 }]}
+                onPress={() => (navigationRef.current as any)?.navigate('AccessibilityFeedback')}
+                accessibilityLabel="Report an accessibility issue"
+                accessibilityRole="button"
+              >
+                <Ionicons name="flag-outline" size={18} color="#fff" />
+                <Text style={s.testingBtnText}>Report Accessibility Issue</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* ── Logout ── */}
             <TouchableOpacity
               onPress={handleLogout}
@@ -1427,6 +1454,18 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  // ── User Testing ──
+  sectionCard: {
+    marginHorizontal: 16, borderRadius: 16, borderWidth: 1, padding: 16,
+  },
+  sectionHeading: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  sectionSubtitle: { fontSize: 13, lineHeight: 18, marginBottom: 12 },
+  testingBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 13, borderRadius: 12,
+  },
+  testingBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
   // ── Logout ──
   logoutBtn: {
