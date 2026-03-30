@@ -125,12 +125,11 @@ export async function processFeedbackQueue(): Promise<number> {
   return synced;
 }
 
-/** Try Supabase directly; queue if offline */
-export async function submitFeedback(op: FeedbackOp): Promise<{ queued: boolean }> {
-  try {
-    const { op: data } = { op };
-    let error: any = null;
+/** Try Supabase directly; queue only on network errors */
+export async function submitFeedback(op: FeedbackOp): Promise<{ queued: boolean; error?: string }> {
+  let error: any = null;
 
+  try {
     if (op.type === 'feedback') {
       ({ error } = await supabase.from('accessibility_feedback').insert(op.data));
     } else if (op.type === 'issue') {
@@ -138,11 +137,18 @@ export async function submitFeedback(op: FeedbackOp): Promise<{ queued: boolean 
     } else if (op.type === 'rating') {
       ({ error } = await supabase.from('usability_ratings').insert(op.data));
     }
-
-    if (error) throw error;
-    return { queued: false };
-  } catch {
+  } catch (networkErr: any) {
+    // True network failure — queue for later
+    console.warn('[feedbackQueue] Network error, queuing:', networkErr?.message);
     await addFeedbackToQueue(op);
     return { queued: true };
   }
+
+  if (error) {
+    console.error('[feedbackQueue] Supabase error:', error.message, error.details, error.hint);
+    // Don't queue Supabase validation errors — they won't fix themselves
+    return { queued: false, error: error.message };
+  }
+
+  return { queued: false };
 }

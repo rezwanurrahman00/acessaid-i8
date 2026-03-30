@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { getThemeConfig } from '../../constants/theme';
 import { useApp } from '../contexts/AppContext';
+import { supabase } from '../../lib/supabase';
 import { submitFeedback } from '../utils/feedbackQueue';
 
 export interface UsabilityRatingRef {
@@ -64,11 +65,13 @@ const UsabilityRating = forwardRef<UsabilityRatingRef>((_, ref) => {
     }
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const authUserId = sessionData.session?.user?.id ?? null;
 
     await submitFeedback({
       type: 'rating',
       data: {
-        user_id: state.user?.id || 'anonymous',
+        user_id: authUserId,
         task_name: taskName,
         screen_name: screenName,
         success,

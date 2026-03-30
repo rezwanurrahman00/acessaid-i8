@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import React, { useMemo, useState } from 'react';
+import { supabase } from '../../lib/supabase';
 import {
   Alert,
   ScrollView,
@@ -93,6 +94,11 @@ const AccessibilityFeedbackScreen: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [voiceListening, setVoiceListening] = useState<string | null>(null);
 
+  const getAuthUserId = async (): Promise<string | null> => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user?.id ?? null;
+  };
+
   const speakText = (text: string) => {
     if (!state.voiceAnnouncementsEnabled) return;
     try { Speech.stop(); } catch {}
@@ -138,11 +144,12 @@ const AccessibilityFeedbackScreen: React.FC = () => {
     }
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const authUserId = await getAuthUserId();
 
     const { queued } = await submitFeedback({
       type: 'feedback',
       data: {
-        user_id: state.user?.id || 'anonymous',
+        user_id: authUserId,
         disability_category: disabilityCategory,
         feature_tested: featureTested,
         what_worked: whatWorked || undefined,
@@ -187,11 +194,12 @@ const AccessibilityFeedbackScreen: React.FC = () => {
     }
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const authUserId = await getAuthUserId();
 
     const { queued } = await submitFeedback({
       type: 'issue',
       data: {
-        user_id: state.user?.id || 'anonymous',
+        user_id: authUserId,
         issue_type: issueType,
         screen_name: issueScreen,
         description: issueDescription,

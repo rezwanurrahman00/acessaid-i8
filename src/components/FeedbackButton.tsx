@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { getThemeConfig } from '../../constants/theme';
 import { useApp } from '../contexts/AppContext';
+import { supabase } from '../../lib/supabase';
 import { submitFeedback } from '../utils/feedbackQueue';
 
 interface FeedbackButtonProps {
@@ -73,10 +74,12 @@ const FeedbackButton: React.FC<FeedbackButtonProps> = ({ screenName, compact = f
       return;
     }
     setSubmitting(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const authUserId = sessionData.session?.user?.id ?? null;
     const { queued } = await submitFeedback({
       type: 'issue',
       data: {
-        user_id: state.user?.id || 'anonymous',
+        user_id: authUserId,
         issue_type: issueType,
         screen_name: screenName,
         description,
