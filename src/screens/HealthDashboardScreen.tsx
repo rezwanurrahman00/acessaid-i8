@@ -1,10 +1,10 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Clipboard,
   Dimensions,
-  SafeAreaView,
   ScrollView,
   Share,
   StyleSheet,

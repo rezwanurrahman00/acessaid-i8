@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 /**
  * EmergencyCardScreen.tsx
  *
@@ -9,7 +10,6 @@ import React, { useRef } from 'react';
 import {
   Alert,
   Linking,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,

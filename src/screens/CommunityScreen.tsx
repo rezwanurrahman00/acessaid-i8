@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 /**
  * CommunityScreen.tsx
  * Dedicated Community tab — wraps SocialSection for easy discovery.
@@ -5,7 +6,6 @@
 
 import React, { useMemo } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,

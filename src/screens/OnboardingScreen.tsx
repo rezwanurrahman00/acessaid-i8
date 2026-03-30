@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 /**
  * OnboardingScreen.tsx
  * Shown once after first sign-up. 4 slides introducing key features.
@@ -15,7 +16,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  SafeAreaView,
 } from 'react-native';
 import { useApp } from '../contexts/AppContext';
 

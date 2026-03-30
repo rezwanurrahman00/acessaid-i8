@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 /**
  * AIAssistantScreen.tsx
  * Modern ChatGPT-style AI assistant powered by Groq.
@@ -33,7 +34,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,

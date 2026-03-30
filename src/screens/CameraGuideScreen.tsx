@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 /**
  * CameraGuideScreen.tsx
  * AI-powered camera accessibility guide.
@@ -16,7 +17,6 @@ import {
   ActivityIndicator,
   Animated,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,

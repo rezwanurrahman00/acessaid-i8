@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Brightness from 'expo-brightness';
 
@@ -18,7 +19,6 @@ import {
   Dimensions,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -543,6 +543,16 @@ const ProfileScreen = () => {
     ...emergencyRows,
   ];
 
+  if (!state.user) {
+    return (
+      <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: theme.textSecondary, fontSize: 16 }}>Signing out...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <>
       <JoinDateModal
@@ -743,8 +753,8 @@ const ProfileScreen = () => {
                 </View>
                 <ScrollView showsVerticalScrollIndicator={false}>
                   <SocialSection
-                    userId={state.user!.id}
-                    userName={state.user!.name}
+                    userId={state.user.id}
+                    userName={state.user.name}
                     ui={{
                       bg: theme.background,
                       cardBg: theme.cardBackground,

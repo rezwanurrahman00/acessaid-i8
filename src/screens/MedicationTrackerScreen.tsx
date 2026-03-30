@@ -1,3 +1,4 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 /**
  * MedicationTrackerScreen.tsx
  * Track daily medications — add, mark as taken, view history.
@@ -14,7 +15,6 @@ import {
   Animated,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,

@@ -286,7 +286,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch {
         // Supabase unreachable — fall back to local AsyncStorage cache
         try {
-          const key = `reminders_${state.user.id}`;
+          const key = `reminders_${state.user?.id}`;
           const stored = await AsyncStorage.getItem(key);
           if (stored) {
             const parsed = JSON.parse(stored).map((r: any) => ({
