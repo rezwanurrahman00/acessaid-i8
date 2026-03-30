@@ -1,6 +1,7 @@
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { speakIfEnabled } from "@/services/ttsService";
+import * as Haptics from "expo-haptics";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccessibilitySettings } from "@/hooks/useAccessibilitySettings";
 import { supabase } from "@/lib/supabase";
@@ -316,7 +317,7 @@ export default function RemindersScreen() {
       <ThemedView style={styles.addButtonContainer}>
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: isListening ? ui.warning : ui.accent }]}
-          onPress={isListening ? stopVoiceListening : startVoiceListening}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); isListening ? stopVoiceListening() : startVoiceListening(); }}
         >
           <Text style={[styles.addButtonText, { fontSize: scale(18) }]}>
             {isListening ? "🛑 Stop Voice" : "🎤 Voice Commands"}
@@ -325,7 +326,7 @@ export default function RemindersScreen() {
 
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: ui.accent }]}
-          onPress={() => setIsAddingReminder(!isAddingReminder)}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsAddingReminder(!isAddingReminder); }}
         >
           <Text style={[styles.addButtonText, { fontSize: scale(18) }]}>
             {isAddingReminder ? "❌ Cancel" : "➕ Add Reminder"}
@@ -367,7 +368,7 @@ export default function RemindersScreen() {
           />
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: ui.success }]}
-            onPress={addReminder}
+            onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); addReminder(); }}
           >
             <Text style={[styles.addButtonText, { fontSize: scale(18) }]}>Save</Text>
           </TouchableOpacity>
@@ -440,7 +441,7 @@ export default function RemindersScreen() {
                 {!reminder.is_completed && (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: ui.success }]}
-                    onPress={() => completeReminder(reminder.id)}
+                    onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); completeReminder(reminder.id); }}
                     accessibilityLabel={`Mark ${reminder.title} as done`}
                   >
                     <Text style={styles.actionButtonText}>✓ Done</Text>
@@ -448,7 +449,7 @@ export default function RemindersScreen() {
                 )}
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: '#e74c3c' }]}
-                  onPress={() => deleteReminder(reminder.id, reminder.title)}
+                  onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); deleteReminder(reminder.id, reminder.title); }}
                   accessibilityLabel={`Delete ${reminder.title}`}
                 >
                   <Text style={styles.actionButtonText}>Delete</Text>

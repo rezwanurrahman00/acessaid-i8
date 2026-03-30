@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import * as Haptics from "expo-haptics";
 import {
   View,
   Text,
@@ -161,7 +162,7 @@ export default function ProfileTab() {
         {/* Profile Picture */}
         <ThemedView style={styles.profileSection}>
           <TouchableOpacity
-            onPress={handleImagePicker}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleImagePicker(); }}
             style={styles.imageContainer}
             accessibilityLabel="Edit profile picture"
             accessibilityRole="button"
@@ -229,7 +230,7 @@ export default function ProfileTab() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: ui.accent }]}
-                onPress={handleSaveProfile}
+                onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); handleSaveProfile(); }}
                 accessibilityRole="button"
                 accessibilityLabel="Save profile changes"
               >
@@ -248,7 +249,7 @@ export default function ProfileTab() {
           )}
           <TouchableOpacity
             style={[styles.button, styles.signOutButton, { borderColor: ui.danger }]}
-            onPress={handleSignOut}
+            onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); handleSignOut(); }}
             accessibilityRole="button"
             accessibilityLabel="Sign out of AccessAid"
           >

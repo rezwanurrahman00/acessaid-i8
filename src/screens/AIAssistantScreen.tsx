@@ -194,7 +194,7 @@ const MessageBubble = React.memo(({ message, accent, bg, textPrimary, textMuted,
             <Text style={[bStyles.timestamp, { color: textMuted }]}>{formatTime(message.timestamp)}</Text>
           )}
           <TouchableOpacity
-            onPress={handleToggleSpeak}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleToggleSpeak(); }}
             style={[
               bStyles.speakBtn,
               playing
@@ -260,7 +260,7 @@ const WelcomeView = ({ accent, textPrimary, textMuted, isDark, onPrompt }: Welco
         <TouchableOpacity
           key={p.text}
           style={[wStyles.chip, { backgroundColor: p.color + (isDark ? '28' : '22'), borderColor: p.color + '55' }]}
-          onPress={() => onPrompt(p.text)}
+          onPress={() => { Haptics.selectionAsync(); onPrompt(p.text); }}
           accessibilityRole="button"
           accessibilityLabel={p.text}
         >
@@ -526,7 +526,7 @@ const AIAssistantScreen = () => {
         <View style={[styles.inputWrap, { backgroundColor: inputBg, borderTopColor: borderCol }]}>
           <View style={[styles.inputRow, { backgroundColor: inputBg, borderColor: borderCol }]}>
             <TouchableOpacity
-              onPress={pickImage}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); pickImage(); }}
               disabled={isLoading}
               style={styles.inputIcon}
               accessibilityLabel="Send image"

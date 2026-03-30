@@ -187,7 +187,7 @@ export default function HomeScreen() {
                   styles.bigCardBtn,
                   { backgroundColor: isSpeaking ? C.red : "rgba(255,255,255,0.25)" },
                 ]}
-                onPress={() => speakText(welcomeMsg)}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); speakText(welcomeMsg); }}
               >
                 <Text style={[styles.bigCardBtnText, { fontSize: s(14) }]}>
                   {isSpeaking ? "⏹ Stop" : "▶ Play"}
@@ -201,7 +201,7 @@ export default function HomeScreen() {
           <View style={styles.twoCol}>
             <TouchableOpacity
               style={[styles.halfCard, { backgroundColor: C.card }]}
-              onPress={() => setShowTTSModal(true)}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowTTSModal(true); }}
             >
               <View style={[styles.halfIcon, { backgroundColor: "#F3F0FF" }]}>
                 <Text style={styles.halfEmoji}>✏️</Text>
@@ -217,7 +217,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={[styles.halfCard, { backgroundColor: C.card }]}
               onPress={() => {
-                Alert.alert("Voice Navigation", "Navigate the app using voice commands. Coming soon!");
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); Alert.alert("Voice Navigation", "Navigate the app using voice commands. Coming soon!");
                 speakIfEnabled("Voice navigation coming soon");
               }}
             >
@@ -237,7 +237,7 @@ export default function HomeScreen() {
           <TouchableOpacity
             onPress={() => {
               speakIfEnabled("Opening reminders");
-              router.push("/reminders");
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/reminders");
             }}
           >
             <LinearGradient
@@ -368,7 +368,7 @@ export default function HomeScreen() {
                 style={[styles.gridCard, { backgroundColor: C.card }]}
                 onPress={() => {
                   speakIfEnabled(`Opening ${item.label}`);
-                  router.push(item.route as any);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(item.route as any);
                 }}
               >
                 <View style={[styles.gridIconBox, { backgroundColor: highContrast ? "#222" : item.color }]}>
