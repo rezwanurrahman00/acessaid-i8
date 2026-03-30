@@ -377,10 +377,24 @@ export default function RemindersScreen() {
 
       {/* Reminders List */}
       {reminders.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <ThemedText style={[styles.emptyText, { color: ui.subtext }]}>
-            No reminders yet. Add one above!
+        <View style={[styles.emptyContainer, { backgroundColor: ui.cardBg }]}>
+          <Text style={styles.emptyEmoji}>📭</Text>
+          <ThemedText style={[styles.emptyTitle, { color: ui.text }]}>
+            No Reminders Yet
           </ThemedText>
+          <ThemedText style={[styles.emptySubtext, { color: ui.subtext }]}>
+            You're all caught up! Tap{" "}
+            <ThemedText style={[styles.emptyHighlight, { color: ui.accent }]}>
+              + Add Reminder
+            </ThemedText>{" "}
+            above to create your first one.
+          </ThemedText>
+          <View style={[styles.emptyTipCard, { backgroundColor: ui.bg }]}>
+            <Text style={styles.emptyTipIcon}>💡</Text>
+            <ThemedText style={[styles.emptyTipText, { color: ui.subtext }]}>
+              Tip: You can also use voice commands to add reminders hands-free.
+            </ThemedText>
+          </View>
         </View>
       ) : (
         <View style={styles.reminderListContainer}>
@@ -498,8 +512,32 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
-  emptyContainer: { margin: 20, alignItems: 'center', paddingVertical: 40 },
-  emptyText: { fontSize: 16, fontStyle: 'italic', textAlign: 'center' },
+  emptyContainer: {
+    margin: 20,
+    borderRadius: 24,
+    alignItems: 'center',
+    paddingVertical: 44,
+    paddingHorizontal: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  emptyEmoji: { fontSize: 64, marginBottom: 16 },
+  emptyTitle: { fontSize: 22, fontWeight: '800', marginBottom: 10, textAlign: 'center' },
+  emptySubtext: { fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+  emptyHighlight: { fontWeight: '700' },
+  emptyTipCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+    width: '100%',
+  },
+  emptyTipIcon: { fontSize: 18 },
+  emptyTipText: { flex: 1, fontSize: 13, lineHeight: 19 },
   reminderListContainer: { marginHorizontal: 20, marginBottom: 20 },
   sectionTitle: { fontWeight: 'bold', marginBottom: 12 },
   reminderCard: {
