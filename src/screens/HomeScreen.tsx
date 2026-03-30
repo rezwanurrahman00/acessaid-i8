@@ -616,6 +616,26 @@ const HomeScreen = () => {
     </View>
   );
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { emoji: '🌅', text: 'Good Morning' };
+    if (hour < 17) return { emoji: '☀️', text: 'Good Afternoon' };
+    return { emoji: '🌙', text: 'Good Evening' };
+  };
+
+  const QUOTES = [
+    { text: 'Accessibility is not a feature, it\'s a social trend.', author: 'Antonio Santos' },
+    { text: 'The power of the web is in its universality.', author: 'Tim Berners-Lee' },
+    { text: 'Design for the extremes and everyone benefits.', author: 'Unknown' },
+    { text: 'Inclusion is not bringing people into what already exists.', author: 'Dei Tomlinson' },
+    { text: 'Small steps every day lead to big changes.', author: 'AccessAid' },
+    { text: 'Technology should improve life for everyone.', author: 'AccessAid' },
+    { text: 'Your needs are valid. Your voice matters.', author: 'AccessAid' },
+  ];
+
+  const greeting = getGreeting();
+  const quote = QUOTES[new Date().getDate() % QUOTES.length];
+
   return (
     <LinearGradient colors={gradientColors} style={styles.container}>
       <BackgroundLogo />
@@ -628,13 +648,25 @@ const HomeScreen = () => {
             <View style={styles.logoContainer}>
               <AccessAidLogo size={70} showText={true} />
             </View>
-            <Text style={styles.welcomeText}>
-              Welcome back, {state.user?.name || 'User'}!
+            <Text style={styles.greetingText}>
+              {greeting.emoji} {greeting.text}, {state.user?.name || 'there'}!
             </Text>
             <Text style={styles.subtitleText}>
               Choose an accessibility feature below
             </Text>
           </Animated.View>
+
+          {/* Daily Quote */}
+          <View style={[styles.quoteCard, { backgroundColor: theme.cardBackground }]}>
+            <View style={styles.quoteTopRow}>
+              <Text style={styles.quoteDecor}>"</Text>
+              <View style={[styles.quoteBadge, { backgroundColor: theme.isDark ? 'rgba(79,70,229,0.2)' : '#EEF2FF' }]}>
+                <Text style={[styles.quoteBadgeText, { color: '#4F46E5' }]}>Daily Quote</Text>
+              </View>
+            </View>
+            <Text style={[styles.quoteText, { color: theme.textPrimary }]}>{quote.text}</Text>
+            <Text style={[styles.quoteAuthor, { color: theme.textSecondary }]}>— {quote.author}</Text>
+          </View>
 
           <ModernCard variant="elevated" style={styles.ttsContainer}>
             <View style={styles.sectionHeader}>
@@ -912,6 +944,61 @@ const createStyles = (theme: AppTheme) =>
       textShadowOffset: { width: 0, height: 2 },
       textShadowRadius: 5,
       paddingHorizontal: isSmallScreen ? 10 : 0,
+    },
+    greetingText: {
+      fontSize: isSmallScreen ? 22 : 26,
+      fontWeight: 'bold',
+      color: theme.textInverted,
+      marginTop: isSmallScreen ? 10 : 15,
+      textAlign: 'center',
+      textShadowColor: 'rgba(0, 0, 0, 0.35)',
+      textShadowOffset: { width: 0, height: 2 },
+      textShadowRadius: 5,
+      paddingHorizontal: isSmallScreen ? 10 : 0,
+    },
+    quoteCard: {
+      borderRadius: 20,
+      padding: 18,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    quoteTopRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    quoteDecor: {
+      fontSize: 40,
+      fontWeight: '900',
+      color: '#4F46E5',
+      lineHeight: 38,
+      opacity: 0.35,
+    },
+    quoteBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 20,
+    },
+    quoteBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
+    quoteText: {
+      fontSize: 15,
+      fontStyle: 'italic',
+      lineHeight: 22,
+      fontWeight: '500',
+      marginBottom: 8,
+    },
+    quoteAuthor: {
+      fontSize: 12,
+      fontWeight: '600',
     },
     subtitleText: {
       fontSize: isSmallScreen ? 14 : 16,

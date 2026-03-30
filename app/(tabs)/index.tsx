@@ -102,6 +102,31 @@ export default function HomeScreen() {
     ? `Welcome back, ${user.name}! AccessAid is ready to help you.`
     : "Welcome to AccessAid! Your personal accessibility assistant.";
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { emoji: "🌅", text: "Good Morning" };
+    if (hour < 17) return { emoji: "☀️", text: "Good Afternoon" };
+    return { emoji: "🌙", text: "Good Evening" };
+  };
+
+  const QUOTES = [
+    { text: "Accessibility is not a feature, it's a social trend.", author: "Antonio Santos" },
+    { text: "The power of the web is in its universality.", author: "Tim Berners-Lee" },
+    { text: "Design for the extremes and everyone benefits.", author: "Unknown" },
+    { text: "Inclusion is not bringing people into what already exists.", author: "Dei Tomlinson" },
+    { text: "Small steps every day lead to big changes.", author: "AccessAid" },
+    { text: "Technology should improve life for everyone.", author: "AccessAid" },
+    { text: "Your needs are valid. Your voice matters.", author: "AccessAid" },
+  ];
+
+  const getDailyQuote = () => {
+    const day = new Date().getDate();
+    return QUOTES[day % QUOTES.length];
+  };
+
+  const greeting = getGreeting();
+  const quote = getDailyQuote();
+
   const handleCustomTTS = () => {
     if (!customText.trim()) {
       Alert.alert("Error", "Please enter some text to speak");
@@ -126,7 +151,7 @@ export default function HomeScreen() {
           <View style={styles.headerRow}>
             <View>
               <Text style={[styles.headerGreeting, { fontSize: s(13) }]}>
-                {user ? `Hello, ${user.name} 👋` : "Hello there 👋"}
+                {greeting.emoji} {greeting.text}{user ? `, ${user.name}` : ""}
               </Text>
               <Text style={[styles.headerTitle, { fontSize: s(30) }]}>
                 AccessAid
@@ -162,6 +187,22 @@ export default function HomeScreen() {
         </LinearGradient>
 
         <View style={styles.body}>
+
+          {/* ─── DAILY QUOTE ─── */}
+          <View style={[styles.quoteCard, { backgroundColor: C.card }]}>
+            <View style={styles.quoteTopRow}>
+              <Text style={styles.quoteDecor}>"</Text>
+              <View style={[styles.quoteBadge, { backgroundColor: highContrast ? "#333" : "#EEF2FF" }]}>
+                <Text style={[styles.quoteBadgeText, { color: C.accent }]}>Daily Quote</Text>
+              </View>
+            </View>
+            <Text style={[styles.quoteText, { color: C.text, fontSize: s(15) }]}>
+              {quote.text}
+            </Text>
+            <Text style={[styles.quoteAuthor, { color: C.sub, fontSize: s(12) }]}>
+              — {quote.author}
+            </Text>
+          </View>
 
           {/* ─── FEATURES ─── */}
           <Text style={[styles.section, { color: C.sub, fontSize: s(11) }]}>
@@ -613,6 +654,50 @@ const styles = StyleSheet.create({
   gridLabel: { fontWeight: "700" },
 
   footer: { textAlign: "center", fontStyle: "italic" },
+
+  // Daily quote card
+  quoteCard: {
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  quoteTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  quoteDecor: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: "#4F46E5",
+    lineHeight: 36,
+    opacity: 0.4,
+  },
+  quoteBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  quoteBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  quoteText: {
+    fontWeight: "500",
+    lineHeight: 22,
+    marginBottom: 8,
+    fontStyle: "italic",
+  },
+  quoteAuthor: {
+    fontWeight: "600",
+  },
 
   // Modal
   modalOverlay: {
