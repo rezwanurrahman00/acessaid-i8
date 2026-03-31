@@ -11,6 +11,7 @@ CREATE TABLE check_ins (
 );
 
 ALTER TABLE check_ins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE check_ins ADD COLUMN IF NOT EXISTS sleep INTEGER;
 
 CREATE POLICY "Users manage own check-ins" ON check_ins
   FOR ALL USING (auth.uid() = user_id);
