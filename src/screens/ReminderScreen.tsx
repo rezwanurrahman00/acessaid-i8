@@ -694,8 +694,11 @@ const ReminderScreen: React.FC = () => {
   useEffect(() => {
     // Clear previous reminder commands
     voiceManager.removeCommand(['set reminder', 'remind me to', 'create reminder']);
-    voiceManager.removeCommand(['show reminders', 'list reminders', 'view reminders']);
-    voiceManager.removeCommand(['read reminders', 'read my reminders', 'what reminders do i have']);
+    voiceManager.removeCommand(['show reminders', 'list reminders', 'view reminders', 'my reminders',
+      'read reminders', 'read my reminders',
+      'what reminders do i have', 'what reminders do i have today',
+      'tell me my reminders', 'do i have any reminders',
+      'what do i have', 'check reminders']);
     voiceManager.removeCommand(['reminder help', 'help with reminders']);
 
     // NLP-POWERED VOICE COMMAND - Supports natural language
@@ -716,22 +719,15 @@ const ReminderScreen: React.FC = () => {
       captureFullTranscript: true // IMPORTANT: Capture full transcript for NLP
     });
 
-    // Show reminders count
+    // Read reminders — covers both "show" and "read" intents
     voiceManager.addCommand({
-      keywords: ['show reminders', 'list reminders', 'view reminders', 'my reminders'],
-      action: () => {
-        const activeCount = reminders.filter(r => !r.isCompleted).length;
-        const message = `You have ${activeCount} active reminder${activeCount !== 1 ? 's' : ''} out of ${reminders.length} total`;
-        Alert.alert('Reminders', message);
-        speakText(message);
-      },
-      description: 'Announce reminder count',
-      category: 'reminder'
-    });
-
-    // Read reminders with details
-    voiceManager.addCommand({
-      keywords: ['read reminders', 'read my reminders', 'what reminders do i have'],
+      keywords: [
+        'show reminders', 'list reminders', 'view reminders', 'my reminders',
+        'read reminders', 'read my reminders',
+        'what reminders do i have', 'what reminders do i have today',
+        'tell me my reminders', 'do i have any reminders',
+        'what do i have', 'check reminders',
+      ],
       action: () => {
         const activeReminders = reminders.filter(r => !r.isCompleted);
 
@@ -741,23 +737,24 @@ const ReminderScreen: React.FC = () => {
           return;
         }
 
-        // Build the announcement
-        let announcement = `You have ${activeReminders.length} active reminder${activeReminders.length > 1 ? 's' : ''}. `;
+        const now = new Date();
+        let announcement = `You have ${activeReminders.length} active reminder${activeReminders.length !== 1 ? 's' : ''}. `;
         const lines: string[] = [];
 
         activeReminders.forEach((reminder, index) => {
+          const isOverdue = reminder.datetime < now;
           const time = reminder.datetime.toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
-            hour12: true
+            hour12: true,
           });
           const date = reminder.datetime.toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'long',
-            day: 'numeric'
+            day: 'numeric',
           });
-
-          const line = `${index + 1}. ${reminder.title} at ${time} on ${date}`;
+          const overdueTag = isOverdue ? ' (overdue)' : '';
+          const line = `${index + 1}. ${reminder.title} at ${time} on ${date}${overdueTag}`;
           announcement += line + '. ';
           lines.push(line);
         });
@@ -766,7 +763,7 @@ const ReminderScreen: React.FC = () => {
         speakText(announcement);
       },
       description: 'Read all active reminders with times',
-      category: 'reminder'
+      category: 'reminder',
     });
 
     // Help command
@@ -864,8 +861,11 @@ const ReminderScreen: React.FC = () => {
         // Cleanup on unmount
     return () => {
       voiceManager.removeCommand(['set reminder', 'remind me to', 'create reminder']);
-      voiceManager.removeCommand(['show reminders', 'list reminders', 'view reminders']);
-      voiceManager.removeCommand(['read reminders', 'read my reminders', 'what reminders do i have']);
+      voiceManager.removeCommand(['show reminders', 'list reminders', 'view reminders', 'my reminders',
+        'read reminders', 'read my reminders',
+        'what reminders do i have', 'what reminders do i have today',
+        'tell me my reminders', 'do i have any reminders',
+        'what do i have', 'check reminders']);
       voiceManager.removeCommand(['reminder help', 'help with reminders']);
       voiceManager.removeCommand(['complete reminder', 'done reminder', 'finish reminder', 'mark complete', 'mark done', 'complete task']);
       voiceManager.removeCommand(['delete reminder', 'remove reminder', 'cancel reminder', 'delete task', 'remove task']);
@@ -1785,76 +1785,87 @@ const ReminderScreen: React.FC = () => {
     return result;
   }, [filteredReminders]);
 
-  const renderItem = ({ item }: { item: Reminder }) => (
-    <TouchableOpacity
-      style={[
-        styles.card,
-        item.isCompleted && styles.cardCompleted
-      ]}
-      activeOpacity={0.7}
-      onPress={() => showEditModal(item.id)}
-      onLongPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        const msg = `${item.title}. ${item.description || ''}. Scheduled for ${formatPreview(item.datetime)}`;
-        speakText(msg);
-      }}
-      delayLongPress={400}
-    >
-      <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(item.priority) }]} />
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-          <Text style={{ fontSize: 20, marginRight: 8 }}>{getCategoryIcon(item.category)}</Text>
-          <Text style={[styles.cardTitle, item.isCompleted && styles.cardTitleCompleted]} numberOfLines={2}>
-            {item.title}
-          </Text>
-        </View>
-        {item.description && (
-          <Text style={styles.cardDescription} numberOfLines={2}>{item.description}</Text>
-        )}
-        <Text style={[styles.cardSubtitle, { marginTop: 6 }]}>🔔 {formatPreview(item.datetime)}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6, flexWrap: 'wrap' }}>
-          <View style={styles.metaChip}>
-            <Text style={[styles.metaChipText, { color: theme.accent }]}>{getRecurrenceText(item.recurrence)}</Text>
+  const renderItem = ({ item }: { item: Reminder }) => {
+    const isOverdue = !item.isCompleted && item.datetime < new Date();
+    return (
+      <TouchableOpacity
+        style={[
+          styles.card,
+          item.isCompleted && styles.cardCompleted,
+          isOverdue && styles.cardOverdue,
+        ]}
+        activeOpacity={0.7}
+        onPress={() => showEditModal(item.id)}
+        onLongPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          const overdueNote = isOverdue ? ' This reminder is overdue.' : '';
+          const msg = `${item.title}. ${item.description || ''}. Scheduled for ${formatPreview(item.datetime)}.${overdueNote}`;
+          speakText(msg);
+        }}
+        delayLongPress={400}
+      >
+        <View style={[styles.priorityIndicator, { backgroundColor: isOverdue ? theme.danger : getPriorityColor(item.priority) }]} />
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Text style={{ fontSize: 20, marginRight: 8 }}>{getCategoryIcon(item.category)}</Text>
+            <Text style={[styles.cardTitle, item.isCompleted && styles.cardTitleCompleted]} numberOfLines={2}>
+              {item.title}
+            </Text>
           </View>
-          {item.priority && (
-            <View style={[styles.metaChip, { borderColor: getPriorityColor(item.priority) }]}>
-              <Text style={[styles.metaChipText, { color: getPriorityColor(item.priority) }]}>
-                {getPriorityLabel(item.priority)}
-              </Text>
-            </View>
+          {item.description && (
+            <Text style={styles.cardDescription} numberOfLines={2} ellipsizeMode="tail">{item.description}</Text>
           )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6 }}>
+            {isOverdue && (
+              <Text style={styles.overdueLabel}>⚠️ Overdue</Text>
+            )}
+            <Text style={[styles.cardSubtitle, isOverdue && { color: theme.danger, fontWeight: '600' }]}>
+              🔔 {formatPreview(item.datetime)}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6, flexWrap: 'wrap' }}>
+            <View style={styles.metaChip}>
+              <Text style={[styles.metaChipText, { color: theme.accent }]}>{getRecurrenceText(item.recurrence)}</Text>
+            </View>
+            {item.priority && (
+              <View style={[styles.metaChip, { borderColor: getPriorityColor(item.priority) }]}>
+                <Text style={[styles.metaChipText, { color: getPriorityColor(item.priority) }]}>
+                  {getPriorityLabel(item.priority)}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-      <View style={styles.cardActions}>
-        <TouchableOpacity
-          onPress={() => toggleComplete(item.id)}
-          style={styles.actionBtn}
-          accessibilityLabel={item.isCompleted ? 'Mark as active' : 'Mark as completed'}
-        >
-          <Ionicons
-            name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
-            size={24}
-            color={item.isCompleted ? theme.success : theme.textMuted}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => showEditModal(item.id)}
-          style={styles.actionBtn}
-          accessibilityLabel="Edit reminder"
-        >
-          <Ionicons name="create-outline" size={22} color={theme.accent} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => removeReminder(item.id)}
-          style={styles.actionBtn}
-          accessibilityLabel="Delete reminder"
-        >
-          <Ionicons name="trash" size={22} color={theme.danger} />
-        </TouchableOpacity>
-      </View>
-
-    </TouchableOpacity>
-  );
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            onPress={() => toggleComplete(item.id)}
+            style={styles.actionBtn}
+            accessibilityLabel={item.isCompleted ? 'Mark as active' : 'Mark as completed'}
+          >
+            <Ionicons
+              name={item.isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
+              size={26}
+              color={item.isCompleted ? theme.success : theme.textMuted}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => showEditModal(item.id)}
+            style={styles.actionBtn}
+            accessibilityLabel="Edit reminder"
+          >
+            <Ionicons name="create-outline" size={24} color={theme.accent} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => removeReminder(item.id)}
+            style={styles.actionBtn}
+            accessibilityLabel="Delete reminder"
+          >
+            <Ionicons name="trash" size={24} color={theme.danger} />
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderListItem = ({ item }: { item: ListItem }) => {
     if (item.type === 'sectionHeader') {
@@ -2578,13 +2589,21 @@ const createStyles = (theme: AppTheme) =>
     cardCompleted: {
       opacity: 0.6,
     },
+    cardOverdue: {
+      borderColor: theme.danger,
+      borderWidth: 1.5,
+    },
+    overdueLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.danger,
+    },
     priorityIndicator: {
       position: 'absolute',
       left: 0,
       top: 0,
       bottom: 0,
-      width: 4,
-
+      width: 5,
     },
     cardTitle: {
       fontSize: 17,
@@ -2615,7 +2634,7 @@ const createStyles = (theme: AppTheme) =>
       fontWeight: '700',
     },
     cardActions: { flexDirection: 'row', alignItems: 'center' },
-    actionBtn: { paddingHorizontal: 8, paddingVertical: 6 },
+    actionBtn: { paddingHorizontal: 8, paddingVertical: 10 },
 
     fab: {
       position: 'absolute',
