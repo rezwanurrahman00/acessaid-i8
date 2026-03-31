@@ -2022,14 +2022,44 @@ const ReminderScreen: React.FC = () => {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📝</Text>
-            <Text style={styles.emptyText}>
-              {searchQuery || filterCategory !== 'all' || filterStatus !== 'all'
-                ? 'No reminders match your filters'
-                : 'No reminders yet. Say "Set reminder for [task] at [time]" or tap + to add manually.'}
-            </Text>
-          </View>
+          (() => {
+            const isFiltered = searchQuery || filterCategory !== 'all' || filterStatus !== 'all';
+            return (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyIcon}>{isFiltered ? '🔍' : '🔔'}</Text>
+                <Text style={styles.emptyTitle}>
+                  {isFiltered ? 'No matches found' : 'No reminders yet'}
+                </Text>
+                <Text style={styles.emptyText}>
+                  {isFiltered
+                    ? 'Try adjusting your search or filters to find what you\'re looking for.'
+                    : 'Stay on top of your day! Add your first reminder by tapping + or by saying "Set reminder for [task] at [time]".'}
+                </Text>
+                {!isFiltered && (
+                  <TouchableOpacity
+                    style={styles.emptyBtn}
+                    onPress={openModal}
+                    accessibilityLabel="Add your first reminder"
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="add-circle-outline" size={18} color={theme.accent} style={{ marginRight: 6 }} />
+                    <Text style={styles.emptyBtnText}>Add a Reminder</Text>
+                  </TouchableOpacity>
+                )}
+                {isFiltered && (
+                  <TouchableOpacity
+                    style={styles.emptyBtn}
+                    onPress={() => { setSearchQuery(''); setFilterCategory('all'); setFilterStatus('all'); }}
+                    accessibilityLabel="Clear all filters"
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color={theme.accent} style={{ marginRight: 6 }} />
+                    <Text style={styles.emptyBtnText}>Clear Filters</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })()
         }
       />
 
@@ -2575,18 +2605,40 @@ const createStyles = (theme: AppTheme) =>
     // Empty State
     emptyContainer: {
       alignItems: 'center',
-      marginTop: 60,
-      paddingHorizontal: 40,
+      marginTop: 72,
+      paddingHorizontal: 36,
     },
     emptyIcon: {
-      fontSize: 64,
+      fontSize: 72,
       marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.textPrimary,
+      marginBottom: 10,
+      textAlign: 'center',
     },
     emptyText: {
       textAlign: 'center',
       color: theme.textMuted,
-      fontSize: 16,
-      lineHeight: 24,
+      fontSize: 15,
+      lineHeight: 22,
+      marginBottom: 24,
+    },
+    emptyBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: theme.accent,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+    },
+    emptyBtnText: {
+      color: theme.accent,
+      fontSize: 15,
+      fontWeight: '600',
     },
     //Cards
     card: {
