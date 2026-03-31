@@ -57,6 +57,7 @@ export default function HomeScreen() {
     text: highContrast ? "#FFF" : "#111827",
     sub: highContrast ? "#CCC" : "#6B7280",
     divider: highContrast ? "#333" : "#E5E7EB",
+    accent: "#4F46E5",
     blue: "#4F46E5",
     purple: "#7C3AED",
     green: "#059669",
@@ -151,7 +152,7 @@ export default function HomeScreen() {
           <View style={styles.headerRow}>
             <View>
               <Text style={[styles.headerGreeting, { fontSize: s(13) }]}>
-                {greeting.emoji} {greeting.text}{user ? `, ${user.name}` : ""}
+                {greeting.emoji} {greeting.text}{user?.name ? `, ${user.name}` : ""}
               </Text>
               <Text style={[styles.headerTitle, { fontSize: s(30) }]}>
                 AccessAid
