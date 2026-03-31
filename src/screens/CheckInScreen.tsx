@@ -40,12 +40,14 @@ import { navigationRef } from '../navigation/AppNavigator';
 type MoodOption = { emoji: string; label: string; value: number; color: string };
 type PainOption = { emoji: string; label: string; value: number; color: string };
 type EnergyOption = { emoji: string; label: string; value: number; color: string };
+type SleepOption = { emoji: string; label: string; value: number; color: string };
 
 interface CheckIn {
   id: string;
   mood: number;
   pain: number;
   energy: number;
+  sleep?: number;
   note?: string;
   created_at: string;
 }
@@ -75,18 +77,29 @@ const ENERGY_OPTIONS: EnergyOption[] = [
   { emoji: '😴', label: 'Drained', value: 0, color: '#EF4444' },
 ];
 
+const SLEEP_OPTIONS = [
+  { emoji: '😴', label: 'Great',    value: 4, color: '#6366F1' },
+  { emoji: '🙂', label: 'Good',     value: 3, color: '#818CF8' },
+  { emoji: '😐', label: 'Fair',     value: 2, color: '#F59E0B' },
+  { emoji: '😣', label: 'Poor',     value: 1, color: '#F97316' },
+  { emoji: '🥱', label: 'No Sleep', value: 0, color: '#EF4444' },
+];
+
 //  Helpers  
+
 
 const moodLabel  = (v: number) => MOOD_OPTIONS.find(o => o.value === v)?.label   ?? '–';
 const painLabel  = (v: number) => PAIN_OPTIONS.find(o => o.value === v)?.label   ?? '–';
+const sleepLabel = (v: number) => SLEEP_OPTIONS.find(o => o.value === v)?.label  ?? '–';
 const energyLabel= (v: number) => ENERGY_OPTIONS.find(o => o.value === v)?.label ?? '–';
 
 const moodEmoji  = (v: number) => MOOD_OPTIONS.find(o => o.value === v)?.emoji   ?? '–';
 const painEmoji  = (v: number) => PAIN_OPTIONS.find(o => o.value === v)?.emoji   ?? '–';
+const sleepEmoji = (v: number) => SLEEP_OPTIONS.find(o => o.value === v)?.emoji  ?? '–';
 const energyEmoji= (v: number) => ENERGY_OPTIONS.find(o => o.value === v)?.emoji ?? '–';
-
 const moodColor  = (v: number) => MOOD_OPTIONS.find(o => o.value === v)?.color   ?? '#94A3B8';
 const painColor  = (v: number) => PAIN_OPTIONS.find(o => o.value === v)?.color   ?? '#94A3B8';
+const sleepColor = (v: number) => SLEEP_OPTIONS.find(o => o.value === v)?.color  ?? '#94A3B8';
 const energyColor= (v: number) => ENERGY_OPTIONS.find(o => o.value === v)?.color ?? '#94A3B8';
 
 const formatDate = (iso: string) => {
@@ -169,6 +182,7 @@ const CheckInScreen = () => {
   const [mood,   setMood]   = useState<number | null>(null);
   const [pain,   setPain]   = useState<number | null>(null);
   const [energy, setEnergy] = useState<number | null>(null);
+  const [sleep, setSleep] = useState<number | null>(null);
 
   // UI state
   const [isSaving,   setIsSaving]   = useState(false);
@@ -240,9 +254,9 @@ const CheckInScreen = () => {
  
   // Save check-in  
   const handleSubmit = async () => {
-    if (mood === null || pain === null || energy === null) {
-      Alert.alert('Almost there!', 'Please select an option for mood, pain, and energy.');
-      speak('Please fill in all three sections before saving.');
+    if (mood === null || pain === null || energy === null || sleep === null) {
+      Alert.alert('Almost there!', 'Please select an option for mood, pain, energy, and sleep.');
+      speak('Please fill in all four sections before saving.');
       return;
     }
  
@@ -255,16 +269,18 @@ const CheckInScreen = () => {
         mood,
         pain,
         energy,
+        sleep, 
       });
  
       if (error) throw error;
  
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      speak(`Check-in saved. Mood ${moodLabel(mood)}, pain ${painLabel(pain)}, energy ${energyLabel(energy)}.`);
+      speak(`Check-in saved. Mood ${moodLabel(mood)}, pain ${painLabel(pain)}, energy ${energyLabel(energy)}, sleep ${sleepLabel(sleep)}.`);
       setTodayDone(true);
       setMood(null);
       setPain(null);
       setEnergy(null);
+      setSleep(null);
       await loadHistory();
     } catch (err) {
       console.warn('CheckIn: save failed:', err);
@@ -301,6 +317,15 @@ const CheckInScreen = () => {
             <Text style={[histStyles.pillText, { color: energyColor(item.energy) }]}>{energyLabel(item.energy)}</Text>
           </View>
         </View>
+        {/* Sleep */}
+        {item.sleep !== undefined && item.sleep !== null && (
+          <View style={histStyles.pill}>
+            <Text style={histStyles.pillEmoji}>{sleepEmoji(item.sleep)}</Text>
+            <View style={[histStyles.pillBadge, { backgroundColor: sleepColor(item.sleep) + '22' }]}>
+              <Text style={[histStyles.pillText, { color: sleepColor(item.sleep) }]}>{sleepLabel(item.sleep)}</Text>
+            </View>
+          </View>
+        )}
       </View>
     </ModernCard>
   );
@@ -408,6 +433,24 @@ const CheckInScreen = () => {
                   options={ENERGY_OPTIONS}
                   selected={energy}
                   onSelect={(v, l) => { setEnergy(v); speak(`Energy set to ${l}`); Haptics.selectionAsync(); }}
+                  themeTextPrimary={theme.textPrimary}
+                  themeCardBackground={theme.inputBackground}
+                  themeCardBorder={theme.cardBorder}
+                />
+              </View>
+ 
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+ 
+              {/* Sleep */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="moon-outline" size={20} color="#6366F1" />
+                  <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Sleep Quality</Text>
+                </View>
+                <OptionSelector
+                  options={SLEEP_OPTIONS}
+                  selected={sleep}
+                  onSelect={(v, l) => { setSleep(v); speak(`Sleep set to ${l}`); Haptics.selectionAsync(); }}
                   themeTextPrimary={theme.textPrimary}
                   themeCardBackground={theme.inputBackground}
                   themeCardBorder={theme.cardBorder}
@@ -532,6 +575,7 @@ const histStyles = StyleSheet.create({
   pillBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   pillText:  { fontSize: 11, fontWeight: '700' },
 });
+
  
 
       
