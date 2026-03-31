@@ -25,6 +25,7 @@ import {
 import { AppTheme, getThemeConfig } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 import { BackgroundLogo } from '../components/BackgroundLogo';
+import Toast, { ToastType } from '../components/Toast';
 import { useApp } from '../contexts/AppContext';
 import type { MainTabParamList } from '../types';
 import { cancelForReminder, rescheduleAll, scheduleForReminder } from '../utils/notificationService';
@@ -91,6 +92,9 @@ const ReminderScreen: React.FC = () => {
   const { state, dispatch } = useApp();
   const route = useRoute<RouteProp<MainTabParamList, 'Reminders'>>();
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<ToastType>('success');
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -1373,6 +1377,12 @@ const ReminderScreen: React.FC = () => {
     }
   };
 
+  const showToast = (message: string, type: ToastType = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
+
   const saveReminder = async () => {
     if (!title.trim()) {
       Alert.alert('Missing title', 'Please enter a reminder title.');
@@ -1412,6 +1422,7 @@ const ReminderScreen: React.FC = () => {
       setModalVisible(false);
       setEditingReminderId(null);
       speakText(`Reminder "${title.trim()}" updated`);
+      showToast(`Reminder updated`);
 
       // Sync to Supabase in background — queue if offline
       const idToUpdate = editingReminderId!;
@@ -1457,6 +1468,7 @@ const ReminderScreen: React.FC = () => {
     setReminders(prev => [...prev, newReminder]);
     setModalVisible(false);
     speakText(`Reminder "${title.trim()}" created successfully`);
+    showToast(`Reminder saved!`);
 
     // Do the slow work (Supabase sync + scheduling) in the background
     const createData = {
@@ -1574,6 +1586,7 @@ const ReminderScreen: React.FC = () => {
       // Announce success immediately
       const desc = describeReminder(parsed);
       speakText(`Reminder created: ${desc}`);
+      showToast(`Reminder saved!`);
 
       // Try to save to Supabase
       try {
@@ -2023,6 +2036,13 @@ const ReminderScreen: React.FC = () => {
       <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={openModal} accessibilityLabel="Add Reminder">
         <Ionicons name="add" size={48} color={theme.textInverted} />
       </TouchableOpacity>
+
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
 
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalBackdrop}>
