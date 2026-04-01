@@ -30,6 +30,7 @@ import { useApp } from '../contexts/AppContext';
 import type { MainTabParamList } from '../types';
 import { cancelForReminder, rescheduleAll, scheduleForReminder } from '../utils/notificationService';
 import { addToQueue, getQueueLength, processQueue } from '../utils/syncQueue';
+import { networkMonitor } from '../utils/networkMonitor';
 import { voiceManager } from '../utils/voiceCommandManager'; // ADDED: Import voice manager
 // ADDED: NLP imports for natural language reminder creation
 import { describeReminder, getReminderHelpText, isValidParsedReminder, parseReminderFromSpeech } from '../utils/nlpParser';
@@ -1438,7 +1439,8 @@ const ReminderScreen: React.FC = () => {
       setModalVisible(false);
       setEditingReminderId(null);
       speakText(`Reminder "${title.trim()}" updated`);
-      showToast(`Reminder updated`);
+      const isOnline = networkMonitor.getIsConnected();
+      showToast(isOnline ? 'Reminder updated' : 'Saved locally — will sync when online', isOnline ? 'success' : 'info');
 
       // Sync to Supabase in background — queue if offline
       const idToUpdate = editingReminderId!;
@@ -1484,7 +1486,8 @@ const ReminderScreen: React.FC = () => {
     setReminders(prev => [...prev, newReminder]);
     setModalVisible(false);
     speakText(`Reminder "${title.trim()}" created successfully`);
-    showToast(`Reminder saved!`);
+    const isOnline = networkMonitor.getIsConnected();
+    showToast(isOnline ? 'Reminder saved!' : 'Saved locally — will sync when online', isOnline ? 'success' : 'info');
 
     // Do the slow work (Supabase sync + scheduling) in the background
     const createData = {
