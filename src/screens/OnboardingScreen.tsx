@@ -181,7 +181,7 @@ const OnboardingScreen = () => {
             {isLast ? (
               <Text style={styles.nextBtnText}>Get Started</Text>
             ) : (
-              <Ionicons name="arrow-forward" size={22} color={current.gradient[0]} />
+              <Ionicons name="arrow-forward" size={30} color={current.gradient[0]} />
             )}
           </TouchableOpacity>
         </View>
@@ -205,8 +205,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 12,
   },
-  skipBtn:  { paddingVertical: 6, paddingHorizontal: 12 },
-  skipText: { color: 'rgba(255,255,255,0.75)', fontSize: 15, fontWeight: '600' },
+  skipBtn:  { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.35)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.8)' },
+  skipText: { color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
 
   content: {
     flex: 1,
@@ -268,9 +268,9 @@ const styles = StyleSheet.create({
   },
 
   nextBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   nextBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     color: '#1F2933',
     textAlign: 'center',
