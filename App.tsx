@@ -31,21 +31,32 @@ export default function App() {
     });
 
     // Handle cold-start: app was closed when the user tapped the notification banner
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response?.notification?.request?.content?.data?.reminderId) {
         // Poll until the navigation container is ready (typically < 500 ms)
-        const interval = setInterval(() => {
+        interval = setInterval(() => {
           if (navigationRef.isReady()) {
             navigationRef.navigate('Main' as any, { screen: 'Reminders' } as any);
-            clearInterval(interval);
+            clearInterval(interval!);
+            interval = null;
           }
         }, 100);
         // Stop polling after 5 seconds to avoid an infinite loop
-        setTimeout(() => clearInterval(interval), 5000);
+        timeout = setTimeout(() => {
+          if (interval) clearInterval(interval);
+          interval = null;
+        }, 5000);
       }
     });
 
-    return () => sub.remove();
+    return () => {
+      sub.remove();
+      if (interval) clearInterval(interval);
+      if (timeout) clearTimeout(timeout);
+    };
   }, []);
 
   return (
