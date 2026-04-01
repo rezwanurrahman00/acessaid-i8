@@ -1334,22 +1334,38 @@ const ReminderScreen: React.FC = () => {
         ? Math.round((nextReminder.datetime.getTime() - now.getTime()) / 60000)
         : null;
 
+      const overdueList = overdue
+        .map(r => {
+          const minsAgo = Math.round((now.getTime() - r.datetime.getTime()) / 60000);
+          const timeAgo = minsAgo < 60
+            ? `${minsAgo} minute${minsAgo !== 1 ? 's' : ''} ago`
+            : `${Math.round(minsAgo / 60)} hour${Math.round(minsAgo / 60) !== 1 ? 's' : ''} ago`;
+          return `- "${r.title}" was due ${timeAgo}${r.priority === 'high' ? ' (high priority)' : ''}`;
+        })
+        .join('\n') || 'none';
+
       const reminderList = todayReminders
-        .map(r =>
-          `- ${r.title} at ${r.datetime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` +
-          (r.priority === 'high' ? ' (high priority)' : '')
-        )
+        .map(r => {
+          const minsLeft = Math.round((r.datetime.getTime() - now.getTime()) / 60000);
+          const timeLeft = minsLeft < 60
+            ? `in ${minsLeft} minute${minsLeft !== 1 ? 's' : ''}`
+            : `in ${Math.round(minsLeft / 60)} hour${Math.round(minsLeft / 60) !== 1 ? 's' : ''}`;
+          return `- "${r.title}" ${timeLeft} at ${r.datetime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` +
+            (r.priority === 'high' ? ' (high priority)' : '');
+        })
         .join('\n') || 'none today';
 
       const prompt =
         `Generate a warm, concise spoken daily briefing (2–4 sentences, under 60 words) for an accessibility app user. ` +
         `Natural speech only — no markdown, no bullet points, no asterisks.\n\n` +
-        `Today's reminders (${todayReminders.length}): ${reminderList}\n` +
-        `Overdue: ${overdue.length}. Completed today: ${completedToday.length}.\n` +
+        `Current time: ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.\n` +
+        `Overdue reminders (${overdue.length}): ${overdueList}\n` +
+        `Upcoming reminders today (${todayReminders.length}): ${reminderList}\n` +
+        `Completed today: ${completedToday.length}.\n` +
         (nextReminder && minutesUntilNext !== null && minutesUntilNext > 0
-          ? `Next: "${nextReminder.title}" in ${minutesUntilNext} minutes.\n`
+          ? `Next up: "${nextReminder.title}" in ${minutesUntilNext} minutes.\n`
           : '') +
-        `Be encouraging. Start with a time-of-day greeting.`;
+        `Mention any overdue items by name and how long ago they were due. Be encouraging. Start with a time-of-day greeting.`;
 
       const briefing = await sendChatMessage([], prompt);
 
@@ -1959,6 +1975,8 @@ const ReminderScreen: React.FC = () => {
         <TouchableOpacity
           style={styles.filterButton}
           onPress={() => setShowFilters(!showFilters)}
+          accessibilityLabel={showFilters ? 'Hide filters' : 'Show filters'}
+          accessibilityRole="button"
         >
           <Ionicons name="filter" size={18} color={theme.textInverted} />
           <Text style={styles.filterButtonText}>Filters</Text>
@@ -1977,6 +1995,9 @@ const ReminderScreen: React.FC = () => {
                     filterCategory === cat && styles.filterChipActive
                   ]}
                   onPress={() => setFilterCategory(cat)}
+                  accessibilityLabel={`Filter by ${cat === 'all' ? 'all categories' : cat}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: filterCategory === cat }}
                 >
                   <Text style={[
                     styles.filterChipText,
@@ -1998,6 +2019,9 @@ const ReminderScreen: React.FC = () => {
                     filterStatus === status && styles.filterChipActive
                   ]}
                   onPress={() => setFilterStatus(status)}
+                  accessibilityLabel={`Filter by ${status === 'all' ? 'all statuses' : status} reminders`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: filterStatus === status }}
                 >
                   <Text style={[
                     styles.filterChipText,
@@ -2097,6 +2121,8 @@ const ReminderScreen: React.FC = () => {
                     style={styles.voiceButton}
                     onPress={() => handleVoiceInput('title')}
                     disabled={isVoiceInputMode}
+                    accessibilityLabel={isVoiceInputMode && voiceField === 'title' ? 'Stop voice input for title' : 'Use voice input for title'}
+                    accessibilityRole="button"
                   >
                     <Ionicons
                       name={isVoiceInputMode && voiceField === 'title' ? 'mic' : 'mic-outline'}
@@ -2121,6 +2147,8 @@ const ReminderScreen: React.FC = () => {
                     style={styles.voiceButton}
                     onPress={() => handleVoiceInput('description')}
                     disabled={isVoiceInputMode}
+                    accessibilityLabel={isVoiceInputMode && voiceField === 'description' ? 'Stop voice input for description' : 'Use voice input for description'}
+                    accessibilityRole="button"
                   >
                     <Ionicons
                       name={isVoiceInputMode && voiceField === 'description' ? 'mic' : 'mic-outline'}
@@ -2141,6 +2169,9 @@ const ReminderScreen: React.FC = () => {
                         category === cat && styles.categoryChipActive
                       ]}
                       onPress={() => setCategory(cat)}
+                      accessibilityLabel={`Category: ${cat}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: category === cat }}
                     >
                       <Text style={{ fontSize: 18 }}>{getCategoryIcon(cat)}</Text>
                       <Text style={[
@@ -2165,6 +2196,9 @@ const ReminderScreen: React.FC = () => {
                         priority === pri && { backgroundColor: getPriorityColor(pri) }
                       ]}
                       onPress={() => setPriority(pri)}
+                      accessibilityLabel={`Priority: ${pri}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: priority === pri }}
                     >
                       <Text style={[
                         styles.priorityChipText,
@@ -2187,6 +2221,9 @@ const ReminderScreen: React.FC = () => {
                         recurrence === rec && styles.recurrenceChipActive
                       ]}
                       onPress={() => setRecurrence(rec)}
+                      accessibilityLabel={`Repeat: ${rec === 'once' ? 'once only' : rec}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: recurrence === rec }}
                     >
                       <Text style={[
                         styles.recurrenceChipText,
@@ -2225,6 +2262,8 @@ const ReminderScreen: React.FC = () => {
                         <TouchableOpacity
                           style={styles.actionButton}
                           onPress={() => setShowPicker(true)}
+                          accessibilityLabel="Pick date and time"
+                          accessibilityRole="button"
                         >
                           <Text style={styles.actionButtonText}>Pick date & time</Text>
                         </TouchableOpacity>
@@ -2276,13 +2315,16 @@ const ReminderScreen: React.FC = () => {
               </ScrollView>
 
               <View style={styles.actionsRow}>
-                <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={() => setModalVisible(false)}>
+                <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={() => setModalVisible(false)} accessibilityLabel="Cancel" accessibilityRole="button">
                   <Text style={[styles.btnText, { color: theme.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.btn, styles.btnPrimary, !title.trim() && styles.btnDisabled, { opacity: title.trim() ? 1 : 0.6 }]}
                   onPress={saveReminder}
                   disabled={!title.trim()}
+                  accessibilityLabel={editingReminderId ? 'Update reminder' : 'Create reminder'}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !title.trim() }}
                 >
                   <Text style={[styles.btnText, { color: theme.textInverted }]}>{editingReminderId ? 'Update Reminder' : 'Create Reminder'}</Text>
                 </TouchableOpacity>
@@ -2304,10 +2346,10 @@ const ReminderScreen: React.FC = () => {
             )}
             <Text style={[styles.preview, { marginTop: 6 }]}>{formatPreview(alertReminder?.datetime || new Date())}</Text>
             <View style={styles.actionsRow}>
-              <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={handleAlertNo}>
+              <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={handleAlertNo} accessibilityLabel="Snooze reminder for 5 minutes" accessibilityRole="button">
                 <Text style={[styles.btnText, { color: theme.textSecondary }]}>No (Remind in 5m)</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={handleAlertYes}>
+              <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={handleAlertYes} accessibilityLabel="Mark reminder as done" accessibilityRole="button">
                 <Text style={[styles.btnText, { color: theme.textInverted }]}>Yes (Done)</Text>
               </TouchableOpacity>
             </View>
