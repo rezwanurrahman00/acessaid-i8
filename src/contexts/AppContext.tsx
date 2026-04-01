@@ -342,7 +342,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     saveData();
-  }, [state.user, state.accessibilitySettings, state.hasCompletedSetup, state.reminders]);
+  }, [state.user, state.accessibilitySettings, state.hasCompletedSetup, state.hasSeenOnboarding, state.reminders]);
 
   // Sync voice announcements setting with voiceManager
   useEffect(() => {
