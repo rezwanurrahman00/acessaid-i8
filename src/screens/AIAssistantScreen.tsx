@@ -370,8 +370,7 @@ const AIAssistantScreen = () => {
     scrollToBottom();
 
     try {
-      const history = [...messages, userMsg].slice(0, -1);
-      const reply = await sendChatMessage(history, trimmed);
+      const reply = await sendChatMessage(messages, trimmed);
       setMessages(prev => [...prev, { role: 'model', text: reply, timestamp: new Date() }]);
       speak(reply);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
