@@ -56,12 +56,13 @@ const CameraGuideScreen = ({ navigation }: { navigation: any }) => {
   const captureAndAnalyseRef = useRef<() => void>(() => {});
   const pulseAnim          = useRef(new Animated.Value(1)).current;
 
-  // Mark unmounted and clear the interval when the screen is removed
+  // Mark unmounted, clear the interval, and stop speech when the screen is removed
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       if (autoTimer.current) clearInterval(autoTimer.current);
+      try { Speech.stop(); } catch {}
     };
   }, []);
 

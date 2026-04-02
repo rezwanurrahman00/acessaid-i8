@@ -45,6 +45,7 @@ import { getThemeConfig } from '../../constants/theme';
 import { useApp } from '../contexts/AppContext';
 import { ChatMessage, sendChatMessage, sendImageMessage } from '../services/geminiService';
 import { voiceManager } from '../utils/voiceCommandManager';
+import { supabase } from '../../lib/supabase';
 
 // Clipboard — conditional (not available in all environments)
 let Clipboard: any = null;
@@ -153,7 +154,7 @@ const MessageBubble = React.memo(({ message, accent, bg, textPrimary, textMuted,
   if (isUser) {
     return (
       <View style={bStyles.userRow}>
-        <View>
+        <View style={bStyles.userBubbleWrap}>
           <TouchableOpacity
             activeOpacity={0.85}
             onLongPress={handleCopy}
@@ -219,8 +220,9 @@ const MessageBubble = React.memo(({ message, accent, bg, textPrimary, textMuted,
 });
 
 const bStyles = StyleSheet.create({
-  userRow:   { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, marginVertical: 6 },
-  userBubble:{ maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20, borderBottomRightRadius: 4 },
+  userRow:       { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, marginVertical: 6 },
+  userBubbleWrap:{ maxWidth: '80%' },
+  userBubble:    { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20, borderBottomRightRadius: 4 },
   userText:  { color: '#fff', lineHeight: 22 },
 
   aiRow:    { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, marginVertical: 6, gap: 10 },
@@ -286,15 +288,88 @@ const wStyles = StyleSheet.create({
 
 const AIAssistantScreen = () => {
   const { state } = useApp();
-  const isDark = state.accessibilitySettings.isDarkMode;
-  const theme  = useMemo(() => getThemeConfig(isDark), [isDark]);
+  const isDark    = state.accessibilitySettings.isDarkMode;
+  const theme     = useMemo(() => getThemeConfig(isDark), [isDark]);
 
-  const [messages,    setMessages]    = useState<Message[]>([]);
-  const [input,       setInput]       = useState('');
-  const [isLoading,   setIsLoading]   = useState(false);
-  const [isListening, setIsListening] = useState(false);
+  const [messages,        setMessages]        = useState<Message[]>([]);
+  const [input,           setInput]           = useState('');
+  const [isLoading,       setIsLoading]       = useState(false);
+  const [isListening,     setIsListening]     = useState(false);
+  const [conversationId,  setConversationId]  = useState<string | null>(null);
+  const [userId,          setUserId]          = useState<string | null>(null);
 
   const listRef = useRef<FlatList>(null);
+
+  // ── Load user session + most recent conversation on mount ─────────────────
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id ?? null;
+      if (!uid) return;
+      setUserId(uid);
+
+      const { data: conv } = await supabase
+        .from('ai_conversations')
+        .select('id')
+        .eq('user_id', uid)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (conv) {
+        setConversationId(conv.id);
+        const { data: msgs } = await supabase
+          .from('ai_messages')
+          .select('*')
+          .eq('conversation_id', conv.id)
+          .order('created_at', { ascending: true });
+
+        if (msgs && msgs.length > 0) {
+          setMessages(msgs.map(m => ({
+            role: m.role as 'user' | 'model',
+            text: m.text,
+            imageUri: m.image_uri ?? undefined,
+            timestamp: new Date(m.created_at),
+          })));
+        }
+      }
+    })();
+  }, []);
+
+  // ── Persist a single message to Supabase ──────────────────────────────────
+  const persistMessage = useCallback(async (
+    convId: string,
+    uid: string,
+    role: 'user' | 'model',
+    text: string,
+    imageUri?: string,
+  ) => {
+    const { error } = await supabase.from('ai_messages').insert({
+      conversation_id: convId,
+      user_id: uid,
+      role,
+      text,
+      image_uri: imageUri ?? null,
+    });
+    if (error) console.error('[AI] persistMessage error:', error.message);
+  }, []);
+
+  // ── Get or create a conversation, returns its id ──────────────────────────
+  const getOrCreateConversation = useCallback(async (uid: string, firstMessage: string): Promise<string> => {
+    if (conversationId) return conversationId;
+    const title = firstMessage.slice(0, 60);
+    const { data, error } = await supabase
+      .from('ai_conversations')
+      .insert({ user_id: uid, title })
+      .select('id')
+      .single();
+    if (error || !data) {
+      console.error('[AI] getOrCreateConversation error:', error?.message);
+      throw new Error('Could not create conversation');
+    }
+    setConversationId(data.id);
+    return data.id;
+  }, [conversationId]);
 
   const toggleMic = useCallback(async () => {
     if (!ExpoSpeechRecognitionModule) {
@@ -351,7 +426,10 @@ const AIAssistantScreen = () => {
       category: 'general',
       action: () => { setMessages([]); voiceManager.speak('Chat cleared'); },
     });
-    return () => { voiceManager.removeCommand(['clear chat', 'new chat', 'start over']); };
+    return () => {
+      voiceManager.removeCommand(['clear chat', 'new chat', 'start over']);
+      try { Speech.stop(); } catch {}
+    };
   }, []);
 
   const scrollToBottom = useCallback(() => {
@@ -370,10 +448,19 @@ const AIAssistantScreen = () => {
     scrollToBottom();
 
     try {
-      const reply = await sendChatMessage(messages, trimmed);
-      setMessages(prev => [...prev, { role: 'model', text: reply, timestamp: new Date() }]);
+      const history = [...messages, userMsg].slice(0, -1);
+      const reply = await sendChatMessage(history, trimmed);
+      const aiMsg: Message = { role: 'model', text: reply, timestamp: new Date() };
+      setMessages(prev => [...prev, aiMsg]);
       speak(reply);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // Persist to Supabase
+      if (userId) {
+        const convId = await getOrCreateConversation(userId, trimmed);
+        await persistMessage(convId, userId, 'user', trimmed);
+        await persistMessage(convId, userId, 'model', reply);
+      }
     } catch (err: any) {
       setMessages(prev => [...prev, { role: 'model', text: `Sorry, something went wrong: ${err?.message ?? 'Unknown error'}` }]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -381,7 +468,7 @@ const AIAssistantScreen = () => {
       setIsLoading(false);
       scrollToBottom();
     }
-  }, [messages, isLoading, speak, scrollToBottom]);
+  }, [messages, isLoading, speak, scrollToBottom, userId, getOrCreateConversation, persistMessage]);
 
   const pickImage = useCallback(() => {
     Alert.alert('Analyse Image', 'Choose a source', [
@@ -430,6 +517,13 @@ const AIAssistantScreen = () => {
       const reply = await sendImageMessage(manipulated.base64, 'image/jpeg', prompt);
       setMessages(prev => [...prev, { role: 'model', text: reply, timestamp: new Date() }]);
       speak(reply);
+
+      // Persist to Supabase
+      if (userId) {
+        const convId = await getOrCreateConversation(userId, prompt);
+        await persistMessage(convId, userId, 'user', prompt, asset.uri);
+        await persistMessage(convId, userId, 'model', reply);
+      }
     } catch (err: any) {
       console.error('Vision error:', err);
       setMessages(prev => [...prev, { role: 'model', text: `Sorry, I couldn't analyse that image: ${err?.message}` }]);
@@ -437,12 +531,20 @@ const AIAssistantScreen = () => {
       setIsLoading(false);
       scrollToBottom();
     }
-  }, [input, speak, scrollToBottom]);
+  }, [input, speak, scrollToBottom, userId, getOrCreateConversation, persistMessage]);
 
   const clearChat = useCallback(() => {
     Alert.alert('New Chat', 'Clear this conversation?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: () => { setMessages([]); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: () => {
+          setMessages([]);
+          setConversationId(null); // next message will create a new conversation
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        },
+      },
     ]);
   }, []);
 
@@ -492,6 +594,7 @@ const AIAssistantScreen = () => {
             ref={listRef}
             data={messages}
             keyExtractor={(_, i) => String(i)}
+            keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => (
               <MessageBubble
                 message={item}
@@ -546,16 +649,18 @@ const AIAssistantScreen = () => {
               />
             </TouchableOpacity>
 
-            <TextInput
-              style={[styles.input, { color: theme.textPrimary }]}
-              value={input}
-              onChangeText={setInput}
-              placeholder="Message AccessAid AI..."
-              placeholderTextColor={theme.placeholder}
-              multiline
-              maxLength={1000}
-              accessibilityLabel="Message input"
-            />
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={[styles.input, { color: theme.textPrimary }]}
+                value={input}
+                onChangeText={setInput}
+                placeholder="Message AccessAid AI..."
+                placeholderTextColor={theme.placeholder}
+                multiline
+                maxLength={1000}
+                accessibilityLabel="Message input"
+              />
+            </View>
 
             <TouchableOpacity
               onPress={() => handleSend(input)}
@@ -619,13 +724,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   inputIcon: { padding: 6 },
-  input: {
+  inputWrapper: {
     flex: 1,
+    minHeight: 36,
+    maxHeight: 120,
+    justifyContent: 'center',
+  },
+  input: {
     fontSize: 15,
     lineHeight: 22,
-    maxHeight: 120,
     paddingHorizontal: 6,
     paddingVertical: 4,
+    textAlignVertical: 'center',
   },
   sendBtn: {
     width: 34,

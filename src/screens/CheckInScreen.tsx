@@ -462,13 +462,13 @@ const CheckInScreen = () => {
                 style={[
                   styles.saveBtn,
                   {
-                    backgroundColor: (mood !== null && pain !== null && energy !== null)
+                    backgroundColor: (mood !== null && pain !== null && energy !== null && sleep !== null)
                       ? theme.accent
                       : theme.inputBorder,
                   },
                 ]}
                 onPress={handleSubmit}
-                disabled={isSaving}
+                disabled={isSaving || mood === null || pain === null || energy === null || sleep === null}
                 accessibilityRole="button"
                 accessibilityLabel="Save check-in"
               >

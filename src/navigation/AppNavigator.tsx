@@ -101,6 +101,7 @@ const MainTabNavigator = () => {
           paddingTop: 5,
           height: 60,
         },
+        tabBarHideOnKeyboard: false,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
