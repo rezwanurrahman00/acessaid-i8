@@ -242,6 +242,8 @@ export default function HomeScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); Alert.alert("Voice Navigation", "Navigate the app using voice commands. Coming soon!");
                 speakIfEnabled("Voice navigation coming soon");
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Voice navigation, coming soon"
             >
               <View style={[styles.halfIcon, { backgroundColor: "#FFFBEB" }]}>
                 <Text style={styles.halfEmoji}>🎤</Text>
