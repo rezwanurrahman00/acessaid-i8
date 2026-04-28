@@ -309,7 +309,7 @@ export default function RemindersScreen() {
   return (
     <GestureDetector gesture={swipeHandlers}>
     <View style={{ flex: 1, backgroundColor: ui.bg }}>
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <LinearGradient
         colors={highContrast ? ["#000", "#000"] : ["#0F0C29", "#4F46E5"]}
         start={{ x: 0, y: 0 }}
@@ -324,6 +324,8 @@ export default function RemindersScreen() {
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: isListening ? ui.warning : ui.accent }]}
           onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); isListening ? stopVoiceListening() : startVoiceListening(); }}
+          accessibilityRole="button"
+          accessibilityLabel={isListening ? "Stop voice input" : "Start voice commands"}
         >
           <Text style={[styles.addButtonText, { fontSize: scale(18) }]}>
             {isListening ? "🛑 Stop Voice" : "🎤 Voice Commands"}
@@ -355,6 +357,9 @@ export default function RemindersScreen() {
             accessibilityLabel="Reminder title"
             value={newReminder.title}
             onChangeText={(t) => setNewReminder({ ...newReminder, title: t })}
+            autoCapitalize="sentences"
+            maxLength={80}
+            returnKeyType="next"
           />
           <TextInput
             style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText }]}
@@ -363,6 +368,7 @@ export default function RemindersScreen() {
             accessibilityLabel="Reminder description"
             value={newReminder.description}
             onChangeText={(t) => setNewReminder({ ...newReminder, description: t })}
+            maxLength={200}
           />
           <TextInput
             style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText }]}
@@ -371,6 +377,8 @@ export default function RemindersScreen() {
             accessibilityLabel="Reminder time in HH colon MM format"
             value={newReminder.time}
             onChangeText={(t) => setNewReminder({ ...newReminder, time: t })}
+            keyboardType="numbers-and-punctuation"
+            returnKeyType="done"
           />
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: ui.success }]}
