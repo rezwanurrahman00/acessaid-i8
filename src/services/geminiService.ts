@@ -48,7 +48,8 @@ export async function sendChatMessage(
   newMessage: string,
 ): Promise<string> {
   if (!GROQ_API_KEY) {
-    throw new Error('GROQ_API_KEY_MISSING');
+    throw new Error('AI service is not configured. Please contact support.');
+
   }
 
   const messages = [
@@ -94,7 +95,7 @@ export async function sendImageMessage(
   mimeType: string = 'image/jpeg',
   prompt: string = 'Please describe and explain what you see in this image in simple, clear language.',
 ): Promise<string> {
-  if (!GROQ_API_KEY) throw new Error('GROQ_API_KEY_MISSING');
+  if (!GROQ_API_KEY) throw new Error('AI service is not configured. Please contact support.');
 
   const response = await fetchWithTimeout(ENDPOINT, {
     method: 'POST',
