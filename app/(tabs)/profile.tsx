@@ -152,13 +152,6 @@ export default function ProfileTab() {
           </ThemedText>
         </ThemedView>
 
-        {/* Build marker – remove after confirming Expo Go loads latest */}
-        <ThemedView style={[styles.debugBanner, { backgroundColor: ui.cardBg }]}>
-          <ThemedText style={[styles.debugBannerText, { color: ui.accent, fontSize: scale(12) }]}>
-            ✓ Latest build (Community section below)
-          </ThemedText>
-        </ThemedView>
-
         {/* Profile Picture */}
         <ThemedView style={styles.profileSection}>
           <TouchableOpacity
@@ -294,6 +287,4 @@ const styles = StyleSheet.create({
   signOutButton: { borderWidth: 1 },
   buttonText: { fontSize: 16, fontWeight: "600", color: "white" },
   errorText: { textAlign: "center", fontSize: 16, marginTop: 50 },
-  debugBanner: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginBottom: 12, alignItems: "center" },
-  debugBannerText: { fontWeight: "600" },
 });
