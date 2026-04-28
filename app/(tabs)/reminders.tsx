@@ -366,6 +366,7 @@ export default function RemindersScreen() {
             placeholder="Description (optional)"
             placeholderTextColor={ui.subtext}
             accessibilityLabel="Reminder description"
+            autoCapitalize="sentences"
             value={newReminder.description}
             onChangeText={(t) => setNewReminder({ ...newReminder, description: t })}
             maxLength={200}
