@@ -36,7 +36,9 @@ const loadQueue = async (): Promise<SyncOp[]> => {
 const saveQueue = async (queue: SyncOp[]): Promise<void> => {
   try {
     await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-  } catch {}
+  } catch (e) {
+    console.warn('syncQueue: Failed to persist queue to AsyncStorage:', e);
+  }
 };
 
 // ─── Public API ───────────────────────────────────────────────────────────────
