@@ -72,9 +72,9 @@ export interface UserSetting {
 // Mock fallback data
 const mockUser: User = {
   user_id: 1,
-  email: "rezwanu.rahman@my.unt.edu",
-  first_name: "Rezwanur",
-  last_name: "Rahman",
+  email: "user@example.com",
+  first_name: "Demo",
+  last_name: "User",
   accessibility_preferences: {
     voice_speed: 1.0,
     high_contrast: false,
