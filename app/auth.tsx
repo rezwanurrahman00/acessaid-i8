@@ -12,7 +12,6 @@ import {
   Animated,
   Dimensions,
   Vibration,
-  PermissionsAndroid,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
