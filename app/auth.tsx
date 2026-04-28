@@ -61,6 +61,7 @@ export default function AuthScreen() {
   const nameTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const emailTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const passwordTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const repeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Watch for user changes and navigate when user is set
   useEffect(() => {
@@ -108,9 +109,8 @@ export default function AuthScreen() {
   // Cleanup effect
   useEffect(() => {
     return () => {
-      // Clear any intervals when component unmounts
-      if ((startVoiceListening as any).repeatInterval) {
-        clearInterval((startVoiceListening as any).repeatInterval);
+      if (repeatIntervalRef.current) {
+        clearInterval(repeatIntervalRef.current);
       }
     };
   }, []);
@@ -186,14 +186,9 @@ export default function AuthScreen() {
     ).start();
 
     // Auto-repeat voice commands every 10 seconds
-    const repeatInterval = setInterval(() => {
-      if (isListening) {
-        speakText("Voice commands: Say 'email', 'password', or 'submit'.");
-      }
+    repeatIntervalRef.current = setInterval(() => {
+      speakText("Voice commands: Say 'email', 'password', or 'submit'.");
     }, 10000);
-
-    // Store interval ID for cleanup
-    (startVoiceListening as any).repeatInterval = repeatInterval;
   };
 
   const stopVoiceListening = () => {
@@ -202,9 +197,9 @@ export default function AuthScreen() {
     pulseAnim.setValue(1);
     
     // Clear the repeat interval
-    if ((startVoiceListening as any).repeatInterval) {
-      clearInterval((startVoiceListening as any).repeatInterval);
-      (startVoiceListening as any).repeatInterval = null;
+    if (repeatIntervalRef.current) {
+      clearInterval(repeatIntervalRef.current);
+      repeatIntervalRef.current = null;
     }
     
     speakText("Voice listening stopped.");
