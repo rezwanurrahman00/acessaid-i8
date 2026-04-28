@@ -93,15 +93,10 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         voiceAnnouncementsEnabled: action.payload,
       };
     case 'ADD_REMINDER':
-      console.log('=== APP CONTEXT ADD_REMINDER ===');
-      console.log('Current reminders before:', state.reminders.length);
-      console.log('New reminder:', action.payload);
-      const newState = {
+      return {
         ...state,
         reminders: [...state.reminders, action.payload],
       };
-      console.log('New reminders array length:', newState.reminders.length);
-      return newState;
     case 'UPDATE_REMINDER':
       return {
         ...state,

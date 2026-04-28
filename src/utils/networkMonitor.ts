@@ -35,26 +35,12 @@ class NetworkMonitor {
 
       // If we just came back online, flush any queued offline operations
       if (connected && wasOffline) {
-        console.log('🌐 Network restored — flushing offline sync queue...');
         try {
           const pending = await getQueueLength();
-          if (pending > 0) {
-            const synced = await processQueue();
-            console.log(`✅ Auto-synced ${synced}/${pending} offline operation(s) after reconnect`);
-          } else {
-            console.log('✅ No offline operations to sync');
-          }
-        } catch (err) {
-          console.warn('⚠️ Auto-sync after reconnect failed:', err);
-        }
-      }
-
-      if (!connected) {
-        console.log('📴 Network lost — changes will be queued for later sync');
+          if (pending > 0) await processQueue();
+        } catch {}
       }
     });
-
-    console.log('🔌 NetworkMonitor started');
   }
 
   /** Stop watching (call on unmount if needed) */

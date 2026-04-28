@@ -50,7 +50,6 @@ export const addToQueue = async (op: Omit<SyncOp, 'id'>): Promise<void> => {
   } as SyncOp;
   queue.push(entry);
   await saveQueue(queue);
-  console.log(`📥 Queued offline op: ${op.type}`);
 };
 
 /** How many operations are waiting to sync. */
@@ -67,8 +66,6 @@ export const getQueueLength = async (): Promise<number> => {
 export const processQueue = async (): Promise<number> => {
   const queue = await loadQueue();
   if (queue.length === 0) return 0;
-
-  console.log(`🔄 Processing ${queue.length} pending offline operation(s)...`);
 
   const remaining: SyncOp[] = [];
   let synced = 0;
@@ -105,16 +102,11 @@ export const processQueue = async (): Promise<number> => {
 
       if (result.error) throw result.error;
       synced++;
-      console.log(`✅ Synced: ${op.type}`);
     } catch {
       remaining.push(op);
-      console.log(`⚠️ Kept in queue (will retry): ${op.type}`);
     }
   }
 
   await saveQueue(remaining);
-  if (synced > 0) {
-    console.log(`✅ Synced ${synced} of ${queue.length} offline operations`);
-  }
   return synced;
 };

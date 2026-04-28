@@ -6,9 +6,7 @@ import { Platform } from 'react-native';
 let ExpoSpeechRecognitionModule: any = null;
 try {
   ExpoSpeechRecognitionModule = require('expo-speech-recognition').ExpoSpeechRecognitionModule;
-} catch (e) {
-  console.log('⚠️ Voice recognition not available (Expo Go). Use development build for voice features.');
-}
+} catch (e) {}
 
 // UPDATED: Voice command interface now supports full transcript
 export interface VoiceCommand {
@@ -57,32 +55,25 @@ export class VoiceCommandManager {
       return false; // ignore triggers during cooldown to prevent instant jumps
     }
     const normalizedInput = input.toLowerCase().trim();
-    console.log('🎤 Voice command recognized:', normalizedInput);
-    
+
     for (const cmd of this.commands) {
-      const hasKeyword = cmd.keywords.some(keyword => 
+      const hasKeyword = cmd.keywords.some(keyword =>
         normalizedInput.includes(keyword.toLowerCase())
       );
-      
+
       if (hasKeyword) {
-        console.log('✅ Executing command:', cmd.keywords[0]);
-        
-        // CHANGED: Pass full transcript if command wants it
         if (cmd.captureFullTranscript) {
-          cmd.action(input); // Pass original input (not normalized)
+          cmd.action(input);
         } else {
-          cmd.action(); // Legacy behavior - no transcript
+          cmd.action();
         }
-        
+
         this.cooldownUntil = Date.now() + this.cooldownMs;
-        // Don't announce the command execution - let the action handle any speech
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         return true;
       }
     }
-  
-    console.log('❌ Command not recognized');
-    // No TTS here — speaking "command not recognized" gets picked up by the mic and creates a loop
+
     return false;
   }
 
@@ -139,11 +130,7 @@ export class VoiceCommandManager {
       if (!this.listenersInitialized) {
 
         ExpoSpeechRecognitionModule.addListener('start', () => {
-          console.log('🎙️ Voice recording started');
           this.recognizing = true;
-          // No TTS here — saying "Listening" sets a 1200ms cooldown that would block
-          // the user's command if they speak within that window.
-          // The green card + haptic feedback is sufficient acknowledgment.
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         });
 
@@ -158,17 +145,12 @@ export class VoiceCommandManager {
           const transcript = event.results?.[0]?.transcript;
           const isFinal = event.isFinal;
           
-          if (transcript && !isFinal) {
-            console.log('🎤 Recording...', transcript);
-          }
-          
           if (transcript && isFinal && this.isListening) {
             this.processVoiceInput(transcript);
           }
         });
 
-        ExpoSpeechRecognitionModule.addListener('error', (event: any) => {
-          console.log('🎤 Voice recognition error:', event);
+        ExpoSpeechRecognitionModule.addListener('error', () => {
           this.recognizing = false;
           this.isListening = false;
           this.onStopCallback?.();

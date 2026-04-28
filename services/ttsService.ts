@@ -46,7 +46,6 @@ export const setTalkingPreference = async (enabled: boolean) => {
   try {
     cachedTalkEnabled = enabled;
     await AsyncStorage.setItem("talkEnabled", enabled ? "true" : "false");
-    console.log("🟢 Talking preference saved:", enabled);
   } catch (error) {
     console.error("Error saving talking preference:", error);
   }

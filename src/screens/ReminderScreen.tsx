@@ -58,9 +58,7 @@ try {
 let ExpoSpeechRecognitionModule: any = null;
 try {
   ExpoSpeechRecognitionModule = require('expo-speech-recognition').ExpoSpeechRecognitionModule;
-} catch (e) {
-  console.log('⚠️ Voice input not available (Expo Go). Use development build for voice features.');
-}
+} catch (e) {}
 
 type ReminderCategory = 'personal' | 'work' | 'health' | 'finance' | 'shopping' | 'other';
 type ReminderPriority = 'low' | 'medium' | 'high';

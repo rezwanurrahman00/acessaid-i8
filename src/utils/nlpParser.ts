@@ -26,8 +26,6 @@ export interface ParsedReminder {
 export function parseReminderFromSpeech(text: string): ParsedReminder | null {
   const normalizedText = text.toLowerCase().trim();
   
-  console.log('🔍 NLP Parser: Processing:', text);
-  
   // Remove common trigger phrases to get the core content
   let cleanedText = removeReminderTriggers(normalizedText);
   
@@ -53,10 +51,7 @@ export function parseReminderFromSpeech(text: string): ParsedReminder | null {
   // What's left should be the title/task
   const title = extractTitle(cleanedText);
   
-  if (!title) {
-    console.log('❌ NLP Parser: Could not extract title from:', text);
-    return null;
-  }
+  if (!title) return null;
   
   // Calculate overall confidence
   const confidenceScore = calculateConfidence(title, dateTimeResult, priority.priority, category.category);
@@ -69,8 +64,6 @@ export function parseReminderFromSpeech(text: string): ParsedReminder | null {
     confidence: confidenceScore,
     rawText: text
   };
-  
-  console.log('✅ NLP Parser: Extracted:', result);
   
   return result;
 }

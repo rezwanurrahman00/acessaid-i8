@@ -21,9 +21,7 @@ let ExpoSpeechRecognitionModule: any = null;
 try {
   ExpoSpeechRecognitionModule =
     require("expo-speech-recognition").ExpoSpeechRecognitionModule;
-} catch {
-  console.log("Voice recognition not available (Expo Go). Use development build.");
-}
+} catch {}
 
 // --- Mapping spoken numbers to digits ---
 const SPOKEN_NUMBERS: Record<string, string> = {
@@ -235,7 +233,6 @@ export default function RemindersScreen() {
       .replace(/\s*(am|pm)\b/gi, "$1")
       .trim();
 
-    console.log("sanitized voice command:", JSON.stringify(sanitized));
     setLastVoiceCommand(text);
 
     if (sanitized.includes("read my reminders")) {

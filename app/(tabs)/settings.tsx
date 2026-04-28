@@ -90,7 +90,6 @@ export default function SettingsScreen() {
       setLocalSettings(merged);
       await setTalkingPreference(merged.voice_navigation);
     } catch {
-      console.warn("⚠️ Offline mode: using cached settings");
       const localToggle = await getTalkingPreference();
       setLocalSettings((prev) => ({ ...prev, voice_navigation: localToggle }));
     } finally {
@@ -108,7 +107,6 @@ export default function SettingsScreen() {
     try {
       await apiService.updateUserSetting(currentUserId, settingName, String(value));
     } catch {
-      console.warn(`⚠️ Offline update saved locally for ${settingName}`);
     }
     if (settingName === "voice_navigation") {
       await setTalkingPreference(Boolean(value));

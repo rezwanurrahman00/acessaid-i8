@@ -47,9 +47,7 @@ try {
 let ExpoSpeechRecognitionModule: any = null;
 try {
   ExpoSpeechRecognitionModule = require('expo-speech-recognition').ExpoSpeechRecognitionModule;
-} catch (e) {
-  console.log('⚠️ Voice input not available (Expo Go). Use development build for voice features.');
-}
+} catch (e) {}
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallScreen = screenWidth < 375;
@@ -191,17 +189,11 @@ const HomeScreen = () => {
   }, []);
 
   const speakText = (text: string) => {
-    console.log('speakText called with text:', text);
     if (!text.trim()) {
-      console.log('speakText: No text to read');
       Alert.alert('No Text', 'Please enter some text to read aloud.');
       return;
     }
-    if (!state.voiceAnnouncementsEnabled) {
-      console.log('speakText: Voice announcements disabled');
-      return;
-    }
-    console.log('speakText: Speaking text');
+    if (!state.voiceAnnouncementsEnabled) return;
     try { Speech.stop(); } catch {}
     try {
       const safeRate = Math.max(0.5, Math.min(state.accessibilitySettings.voiceSpeed, 2.0));
@@ -249,12 +241,7 @@ const HomeScreen = () => {
         const transcript = event.results?.[0]?.transcript;
         const isFinal = event.isFinal;
         
-        if (transcript && !isFinal) {
-          console.log('🎤 Voice input recording...', transcript);
-        }
-        
         if (transcript && isFinal) {
-          console.log('✅ Voice input complete:', transcript);
           setTtsText(prev => prev ? `${prev} ${transcript}` : transcript);
           setIsVoiceInputMode(false);
           subscription.remove();

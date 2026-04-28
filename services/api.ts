@@ -112,9 +112,7 @@ async function tryFetch<T>(url: string, options: RequestInit = {}, fallback: T):
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
-    console.log(`Fetching: ${url} with options:`, options);
     const response = await fetch(url, { ...options, signal: controller.signal });
-    console.log(`Response from ${url}:`, response);
     clearTimeout(timeout);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
@@ -149,14 +147,11 @@ class ApiService {
   }
 
   async login(loginData: UserLogin): Promise<User> {
-    console.log('Attempting login with data:', loginData);
     const response = await fetch(`${this.baseUrl}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(loginData),
     });
-
-    console.log('Login response status:', response.status);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Login failed' }));
@@ -195,7 +190,6 @@ class ApiService {
     frequency?: string;
     priority?: string;
   }): Promise<Reminder> {
-    console.log('Creating reminder with data:', reminderData);
     const response = await fetch(`${this.baseUrl}/users/${userId}/reminders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -210,7 +204,6 @@ class ApiService {
   }
 
   async updateReminder(userId: number, reminderId: number, updateData: Partial<Reminder>): Promise<Reminder> {
-    console.log(`✏️ Updating reminder ${reminderId}:`, updateData);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
