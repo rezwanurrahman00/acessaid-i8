@@ -8,7 +8,6 @@ import {
   Animated,
   Dimensions,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -18,9 +17,8 @@ import { AppTheme, getThemeConfig } from '../../constants/theme';
 import { useApp } from '../contexts/AppContext';
 import { AccessAidLogo } from './AccessAidLogo';
 import { ModernButton } from './ModernButton';
-import { TouchSlider } from './TouchSlider';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { height: screenHeight } = Dimensions.get('window');
 
 interface AccessibilitySetupPopupProps {
   visible: boolean;
@@ -33,6 +31,85 @@ interface AccessibilitySetupPopupProps {
   theme?: AppTheme;
 }
 
+const BRIGHTNESS_LEVELS = [
+  { label: 'Low', value: 25 },
+  { label: 'Mid', value: 50 },
+  { label: 'High', value: 75 },
+  { label: 'Extra High', value: 100 },
+];
+
+const TEXT_ZOOM_LEVELS = [
+  { label: 'Low', value: 80 },
+  { label: 'Mid', value: 100 },
+  { label: 'High', value: 140 },
+  { label: 'Extra High', value: 180 },
+];
+
+const VOICE_SPEED_LEVELS = [
+  { label: 'Low', value: 0.5 },
+  { label: 'Mid', value: 1.0 },
+  { label: 'High', value: 1.5 },
+  { label: 'Extra High', value: 2.0 },
+];
+
+interface LevelSelectorProps {
+  levels: { label: string; value: number }[];
+  selectedValue: number;
+  onSelect: (value: number) => void;
+  theme: AppTheme;
+}
+
+const LevelSelector: React.FC<LevelSelectorProps> = ({ levels, selectedValue, onSelect, theme }) => {
+  return (
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      {levels.map((level) => {
+        const isActive = selectedValue === level.value;
+        return (
+          <TouchableOpacity
+            key={level.label}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onSelect(level.value);
+            }}
+            style={[
+              selectorStyles.pill,
+              isActive
+                ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                : { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder },
+            ]}
+            accessibilityLabel={level.label}
+            accessibilityRole="button"
+          >
+            <Text
+              style={[
+                selectorStyles.pillText,
+                { color: isActive ? '#FFFFFF' : theme.textSecondary },
+              ]}
+            >
+              {level.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+};
+
+const selectorStyles = StyleSheet.create({
+  pill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+});
+
 export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = ({
   visible,
   onSave,
@@ -43,26 +120,21 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
   const [brightness, setBrightness] = useState(50);
   const [textZoom, setTextZoom] = useState(100);
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
-  const [isListening, setIsListening] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
-  const [slideAnim] = useState(new Animated.Value(50));
-  const [pulseAnim] = useState(new Animated.Value(1));
-  const [waveAnim] = useState(new Animated.Value(0));
-
-  const sampleText = "The quick brown fox jumps over the lazy dog. This is a preview of how text will appear with your selected settings.";
+  const [slideAnim] = useState(new Animated.Value(screenHeight));
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 300,
+          duration: 250,
           useNativeDriver: true,
         }),
         Animated.spring(slideAnim, {
           toValue: 0,
-          tension: 100,
-          friction: 8,
+          tension: 80,
+          friction: 9,
           useNativeDriver: true,
         }),
       ]).start();
@@ -74,7 +146,7 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
           useNativeDriver: true,
         }),
         Animated.timing(slideAnim, {
-          toValue: 50,
+          toValue: screenHeight,
           duration: 200,
           useNativeDriver: true,
         }),
@@ -83,123 +155,8 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
   }, [visible]);
 
   useEffect(() => {
-    // Apply brightness changes live
     Brightness.setBrightnessAsync(brightness / 100);
   }, [brightness]);
-
-  const handleBrightnessChange = (value: number) => {
-    setBrightness(value);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const handleTextZoomChange = (value: number) => {
-    setTextZoom(value);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const handleVoiceSpeedChange = (value: number) => {
-    setVoiceSpeed(value);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const startVoiceListening = () => {
-    setIsListening(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    // Animate microphone pulse
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Animate wave effect
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(waveAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(waveAnim, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Simulate voice recognition (in real app, use expo-speech-recognition)
-    setTimeout(() => {
-      processVoiceCommand("increase brightness");
-    }, 2000);
-  };
-
-  const stopVoiceListening = () => {
-    setIsListening(false);
-    pulseAnim.stopAnimation();
-    waveAnim.stopAnimation();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const processVoiceCommand = (command: string) => {
-    const lowerCommand = command.toLowerCase();
-    
-    if (lowerCommand.includes('brightness')) {
-      if (lowerCommand.includes('increase') || lowerCommand.includes('brighter')) {
-        setBrightness(Math.min(100, brightness + 20));
-        speakText('Brightness increased');
-      } else if (lowerCommand.includes('decrease') || lowerCommand.includes('dimmer')) {
-        setBrightness(Math.max(0, brightness - 20));
-        speakText('Brightness decreased');
-      } else if (lowerCommand.includes('medium')) {
-        setBrightness(50);
-        speakText('Brightness set to medium');
-      } else if (lowerCommand.includes('high') || lowerCommand.includes('maximum')) {
-        setBrightness(100);
-        speakText('Brightness set to maximum');
-      } else if (lowerCommand.includes('low') || lowerCommand.includes('minimum')) {
-        setBrightness(0);
-        speakText('Brightness set to minimum');
-      }
-    } else if (lowerCommand.includes('text') || lowerCommand.includes('font')) {
-      if (lowerCommand.includes('bigger') || lowerCommand.includes('larger')) {
-        setTextZoom(Math.min(180, textZoom + 20));
-        speakText('Text size increased');
-      } else if (lowerCommand.includes('smaller')) {
-        setTextZoom(Math.max(80, textZoom - 20));
-        speakText('Text size decreased');
-      } else if (lowerCommand.includes('normal')) {
-        setTextZoom(100);
-        speakText('Text size set to normal');
-      } else if (lowerCommand.includes('large')) {
-        setTextZoom(140);
-        speakText('Text size set to large');
-      }
-    } else if (lowerCommand.includes('voice') || lowerCommand.includes('speed')) {
-      if (lowerCommand.includes('faster')) {
-        setVoiceSpeed(Math.min(2.0, voiceSpeed + 0.3));
-        speakText('Voice speed increased');
-      } else if (lowerCommand.includes('slower')) {
-        setVoiceSpeed(Math.max(0.5, voiceSpeed - 0.3));
-        speakText('Voice speed decreased');
-      } else if (lowerCommand.includes('normal')) {
-        setVoiceSpeed(1.0);
-        speakText('Voice speed set to normal');
-      }
-    }
-    
-    stopVoiceListening();
-  };
 
   const speakText = (text: string) => {
     if (!state.voiceAnnouncementsEnabled) return;
@@ -210,236 +167,108 @@ export const AccessibilitySetupPopup: React.FC<AccessibilitySetupPopupProps> = (
     });
   };
 
-
   const handleSaveAndContinue = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     speakText('Settings saved successfully. Welcome to AccessAid!');
-    
-    onSave({
-      brightness,
-      textZoom,
-      voiceSpeed,
-    });
-    
-    // Apply final settings
+    onSave({ brightness, textZoom, voiceSpeed });
     Brightness.setBrightnessAsync(brightness / 100);
-  };
-
-  const getBrightnessLabel = (value: number) => {
-    if (value <= 25) return 'Low';
-    if (value <= 50) return 'Medium';
-    if (value <= 75) return 'High';
-    return 'Maximum';
-  };
-
-  const getTextZoomLabel = (value: number) => {
-    if (value <= 90) return 'Small';
-    if (value <= 110) return 'Normal';
-    if (value <= 140) return 'Large';
-    return 'Extra Large';
-  };
-
-  const getVoiceSpeedLabel = (value: number) => {
-    if (value <= 0.7) return 'Slow';
-    if (value <= 1.3) return 'Normal';
-    return 'Fast';
   };
 
   const resolvedTheme = useMemo(() => theme ?? getThemeConfig(false), [theme]);
   const styles = useMemo(() => createStyles(resolvedTheme), [resolvedTheme]);
-  const popupGradient = resolvedTheme.isDark ? ['#1F2937', '#0B1120'] : ['#FFFFFF', '#F8F9FA'];
+  const popupGradient = resolvedTheme.isDark
+    ? ['#1F2937', '#0B1120']
+    : ['#FFFFFF', '#F8F9FA'];
 
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
         <Animated.View
           style={[
-            styles.container,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
+            styles.sheetWrapper,
+            { transform: [{ translateY: slideAnim }] },
           ]}
         >
           <LinearGradient colors={popupGradient} style={styles.popup}>
+            {/* Drag handle */}
+            <View style={styles.handle} />
+
             {/* Header */}
             <View style={styles.header}>
-              <AccessAidLogo size={40} showText={false} />
-              <Text style={styles.title}>Accessibility Setup</Text>
-              <Text style={styles.subtitle}>
-                Customize your experience for better accessibility
-              </Text>
-              
-              {/* Voice Control Button */}
-              <TouchableOpacity
-                style={[
-                  styles.voiceButton,
-                  isListening && styles.voiceButtonActive,
-                ]}
-                onPress={isListening ? stopVoiceListening : startVoiceListening}
-                accessibilityLabel={isListening ? 'Stop voice control' : 'Start voice control'}
-              >
-                <Animated.View
-                  style={[
-                    styles.voiceIconContainer,
-                    { transform: [{ scale: pulseAnim }] },
-                  ]}
-                >
-                  <Ionicons
-                    name={isListening ? 'mic' : 'mic-outline'}
-                    size={20}
-                    color={isListening ? resolvedTheme.textInverted : resolvedTheme.accent}
-                  />
-                </Animated.View>
-                
-                {isListening && (
-                  <Animated.View
-                    style={[
-                      styles.waveContainer,
-                      {
-                        opacity: waveAnim,
-                        transform: [
-                          {
-                            scale: waveAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [1, 1.5],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  >
-                    <View style={styles.wave} />
-                  </Animated.View>
-                )}
-              </TouchableOpacity>
+              <AccessAidLogo size={32} showText={false} />
+              <View style={styles.headerText}>
+                <Text style={styles.title}>Accessibility Setup</Text>
+                <Text style={styles.subtitle}>Customize your experience</Text>
+              </View>
             </View>
 
-            {/* Settings Cards */}
-            <ScrollView 
-              style={styles.settingsContainer}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.settingsContent}
-            >
-              {/* Brightness Card */}
-              <View style={styles.settingCard}>
-                <View style={styles.settingHeader}>
-                  <Ionicons name="sunny" size={24} color="#FFA726" />
+            {/* Settings */}
+            <View style={styles.settingsContainer}>
+              {/* Brightness */}
+              <View style={styles.settingRow}>
+                <View style={styles.settingLabel}>
+                  <Ionicons name="sunny" size={20} color="#FFA726" />
                   <Text style={styles.settingTitle}>Display Brightness</Text>
-                  <Text style={styles.settingValue}>
-                    {brightness}% • {getBrightnessLabel(brightness)}
-                  </Text>
                 </View>
-                
-                <TouchSlider
-                  value={brightness}
-                  min={0}
-                  max={100}
-                  onValueChange={handleBrightnessChange}
-                  levelLabels={['Low', 'Medium', 'High', 'Max']}
-                  unit="%"
-                  accessibilityLabel="Brightness slider"
+                <LevelSelector
+                  levels={BRIGHTNESS_LEVELS}
+                  selectedValue={brightness}
+                  onSelect={setBrightness}
+                  theme={resolvedTheme}
                 />
-                
-                <Text style={styles.settingDescription}>
-                  Adjust screen brightness for comfortable viewing
-                </Text>
               </View>
 
-              {/* Text Zoom Card */}
-              <View style={styles.settingCard}>
-                <View style={styles.settingHeader}>
-                  <Ionicons name="text" size={24} color={resolvedTheme.accent} />
+              <View style={styles.divider} />
+
+              {/* Text Size */}
+              <View style={styles.settingRow}>
+                <View style={styles.settingLabel}>
+                  <Ionicons name="text" size={20} color={resolvedTheme.accent} />
                   <Text style={styles.settingTitle}>Text Size</Text>
-                  <Text style={styles.settingValue}>
-                    {textZoom}% • {getTextZoomLabel(textZoom)}
-                  </Text>
                 </View>
-                
-                <TouchSlider
-                  value={textZoom}
-                  min={80}
-                  max={180}
-                  onValueChange={handleTextZoomChange}
-                  levelLabels={['Small', 'Normal', 'Large', 'XL']}
-                  unit="%"
-                  accessibilityLabel="Text size slider"
+                <LevelSelector
+                  levels={TEXT_ZOOM_LEVELS}
+                  selectedValue={textZoom}
+                  onSelect={setTextZoom}
+                  theme={resolvedTheme}
                 />
-                
-                <Text style={styles.settingDescription}>
-                  Make text larger or smaller for better readability
-                </Text>
-                
-                {/* Preview Text */}
-                <View style={styles.previewContainer}>
-                  <Text style={styles.previewLabel}>Preview:</Text>
-                  <Text
-                    style={[
-                      styles.previewText,
-                      { fontSize: 16 * (textZoom / 100) },
-                    ]}
-                  >
-                    {sampleText}
-                  </Text>
-                </View>
               </View>
 
-              {/* Voice Speed Card */}
-              <View style={styles.settingCard}>
-                <View style={styles.settingHeader}>
-                  <Ionicons name="volume-high" size={24} color={resolvedTheme.success} />
+              <View style={styles.divider} />
+
+              {/* Voice Speed */}
+              <View style={styles.settingRow}>
+                <View style={styles.settingLabel}>
+                  <Ionicons name="volume-high" size={20} color={resolvedTheme.success} />
                   <Text style={styles.settingTitle}>Voice Speed</Text>
-                  <Text style={styles.settingValue}>
-                    {voiceSpeed.toFixed(1)}x • {getVoiceSpeedLabel(voiceSpeed)}
-                  </Text>
                 </View>
-                
-                <TouchSlider
-                  value={voiceSpeed}
-                  min={0.5}
-                  max={2.0}
-                  step={0.1}
-                  onValueChange={handleVoiceSpeedChange}
-                  levelLabels={['Slow', 'Normal', 'Fast']}
-                  unit="x"
-                  accessibilityLabel="Voice speed slider"
-                />
-                
-                <Text style={styles.settingDescription}>
-                  Control how fast text is spoken aloud
-                </Text>
-                
-                <ModernButton
-                  title="Test Voice"
-                  onPress={() => speakText('This is how your voice will sound at the current speed.')}
-                  variant="outline"
-                  size="small"
-                  icon={<Ionicons name="play" size={16} color={resolvedTheme.accent} />}
-                  style={styles.testButton}
+                <LevelSelector
+                  levels={VOICE_SPEED_LEVELS}
+                  selectedValue={voiceSpeed}
+                  onSelect={setVoiceSpeed}
+                  theme={resolvedTheme}
                 />
               </View>
-            </ScrollView>
-
-            {/* Action Buttons */}
-            <View style={styles.actionButtons}>
-              <ModernButton
-                title="Save & Continue"
-                onPress={handleSaveAndContinue}
-                variant="primary"
-                size="large"
-                icon={<Ionicons name="checkmark" size={20} color="white" />}
-                style={styles.saveButton}
-              />
             </View>
+
+            {/* Save Button */}
+            <ModernButton
+              title="Save & Continue"
+              onPress={handleSaveAndContinue}
+              variant="primary"
+              size="large"
+              icon={<Ionicons name="checkmark" size={20} color="white" />}
+              style={styles.saveButton}
+            />
           </LinearGradient>
         </Animated.View>
-      </View>
+      </Animated.View>
     </Modal>
   );
 };
@@ -449,163 +278,79 @@ const createStyles = (theme: AppTheme) =>
     overlay: {
       flex: 1,
       backgroundColor: theme.overlay,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 20,
+      justifyContent: 'flex-end',
     },
-    container: {
+    sheetWrapper: {
       width: '100%',
-      maxWidth: 400,
-      maxHeight: screenHeight * 0.9,
     },
     popup: {
-      borderRadius: 16,
-      padding: 20,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 36,
       shadowColor: theme.cardShadow,
-      shadowOffset: {
-        width: 0,
-        height: 8,
-      },
-      shadowOpacity: theme.isDark ? 0.35 : 0.15,
-      shadowRadius: theme.isDark ? 20 : 16,
-      elevation: 16,
-      borderWidth: theme.isDark ? 1 : 0.5,
-      borderColor: theme.cardBorder,
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: theme.isDark ? 0.4 : 0.12,
+      shadowRadius: 16,
+      elevation: 20,
+    },
+    handle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.textSecondary,
+      opacity: 0.3,
+      alignSelf: 'center',
+      marginBottom: 16,
     },
     header: {
-      alignItems: 'center',
-      marginBottom: 24,
-      position: 'relative',
-    },
-    title: {
-      fontSize: 22,
-      fontWeight: '700',
-      color: theme.textPrimary,
-      marginTop: 12,
-      marginBottom: 4,
-    },
-    subtitle: {
-      fontSize: 15,
-      color: theme.textSecondary,
-      textAlign: 'center',
-      lineHeight: 20,
-    },
-    voiceButton: {
-      position: 'absolute',
-      top: 0,
-      right: 0,
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: theme.accentSoft,
-      borderWidth: 2,
-      borderColor: theme.accent,
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: theme.accent,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: theme.isDark ? 0.3 : 0.2,
-      shadowRadius: 4,
-      elevation: 4,
-    },
-    voiceButtonActive: {
-      backgroundColor: theme.danger,
-      borderColor: theme.danger,
-    },
-    voiceIconContainer: {
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    waveContainer: {
-      position: 'absolute',
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      borderWidth: 2,
-      borderColor: theme.danger,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    wave: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      backgroundColor: theme.danger,
-      opacity: 0.6,
-    },
-    settingsContainer: {
-      marginBottom: 24,
-      maxHeight: screenHeight * 0.5,
-    },
-    settingsContent: {
-      paddingBottom: 10,
-    },
-    settingCard: {
-      backgroundColor: theme.cardBackground,
-      borderRadius: 12,
-      padding: 20,
-      marginBottom: 12,
-      shadowColor: theme.cardShadow,
-      shadowOffset: { width: 0, height: theme.isDark ? 4 : 1 },
-      shadowOpacity: theme.isDark ? 0.25 : 0.08,
-      shadowRadius: theme.isDark ? 12 : 4,
-      elevation: theme.isDark ? 6 : 2,
-      borderWidth: theme.isDark ? 1 : 0.5,
-      borderColor: theme.cardBorder,
-    },
-    settingHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 20,
+      gap: 12,
+      marginBottom: 24,
     },
-    settingTitle: {
-      fontSize: 17,
-      fontWeight: '600',
-      color: theme.textPrimary,
-      marginLeft: 12,
+    headerText: {
       flex: 1,
     },
-    settingValue: {
-      fontSize: 13,
-      fontWeight: '500',
-      color: theme.accent,
-      backgroundColor: theme.tagBackground,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 6,
-    },
-    settingDescription: {
-      fontSize: 13,
-      color: theme.textSecondary,
-      marginTop: 16,
-      lineHeight: 18,
-      textAlign: 'center',
-    },
-    previewContainer: {
-      marginTop: 16,
-      padding: 12,
-      backgroundColor: theme.inputBackground,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: theme.cardBorder,
-    },
-    previewLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: theme.textSecondary,
-      marginBottom: 8,
-    },
-    previewText: {
-      fontSize: 16,
+    title: {
+      fontSize: 20,
+      fontWeight: '700',
       color: theme.textPrimary,
-      lineHeight: 22,
     },
-    testButton: {
-      marginTop: 12,
-      alignSelf: 'flex-start',
+    subtitle: {
+      fontSize: 13,
+      color: theme.textSecondary,
+      marginTop: 2,
     },
-    actionButtons: {
-      gap: 12,
+    settingsContainer: {
+      backgroundColor: theme.cardBackground,
+      borderRadius: 14,
+      borderWidth: theme.isDark ? 1 : 0.5,
+      borderColor: theme.cardBorder,
+      marginBottom: 20,
+      overflow: 'hidden',
+    },
+    settingRow: {
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      gap: 10,
+    },
+    settingLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 2,
+    },
+    settingTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.textPrimary,
+    },
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: theme.cardBorder,
+      marginHorizontal: 16,
     },
     saveButton: {
       width: '100%',
