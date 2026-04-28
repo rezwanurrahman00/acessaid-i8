@@ -222,6 +222,8 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={[styles.halfCard, { backgroundColor: C.card }]}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowTTSModal(true); }}
+              accessibilityRole="button"
+              accessibilityLabel="Open custom speech"
             >
               <View style={[styles.halfIcon, { backgroundColor: "#F3F0FF" }]}>
                 <Text style={styles.halfEmoji}>✏️</Text>
