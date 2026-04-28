@@ -174,8 +174,10 @@ export default function RemindersScreen() {
   };
 
   const addReminder = async () => {
-    await createReminder(newReminder.title, newReminder.description, newReminder.time);
-    setNewReminder({ title: "", description: "", time: "" });
+    const success = await createReminder(newReminder.title, newReminder.description, newReminder.time);
+    if (success) {
+      setNewReminder({ title: "", description: "", time: "" });
+    }
   };
 
   const deleteReminder = async (id: string, title: string) => {
