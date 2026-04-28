@@ -29,7 +29,7 @@ import {
   View,
 } from 'react-native';
 import { AppTheme, getThemeConfig } from '../../constants/theme';
-import { TouchSlider } from '../components/TouchSlider';
+
 import { useApp } from '../contexts/AppContext';
 import { supabase } from '../../lib/supabase';
 import { voiceManager } from '../utils/voiceCommandManager';
@@ -65,6 +65,79 @@ const getVoiceSpeedLabel = (value: number): string => {
   if (value <= 1.3) return 'Normal';
   return 'Fast';
 };
+
+const BRIGHTNESS_LEVELS = [
+  { label: 'Low', value: 25 },
+  { label: 'Mid', value: 50 },
+  { label: 'High', value: 75 },
+  { label: 'Extra High', value: 100 },
+];
+
+const TEXT_ZOOM_LEVELS = [
+  { label: 'Low', value: 80 },
+  { label: 'Mid', value: 100 },
+  { label: 'High', value: 140 },
+  { label: 'Extra High', value: 180 },
+];
+
+const VOICE_SPEED_LEVELS = [
+  { label: 'Low', value: 0.5 },
+  { label: 'Mid', value: 1.0 },
+  { label: 'High', value: 1.5 },
+  { label: 'Extra High', value: 2.0 },
+];
+
+interface LevelSelectorProps {
+  levels: { label: string; value: number }[];
+  selectedValue: number;
+  onSelect: (value: number) => void;
+  accentColor: string;
+}
+
+const LevelSelector: React.FC<LevelSelectorProps> = ({ levels, selectedValue, onSelect, accentColor }) => (
+  <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
+    {levels.map((level) => {
+      const isActive = selectedValue === level.value;
+      return (
+        <TouchableOpacity
+          key={level.label}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onSelect(level.value);
+          }}
+          style={[
+            lvlStyles.pill,
+            {
+              backgroundColor: isActive ? accentColor : accentColor + '15',
+              borderColor: isActive ? accentColor : accentColor + '40',
+            },
+          ]}
+          accessibilityLabel={level.label}
+          accessibilityRole="button"
+        >
+          <Text style={[lvlStyles.pillText, { color: isActive ? '#FFFFFF' : accentColor }]}>
+            {level.label}
+          </Text>
+        </TouchableOpacity>
+      );
+    })}
+  </View>
+);
+
+const lvlStyles = StyleSheet.create({
+  pill: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+});
 
 // ── Reusable sub-components ────────────────────────────────────────────────
 
@@ -185,13 +258,6 @@ const ProfileScreen = () => {
   const [brightnessValue, setBrightnessValue] = useState(state.accessibilitySettings.brightness);
   const [textZoomValue, setTextZoomValue] = useState(state.accessibilitySettings.textZoom);
   const [voiceSpeedValue, setVoiceSpeedValue] = useState(state.accessibilitySettings.voiceSpeed);
-  // Refs track latest drag value so onSlidingComplete can dispatch without a stale closure
-  const brightnessDragRef = useRef(state.accessibilitySettings.brightness);
-  const textZoomDragRef = useRef(state.accessibilitySettings.textZoom);
-  const voiceSpeedDragRef = useRef(state.accessibilitySettings.voiceSpeed);
-  const brightnessDebounceRef = useRef<any>(null);
-  // Disable ScrollView scrolling while a slider is being dragged
-  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   // Voice-to-text
   const [listeningField, setListeningField] = useState<string | null>(null);
@@ -568,7 +634,6 @@ const ProfileScreen = () => {
 
         <Animated.View style={[s.flex, { opacity: fadeAnim }]}>
           <ScrollView
-            scrollEnabled={scrollEnabled}
             contentContainerStyle={s.scroll}
             showsVerticalScrollIndicator={false}
           >
@@ -779,114 +844,64 @@ const ProfileScreen = () => {
               <View style={[s.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
 
                 {/* Brightness */}
-                <View style={s.sliderRow}>
-                  <View style={[s.rowIcon, { backgroundColor: '#FFA726' + '22' }]}>
-                    <Ionicons name="sunny" size={16} color="#FFA726" />
-                  </View>
-                  <View style={s.sliderContent}>
-                    <View style={s.sliderHeaderRow}>
-                      <Text style={[s.rowLabel, { color: theme.textPrimary }]}>Brightness</Text>
-                      <View style={[s.valuePill, { backgroundColor: theme.accent + '22' }]}>
-                        <Text style={[s.valuePillText, { color: theme.accent }]}>
-                          {getBrightnessLabel(brightnessValue)}
-                        </Text>
-                      </View>
+                <View style={s.accessibilityRow}>
+                  <View style={s.accessibilityLabelRow}>
+                    <View style={[s.rowIcon, { backgroundColor: '#FFA726' + '22' }]}>
+                      <Ionicons name="sunny" size={16} color="#FFA726" />
                     </View>
-                    <TouchSlider
-                      value={brightnessValue}
-                      min={0}
-                      max={100}
-                      onValueChange={(value) => {
-                        brightnessDragRef.current = value;
-                        setBrightnessValue(value);
-                        if (brightnessDebounceRef.current) clearTimeout(brightnessDebounceRef.current);
-                        brightnessDebounceRef.current = setTimeout(() => {
-                          Brightness.setBrightnessAsync(value / 100);
-                        }, 50);
-                      }}
-                      onSlidingStart={() => setScrollEnabled(false)}
-                      onSlidingComplete={() => {
-                        setScrollEnabled(true);
-                        handleAccessibilityChange('brightness', brightnessDragRef.current);
-                      }}
-                      levelLabels={['Low', 'Medium', 'High', 'Max']}
-                      unit="%"
-                      accessibilityLabel="Brightness slider"
-                    />
+                    <Text style={[s.accessibilityTitle, { color: theme.textPrimary }]}>Brightness</Text>
                   </View>
+                  <LevelSelector
+                    levels={BRIGHTNESS_LEVELS}
+                    selectedValue={brightnessValue}
+                    onSelect={(value) => {
+                      setBrightnessValue(value);
+                      handleAccessibilityChange('brightness', value);
+                    }}
+                    accentColor={theme.accent}
+                  />
                 </View>
 
                 <View style={[s.divider, { backgroundColor: theme.cardBorder }]} />
 
                 {/* Text Size */}
-                <View style={s.sliderRow}>
-                  <View style={[s.rowIcon, { backgroundColor: '#42A5F5' + '22' }]}>
-                    <Ionicons name="text" size={16} color="#42A5F5" />
-                  </View>
-                  <View style={s.sliderContent}>
-                    <View style={s.sliderHeaderRow}>
-                      <Text style={[s.rowLabel, { color: theme.textPrimary }]}>Text Size</Text>
-                      <View style={[s.valuePill, { backgroundColor: theme.accent + '22' }]}>
-                        <Text style={[s.valuePillText, { color: theme.accent }]}>
-                          {getTextZoomLabel(textZoomValue)}
-                        </Text>
-                      </View>
+                <View style={s.accessibilityRow}>
+                  <View style={s.accessibilityLabelRow}>
+                    <View style={[s.rowIcon, { backgroundColor: '#42A5F5' + '22' }]}>
+                      <Ionicons name="text" size={16} color="#42A5F5" />
                     </View>
-                    <TouchSlider
-                      value={textZoomValue}
-                      min={80}
-                      max={180}
-                      onValueChange={(value) => {
-                        textZoomDragRef.current = value;
-                        setTextZoomValue(value);
-                      }}
-                      onSlidingStart={() => setScrollEnabled(false)}
-                      onSlidingComplete={() => {
-                        setScrollEnabled(true);
-                        handleAccessibilityChange('textZoom', textZoomDragRef.current);
-                      }}
-                      levelLabels={['Small', 'Normal', 'Large', 'XL']}
-                      unit="%"
-                      accessibilityLabel="Text size slider"
-                    />
+                    <Text style={[s.accessibilityTitle, { color: theme.textPrimary }]}>Text Size</Text>
                   </View>
+                  <LevelSelector
+                    levels={TEXT_ZOOM_LEVELS}
+                    selectedValue={textZoomValue}
+                    onSelect={(value) => {
+                      setTextZoomValue(value);
+                      handleAccessibilityChange('textZoom', value);
+                    }}
+                    accentColor={theme.accent}
+                  />
                 </View>
 
                 <View style={[s.divider, { backgroundColor: theme.cardBorder }]} />
 
                 {/* Voice Speed */}
-                <View style={s.sliderRow}>
-                  <View style={[s.rowIcon, { backgroundColor: '#66BB6A' + '22' }]}>
-                    <Ionicons name="volume-high" size={16} color="#66BB6A" />
-                  </View>
-                  <View style={s.sliderContent}>
-                    <View style={s.sliderHeaderRow}>
-                      <Text style={[s.rowLabel, { color: theme.textPrimary }]}>Voice Speed</Text>
-                      <View style={[s.valuePill, { backgroundColor: theme.accent + '22' }]}>
-                        <Text style={[s.valuePillText, { color: theme.accent }]}>
-                          {getVoiceSpeedLabel(voiceSpeedValue)}
-                        </Text>
-                      </View>
+                <View style={s.accessibilityRow}>
+                  <View style={s.accessibilityLabelRow}>
+                    <View style={[s.rowIcon, { backgroundColor: '#66BB6A' + '22' }]}>
+                      <Ionicons name="volume-high" size={16} color="#66BB6A" />
                     </View>
-                    <TouchSlider
-                      value={voiceSpeedValue}
-                      min={0.5}
-                      max={2.0}
-                      step={0.1}
-                      onValueChange={(value) => {
-                        voiceSpeedDragRef.current = value;
-                        setVoiceSpeedValue(value);
-                      }}
-                      onSlidingStart={() => setScrollEnabled(false)}
-                      onSlidingComplete={() => {
-                        setScrollEnabled(true);
-                        handleAccessibilityChange('voiceSpeed', voiceSpeedDragRef.current);
-                      }}
-                      levelLabels={['Slow', 'Normal', 'Fast']}
-                      unit="x"
-                      accessibilityLabel="Voice speed slider"
-                    />
+                    <Text style={[s.accessibilityTitle, { color: theme.textPrimary }]}>Voice Speed</Text>
                   </View>
+                  <LevelSelector
+                    levels={VOICE_SPEED_LEVELS}
+                    selectedValue={voiceSpeedValue}
+                    onSelect={(value) => {
+                      setVoiceSpeedValue(value);
+                      handleAccessibilityChange('voiceSpeed', value);
+                    }}
+                    accentColor={theme.accent}
+                  />
                 </View>
 
                 <View style={[s.divider, { backgroundColor: theme.cardBorder }]} />
@@ -1325,30 +1340,18 @@ const s = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // ── Slider rows ──
-  sliderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  // ── Accessibility rows (pill selectors) ──
+  accessibilityRow: {
     paddingHorizontal: 14,
     paddingVertical: 14,
-    gap: 12,
   },
-  sliderContent: {
-    flex: 1,
-  },
-  sliderHeaderRow: {
+  accessibilityLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+    gap: 10,
   },
-  valuePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  valuePillText: {
-    fontSize: 12,
+  accessibilityTitle: {
+    fontSize: 15,
     fontWeight: '600',
   },
 
