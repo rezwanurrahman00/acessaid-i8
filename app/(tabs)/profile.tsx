@@ -254,7 +254,7 @@ export default function ProfileTab() {
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            style={[styles.button, styles.signOutButton, { borderColor: ui.danger }]}
+            style={[styles.button, styles.signOutButton, { borderColor: ui.danger, backgroundColor: "transparent" }]}
             onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); handleSignOut(); }}
             accessibilityRole="button"
             accessibilityLabel="Sign out of AccessAid"
