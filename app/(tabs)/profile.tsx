@@ -192,7 +192,7 @@ export default function ProfileTab() {
         <ThemedView style={[styles.infoSection, { backgroundColor: ui.cardBg }]}>
           {[
             ["Name", editedName, setEditedName, "Enter your name", user.name],
-            ["Email", user.email],
+            ["Email", user.email, undefined, undefined, user.email],
             ["Age", editedAge, setEditedAge, "Enter your age", user.age],
             ["Height", editedHeight, setEditedHeight, "e.g., 173cm", user.height],
             ["Weight", editedWeight, setEditedWeight, "e.g., 70kg", user.weight],
