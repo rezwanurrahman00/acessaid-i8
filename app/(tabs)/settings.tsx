@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   View,
   Text,
@@ -45,7 +46,7 @@ const FONT_PRESETS = [
 ];
 
 export default function SettingsScreen() {
-  const { ui, scale } = useAccessibilitySettings();
+  const { ui, scale, highContrast } = useAccessibilitySettings();
   const { isDark, setDarkMode } = useAppTheme();
   const [settings, setSettings] = useState<UserSetting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,10 +191,15 @@ export default function SettingsScreen() {
     <ScrollView style={[styles.container, { backgroundColor: ui.bg }]} showsVerticalScrollIndicator={false}>
 
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: isDark ? "#1E1B4B" : "#4F46E5" }]}>
+      <LinearGradient
+        colors={highContrast ? ["#000", "#000"] : ["#0F0C29", "#4F46E5"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
         <Text style={styles.headerTitle}>Settings</Text>
         <Text style={styles.headerSub}>Customize your AccessAid experience</Text>
-      </View>
+      </LinearGradient>
 
       <View style={styles.body}>
 
@@ -401,12 +407,12 @@ const styles = StyleSheet.create({
   loading: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     paddingTop: 56,
-    paddingBottom: 28,
+    paddingBottom: 24,
     paddingHorizontal: 22,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  headerTitle: { color: "#fff", fontSize: 30, fontWeight: "800", marginBottom: 4 },
+  headerTitle: { color: "#FFF", fontSize: 30, fontWeight: "800", letterSpacing: 0.3, marginBottom: 4 },
   headerSub: { color: "rgba(255,255,255,0.7)", fontSize: 14 },
   body: { paddingHorizontal: 18, paddingTop: 22, paddingBottom: 48 },
   card: {

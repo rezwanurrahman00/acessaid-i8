@@ -2,6 +2,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { speakIfEnabled } from "@/services/ttsService";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccessibilitySettings } from "@/hooks/useAccessibilitySettings";
 import { supabase } from "@/lib/supabase";
@@ -46,7 +47,7 @@ interface Reminder {
 
 export default function RemindersScreen() {
   const { user } = useAuth();
-  const { ui, scale } = useAccessibilitySettings();
+  const { ui, scale, highContrast } = useAccessibilitySettings();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -304,12 +305,15 @@ export default function RemindersScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
-      <ThemedView style={[styles.header, { backgroundColor: ui.headerReminders }]}>
-        <ThemedText style={[styles.title, { fontSize: scale(28) }]}>Smart Reminders</ThemedText>
-        <ThemedText style={[styles.subtitle, { fontSize: scale(16) }]}>
-          Manage your daily tasks
-        </ThemedText>
-      </ThemedView>
+      <LinearGradient
+        colors={highContrast ? ["#000", "#000"] : ["#0F0C29", "#4F46E5"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <Text style={[styles.headerTitle, { fontSize: scale(28) }]}>Smart Reminders</Text>
+        <Text style={[styles.headerSub, { fontSize: scale(14) }]}>Manage your daily tasks</Text>
+      </LinearGradient>
 
       <ThemedView style={styles.addButtonContainer}>
         <TouchableOpacity
@@ -477,13 +481,14 @@ export default function RemindersScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    padding: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    alignItems: "center",
+    paddingTop: 56,
+    paddingBottom: 24,
+    paddingHorizontal: 22,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  title: { fontWeight: "bold", color: "#fff" },
-  subtitle: { color: "#e8f8e8" },
+  headerTitle: { color: "#FFF", fontWeight: "800", letterSpacing: 0.3 },
+  headerSub: { color: "rgba(255,255,255,0.7)", marginTop: 4 },
   addButtonContainer: { margin: 20 },
   addButton: {
     padding: 15,

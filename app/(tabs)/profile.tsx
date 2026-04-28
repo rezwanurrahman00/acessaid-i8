@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   View,
   Text,
@@ -22,7 +23,7 @@ import SocialSection from "@/components/social/SocialSection";
 export default function ProfileTab() {
   const { user, signOut, updateUser } = useAuth();
   const router = useRouter();
-  const { ui, scale } = useAccessibilitySettings();
+  const { ui, scale, highContrast } = useAccessibilitySettings();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || "");
   const [editedAge, setEditedAge] = useState(user?.age || "");
@@ -145,12 +146,17 @@ export default function ProfileTab() {
       <ThemedView style={styles.content}>
 
         {/* Header */}
-        <ThemedView style={[styles.header, { backgroundColor: ui.headerProfile }]}>
+        <LinearGradient
+          colors={highContrast ? ["#000", "#000"] : ["#0F0C29", "#4F46E5"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
           <ThemedText style={[styles.title, { color: "#FFFFFF", fontSize: scale(32) }]}>Profile</ThemedText>
-          <ThemedText style={[styles.subtitle, { color: "#E8F4FD", fontSize: scale(16) }]}>
+          <ThemedText style={[styles.subtitle, { color: "rgba(255,255,255,0.7)", fontSize: scale(16) }]}>
             Manage your personal information
           </ThemedText>
-        </ThemedView>
+        </LinearGradient>
 
         {/* Profile Picture */}
         <ThemedView style={styles.profileSection}>
@@ -260,14 +266,15 @@ const styles = StyleSheet.create({
   content: { padding: 24 },
   header: {
     alignItems: "center",
-    paddingVertical: 30,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingTop: 56,
+    paddingBottom: 24,
+    paddingHorizontal: 22,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
     marginBottom: 20,
   },
-  title: { fontSize: 32, fontWeight: "bold", marginBottom: 5, textAlign: "center" },
-  subtitle: { marginBottom: 5, textAlign: "center" },
+  title: { fontSize: 32, fontWeight: "800", letterSpacing: 0.3, marginBottom: 4, textAlign: "center" },
+  subtitle: { marginBottom: 4, textAlign: "center" },
   profileSection: { alignItems: "center", marginBottom: 32 },
   imageContainer: { position: "relative" },
   profileImage: { width: 120, height: 120, borderRadius: 60 },
