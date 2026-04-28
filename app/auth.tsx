@@ -64,9 +64,7 @@ export default function AuthScreen() {
 
   // Watch for user changes and navigate when user is set
   useEffect(() => {
-    console.log('AuthScreen - user changed:', user);
     if (user) {
-      console.log('User is set, navigating to main app...');
       router.replace('/(tabs)');
     }
   }, [user, router]);
@@ -664,11 +662,11 @@ export default function AuthScreen() {
                 </LinearGradient>
               </Animated.View>
               
-              <Text style={styles.title}>
+              <Text style={styles.title} numberOfLines={1}>
                 {isSignUp ? 'Create Account' : 'Welcome Back'}
               </Text>
               
-              <Text style={styles.subtitle}>
+              <Text style={styles.subtitle} numberOfLines={2}>
                 {isSignUp ? 'Sign up to get started with AccessAid' : 'Sign in to your AccessAid account'}
               </Text>
             </View>
@@ -869,6 +867,7 @@ export default function AuthScreen() {
                       returnKeyType="next"
                       autoCapitalize="none"
                       autoCorrect={false}
+                      textContentType="emailAddress"
                       accessibilityLabel="Email input field"
                       accessibilityHint="Enter your email address"
                     />
@@ -916,6 +915,8 @@ export default function AuthScreen() {
                       placeholder="Enter your PIN or password"
                       placeholderTextColor="rgba(255,255,255,0.6)"
                       secureTextEntry
+                      textContentType="password"
+                      returnKeyType="done"
                       keyboardType="default"
                       accessibilityLabel="PIN or password input field"
                       accessibilityHint="Enter your PIN or password, minimum 4 characters"
@@ -936,6 +937,7 @@ export default function AuthScreen() {
                     style={[styles.authButton, isLoading && styles.authButtonDisabled]}
                     onPress={handleAuth}
                     disabled={isLoading}
+                    activeOpacity={0.8}
                   >
                     <LinearGradient
                       colors={isLoading ? ['#999', '#666'] : ['#667eea', '#764ba2']}
@@ -962,6 +964,7 @@ export default function AuthScreen() {
                   <TouchableOpacity
                     style={styles.toggleButton}
                     onPress={toggleMode}
+                    activeOpacity={0.7}
                   >
                     <Text style={styles.toggleText}>
                       {isSignUp 
