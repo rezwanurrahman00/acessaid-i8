@@ -83,6 +83,7 @@ export default function RemindersScreen() {
       const { data, error } = await supabase
         .from('reminders')
         .select('*')
+        .eq('user_id', user?.id)
         .order('reminder_datetime', { ascending: true });
 
       if (error) throw error;
