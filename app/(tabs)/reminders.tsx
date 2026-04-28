@@ -373,7 +373,7 @@ export default function RemindersScreen() {
           />
           <TextInput
             style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText }]}
-            placeholder="Time (HH:MM)"
+            placeholder="Time (e.g. 09:30)"
             placeholderTextColor={ui.subtext}
             accessibilityLabel="Reminder time in HH colon MM format"
             value={newReminder.time}
