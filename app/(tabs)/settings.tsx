@@ -325,6 +325,7 @@ export default function SettingsScreen() {
               step={1}
               tapToSeek
               value={fontSize}
+              accessibilityLabel="Font size slider"
               onValueChange={(val) => setFontSize(val)}
               onSlidingComplete={(val) => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
