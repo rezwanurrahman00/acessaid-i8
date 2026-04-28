@@ -161,14 +161,6 @@ class ApiService {
     return await response.json();
   }
 
-  async getUsers(): Promise<User[]> {
-    return tryFetch(`${this.baseUrl}/users`, {}, [mockUser]);
-  }
-
-  async getUser(userId: number): Promise<User> {
-    return tryFetch(`${this.baseUrl}/users/${userId}`, {}, mockUser);
-  }
-
   async getUserReminders(userId: number): Promise<Reminder[]> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);

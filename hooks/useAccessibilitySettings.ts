@@ -51,9 +51,6 @@ export function useAccessibilitySettings() {
     inputBg:           "#FFFFFF",
     inputBorder:       "#DDDDDD",
     inputText:         "#333333",
-    headerHome:        "#4A90E2",
-    headerReminders:   "#32CD32",
-    headerSettings:    "#6C7B7F",
     headerProfile:     "#4A90E2",
   };
 
@@ -78,9 +75,6 @@ export function useAccessibilitySettings() {
     inputBg:           "#111827",
     inputBorder:       "#334155",
     inputText:         "#F1F5F9",
-    headerHome:        "#1E3A5F",
-    headerReminders:   "#14532D",
-    headerSettings:    "#1F2937",
     headerProfile:     "#1E3A5F",
   };
 
@@ -105,9 +99,6 @@ export function useAccessibilitySettings() {
     inputBg:           "#111111",
     inputBorder:       "#FFFFFF",
     inputText:         "#FFFFFF",
-    headerHome:        "#000000",
-    headerReminders:   "#000000",
-    headerSettings:    "#000000",
     headerProfile:     "#000000",
   };
 

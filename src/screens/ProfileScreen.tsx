@@ -1222,26 +1222,11 @@ const s = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 24,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-  },
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  editBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
 
   // ── Edit Profile prominent button ──
