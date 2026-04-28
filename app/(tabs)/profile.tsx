@@ -173,7 +173,7 @@ export default function ProfileTab() {
             accessibilityHint="Opens photo library to change your profile picture"
           >
             {user.profilePicture ? (
-              <Image source={{ uri: user.profilePicture }} style={styles.profileImage} />
+              <Image source={{ uri: user.profilePicture }} style={styles.profileImage} accessibilityLabel="Profile picture" />
             ) : (
               <View style={[styles.placeholderImage, { backgroundColor: ui.headerProfile }]}>
                 <Text style={[styles.placeholderText, { fontSize: scale(48) }]}>{user.name.charAt(0).toUpperCase()}</Text>
