@@ -169,22 +169,6 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Stats strip */}
-          <View style={styles.statsRow}>
-            {[
-              { icon: "🔊", label: "TTS" },
-              { icon: "📅", label: "Reminders" },
-              { icon: "🎤", label: "Voice" },
-              { icon: "♿", label: "Access" },
-            ].map((item) => (
-              <View key={item.label} style={styles.statPill}>
-                <Text style={styles.statIcon}>{item.icon}</Text>
-                <Text style={[styles.statLabel, { fontSize: s(11) }]}>
-                  {item.label}
-                </Text>
-              </View>
-            ))}
-          </View>
         </LinearGradient>
 
         <View style={styles.body}>
@@ -503,21 +487,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   logo: { width: 44, height: 44, borderRadius: 10 },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  statPill: {
-    flex: 1,
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 12,
-    paddingVertical: 8,
-    marginHorizontal: 3,
-  },
-  statIcon: { fontSize: 18, marginBottom: 2 },
-  statLabel: { color: "rgba(255,255,255,0.85)", fontWeight: "600" },
-
   body: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 48 },
 
   section: {
