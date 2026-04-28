@@ -147,7 +147,7 @@ export default function ProfileTab() {
   return (
     <GestureDetector gesture={swipeHandlers}>
     <View style={{ flex: 1, backgroundColor: ui.bg }}>
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <ThemedView style={styles.content}>
 
         {/* Header */}
@@ -209,6 +209,8 @@ export default function ProfileTab() {
                   placeholder={placeholder || ""}
                   placeholderTextColor={ui.subtext}
                   accessibilityLabel={String(label)}
+                  autoCorrect={false}
+                  autoCapitalize={label === "Name" ? "words" : "none"}
                   onFocus={() => speakIfEnabled(`${label} field active`)}
                 />
               ) : (
