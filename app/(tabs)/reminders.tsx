@@ -459,7 +459,7 @@ export default function RemindersScreen() {
                 </ThemedText>
               ) : null}
 
-              <ThemedText style={[styles.reminderTime, { color: ui.subtext, fontSize: scale(13) }]}>
+              <ThemedText style={[styles.reminderTime, { color: ui.subtext, fontSize: scale(13) }]} numberOfLines={1}>
                 {new Date(reminder.reminder_datetime).toLocaleString([], {
                   month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                 })}
