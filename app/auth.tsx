@@ -458,6 +458,8 @@ export default function AuthScreen() {
     setName('');
     setEmail('');
     setPassword('');
+    setVoiceCommand('');
+    setSpeechText('');
   };
 
   const toggleMode = () => {
