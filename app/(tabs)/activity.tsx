@@ -309,7 +309,7 @@ export default function ActivityScreen() {
           Activity Log
         </Text>
         {log.length > 0 && (
-          <TouchableOpacity onPress={handleClear}>
+          <TouchableOpacity onPress={handleClear} accessibilityRole="button" accessibilityLabel="Clear activity log">
             <Text style={[styles.clearBtn, { fontSize: scale(14) }]}>Clear</Text>
           </TouchableOpacity>
         )}
