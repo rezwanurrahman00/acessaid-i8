@@ -119,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUser = async (updates: Partial<User>) => {
     if (!user) return;
     try {
-      await supabase
+      const { error } = await supabase
         .from('profiles')
         .update({
           name: updates.name,
@@ -131,9 +131,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           food_allergy: updates.foodAllergy,
         })
         .eq('id', user.id);
+      if (error) throw error;
       setUser({ ...user, ...updates });
     } catch (error) {
       console.error('Error updating user:', error);
+      throw error;
     }
   };
 
