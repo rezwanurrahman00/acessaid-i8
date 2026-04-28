@@ -391,6 +391,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: "#EF4444", marginBottom: 0 }]}
+            accessibilityRole="button"
             onPress={resetToDefaults}
           >
             <Text style={styles.actionBtnText}>🔄  Reset to Defaults</Text>
