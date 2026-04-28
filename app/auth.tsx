@@ -360,13 +360,13 @@ export default function AuthScreen() {
   // Simulate speech recognition (replace with real service)
   const simulateSpeechRecognition = () => {
     const commonPhrases = [
-      "my email is alanpandey06@gmail.com and my password is password123",
-      "email alanpandey06@gmail.com password password123",
-      "alanpandey06@gmail.com password123",
-      "my email alanpandey06@gmail.com password password123",
-      "email is alanpandey06@gmail.com password is password123"
+      "my email is user@example.com and my password is mypassword",
+      "email user@example.com password mypassword",
+      "user@example.com mypassword",
+      "my email user@example.com password mypassword",
+      "email is user@example.com password is mypassword"
     ];
-    
+
     return commonPhrases[Math.floor(Math.random() * commonPhrases.length)];
   };
 
