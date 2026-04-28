@@ -119,17 +119,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUser = async (updates: Partial<User>) => {
     if (!user) return;
     try {
+      const payload: Record<string, any> = {};
+      if (updates.name !== undefined)         payload.name = updates.name;
+      if (updates.profilePicture !== undefined) payload.profile_picture = updates.profilePicture;
+      if (updates.age !== undefined)          payload.age = updates.age;
+      if (updates.height !== undefined)       payload.height = updates.height;
+      if (updates.weight !== undefined)       payload.weight = updates.weight;
+      if (updates.bloodGroup !== undefined)   payload.blood_group = updates.bloodGroup;
+      if (updates.foodAllergy !== undefined)  payload.food_allergy = updates.foodAllergy;
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          name: updates.name,
-          profile_picture: updates.profilePicture,
-          age: updates.age,
-          height: updates.height,
-          weight: updates.weight,
-          blood_group: updates.bloodGroup,
-          food_allergy: updates.foodAllergy,
-        })
+        .update(payload)
         .eq('id', user.id);
       if (error) throw error;
       setUser({ ...user, ...updates });
