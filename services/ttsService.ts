@@ -18,11 +18,11 @@ let cachedTalkEnabled: boolean | null = null;
  */
 export const speakIfEnabled = async (text: string) => {
   try {
-    const talkEnabled =
-      cachedTalkEnabled ??
-      ((await AsyncStorage.getItem("talkEnabled")) === "true");
+    if (cachedTalkEnabled === null) {
+      cachedTalkEnabled = (await AsyncStorage.getItem("talkEnabled")) === "true";
+    }
 
-    if (!talkEnabled) return;
+    if (!cachedTalkEnabled) return;
 
     // Stop any overlapping speech
     const currentlySpeaking = await Speech.isSpeakingAsync();
