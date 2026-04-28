@@ -176,7 +176,7 @@ export default function ProfileTab() {
               <Image source={{ uri: user.profilePicture }} style={styles.profileImage} accessibilityLabel="Profile picture" />
             ) : (
               <View style={[styles.placeholderImage, { backgroundColor: ui.headerProfile }]}>
-                <Text style={[styles.placeholderText, { fontSize: scale(48) }]}>{user.name.charAt(0).toUpperCase()}</Text>
+                <Text style={[styles.placeholderText, { fontSize: scale(48) }]} accessibilityElementsHidden>{user.name.charAt(0).toUpperCase()}</Text>
               </View>
             )}
             <View style={[styles.editIcon, { backgroundColor: ui.accent }]}>
