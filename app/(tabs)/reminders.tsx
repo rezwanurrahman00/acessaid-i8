@@ -129,15 +129,15 @@ export default function RemindersScreen() {
     description: string,
     time: string,
     options?: { closeForm?: boolean }
-  ) => {
+  ): Promise<boolean> => {
     if (!title || !time) {
       Alert.alert("Missing info", "Please fill in title and time");
-      return;
+      return false;
     }
 
     if (!user) {
       Alert.alert("Not signed in", "Please sign in to add reminders.");
-      return;
+      return false;
     }
 
     const today = new Date();
@@ -160,7 +160,7 @@ export default function RemindersScreen() {
     if (error) {
       console.error('Failed to create reminder:', error);
       Alert.alert('Error', 'Failed to create reminder. Please try again.');
-      return;
+      return false;
     }
 
     setReminders(prev => [...prev, data]);
