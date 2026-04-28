@@ -334,6 +334,7 @@ export default function SettingsScreen() {
               minimumTrackTintColor={ui.accent}
               maximumTrackTintColor={isDark ? "#333" : "#E5E7EB"}
               thumbTintColor={ui.accent}
+              minimumTrackTintColor={ui.accent}
             />
             <View style={styles.sliderRange}>
               <Text style={[styles.sliderRangeText, { color: ui.subtext }]}>A</Text>
