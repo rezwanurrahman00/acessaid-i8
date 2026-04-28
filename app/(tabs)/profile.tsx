@@ -214,7 +214,7 @@ export default function ProfileTab() {
                   onFocus={() => speakIfEnabled(`${label} field active`)}
                 />
               ) : (
-                <ThemedText style={[styles.value, { color: ui.text, fontSize: scale(16) }]}>
+                <ThemedText selectable style={[styles.value, { color: ui.text, fontSize: scale(16) }]}>
                   {displayValue || "Not provided"}
                 </ThemedText>
               )}
