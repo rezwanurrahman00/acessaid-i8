@@ -11,7 +11,6 @@ import {
   Modal,
   StatusBar,
 } from "react-native";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Speech from "expo-speech";
@@ -149,25 +148,15 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.header}
         >
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={[styles.headerGreeting, { fontSize: s(13) }]}>
-                {greeting.emoji} {greeting.text}{user?.name ? `, ${user.name}` : ""}
-              </Text>
-              <Text style={[styles.headerTitle, { fontSize: s(30) }]}>
-                AccessAid
-              </Text>
-              <Text style={[styles.headerSub, { fontSize: s(13) }]}>
-                Your Accessibility Assistant
-              </Text>
-            </View>
-            <View style={styles.logoWrap}>
-              <Image
-                source={require("@/assets/images/partial-react-logo.png")}
-                style={styles.logo}
-              />
-            </View>
-          </View>
+          <Text style={[styles.headerGreeting, { fontSize: s(13) }]}>
+            {greeting.emoji} {greeting.text}{user?.name ? `, ${user.name}` : ""}
+          </Text>
+          <Text style={[styles.headerTitle, { fontSize: s(30) }]}>
+            AccessAid
+          </Text>
+          <Text style={[styles.headerSub, { fontSize: s(13) }]}>
+            Your Accessibility Assistant
+          </Text>
 
         </LinearGradient>
 
@@ -469,24 +458,9 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
   headerGreeting: { color: "rgba(255,255,255,0.7)", marginBottom: 2 },
   headerTitle: { color: "#FFF", fontWeight: "800", letterSpacing: 0.3 },
   headerSub: { color: "rgba(255,255,255,0.6)", marginTop: 2 },
-  logoWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logo: { width: 44, height: 44, borderRadius: 10 },
   body: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 48 },
 
   section: {
