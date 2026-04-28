@@ -323,6 +323,7 @@ export default function SettingsScreen() {
               minimumValue={12}
               maximumValue={26}
               step={1}
+              tapToSeek
               value={fontSize}
               onValueChange={(val) => setFontSize(val)}
               onSlidingComplete={(val) => {
