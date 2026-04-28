@@ -60,7 +60,6 @@ export default function HomeScreen() {
     sub: highContrast ? "#CCC" : "#6B7280",
     divider: highContrast ? "#333" : "#E5E7EB",
     accent: "#4F46E5",
-    blue: "#4F46E5",
     purple: "#7C3AED",
     green: "#059669",
     amber: "#D97706",
@@ -152,7 +151,7 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.header}
         >
-          <Text style={[styles.headerGreeting, { fontSize: s(13) }]}>
+          <Text style={[styles.headerGreeting, { fontSize: s(13) }]} numberOfLines={1} ellipsizeMode="tail">
             {greeting.emoji} {greeting.text}{user?.name ? `, ${user.name}` : ""}
           </Text>
           <Text style={[styles.headerTitle, { fontSize: s(30) }]}>
@@ -174,7 +173,7 @@ export default function HomeScreen() {
                 <Text style={[styles.quoteBadgeText, { color: C.accent }]}>Daily Quote</Text>
               </View>
             </View>
-            <Text style={[styles.quoteText, { color: C.text, fontSize: s(15) }]}>
+            <Text style={[styles.quoteText, { color: C.text, fontSize: s(15) }]} numberOfLines={4} ellipsizeMode="tail">
               {quote.text}
             </Text>
             <Text style={[styles.quoteAuthor, { color: C.sub, fontSize: s(12) }]}>
@@ -207,6 +206,8 @@ export default function HomeScreen() {
                   { backgroundColor: isSpeaking ? C.red : "rgba(255,255,255,0.25)" },
                 ]}
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); speakText(welcomeMsg); }}
+                accessibilityLabel={isSpeaking ? "Stop speaking" : "Play welcome message"}
+                accessibilityRole="button"
               >
                 <Text style={[styles.bigCardBtnText, { fontSize: s(14) }]}>
                   {isSpeaking ? "⏹ Stop" : "▶ Play"}
@@ -309,7 +310,7 @@ export default function HomeScreen() {
                   setAccessibilitySetting("highContrast", v);
                   speakIfEnabled(v ? "High contrast on" : "High contrast off");
                 }}
-                trackColor={{ false: C.divider, true: C.blue }}
+                trackColor={{ false: C.divider, true: C.accent }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -337,7 +338,7 @@ export default function HomeScreen() {
                   setAccessibilitySetting("largeText", v);
                   speakIfEnabled(v ? "Large text on" : "Large text off");
                 }}
-                trackColor={{ false: C.divider, true: C.blue }}
+                trackColor={{ false: C.divider, true: C.accent }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -358,7 +359,7 @@ export default function HomeScreen() {
                 </View>
               </View>
               <TouchableOpacity
-                style={[styles.adjustBtn, { backgroundColor: C.blue }]}
+                style={[styles.adjustBtn, { backgroundColor: C.accent }]}
                 onPress={() => {
                   const next = speechRate >= 2.0 ? 0.5 : Number((speechRate + 0.5).toFixed(1));
                   setSpeechRate(next);
@@ -429,6 +430,7 @@ export default function HomeScreen() {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
+              autoCorrect={false}
             />
             <View style={styles.modalRow}>
               <TouchableOpacity
@@ -438,7 +440,7 @@ export default function HomeScreen() {
                 <Text style={[styles.modalBtnTxt, { color: C.text, fontSize: s(14) }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: C.blue }]}
+                style={[styles.modalBtn, { backgroundColor: C.accent }]}
                 onPress={handleCustomTTS}
               >
                 <Text style={[styles.modalBtnTxt, { color: "#FFF", fontSize: s(14) }]}>🔊 Speak</Text>
