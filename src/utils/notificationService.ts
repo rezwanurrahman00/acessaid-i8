@@ -55,6 +55,10 @@ export const cancelForReminder = async (reminderId: string): Promise<void> => {
 export const scheduleForReminder = async (rem: NotifReminder): Promise<void> => {
   if (Platform.OS === 'web') return;
 
+   // Guard: check notification permission before scheduling
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return;
+
   // Cancel any existing notifications for this reminder first
   await cancelForReminder(rem.id);
 
