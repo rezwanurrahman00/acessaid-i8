@@ -176,7 +176,7 @@ export default function HomeScreen() {
             <Text style={[styles.quoteText, { color: C.text, fontSize: s(15) }]} numberOfLines={4} ellipsizeMode="tail">
               {quote.text}
             </Text>
-            <Text style={[styles.quoteAuthor, { color: C.sub, fontSize: s(12) }]}>
+            <Text style={[styles.quoteAuthor, { color: C.sub, fontSize: s(12) }]} numberOfLines={1}>
               — {quote.author}
             </Text>
           </View>
