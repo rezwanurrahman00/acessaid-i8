@@ -169,6 +169,7 @@ export default function RemindersScreen() {
       setIsAddingReminder(false);
     }
     speakIfEnabled(`Reminder added: ${title} at ${time}`);
+    return true;
   };
 
   const addReminder = async () => {
