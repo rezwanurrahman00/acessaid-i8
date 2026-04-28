@@ -135,6 +135,7 @@ export default function HomeScreen() {
       return;
     }
     speakText(customText);
+    setCustomText("");
     setShowTTSModal(false);
   };
 
