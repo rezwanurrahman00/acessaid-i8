@@ -157,7 +157,7 @@ export default function HomeScreen() {
           <Text style={[styles.headerTitle, { fontSize: s(30) }]}>
             AccessAid
           </Text>
-          <Text style={[styles.headerSub, { fontSize: s(13) }]}>
+          <Text style={[styles.headerSub, { fontSize: s(13) }]} numberOfLines={1}>
             Your Accessibility Assistant
           </Text>
 
