@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
+import { GestureDetector } from 'react-native-gesture-handler';
 import {
   View,
   Text,
@@ -47,6 +49,7 @@ const FONT_PRESETS = [
 
 export default function SettingsScreen() {
   const { ui, scale, highContrast } = useAccessibilitySettings();
+  const swipeHandlers = useSwipeNavigation(2);
   const { isDark, setDarkMode } = useAppTheme();
   const [settings, setSettings] = useState<UserSetting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,7 +191,9 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: ui.bg }]} showsVerticalScrollIndicator={false}>
+    <GestureDetector gesture={swipeHandlers}>
+    <View style={{ flex: 1, backgroundColor: ui.bg }}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
       {/* Header */}
       <LinearGradient
@@ -399,6 +404,8 @@ export default function SettingsScreen() {
 
       </View>
     </ScrollView>
+    </View>
+    </GestureDetector>
   );
 }
 

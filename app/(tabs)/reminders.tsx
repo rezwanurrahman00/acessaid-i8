@@ -5,6 +5,8 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccessibilitySettings } from "@/hooks/useAccessibilitySettings";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
+import { GestureDetector } from 'react-native-gesture-handler';
 import { supabase } from "@/lib/supabase";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -48,6 +50,7 @@ interface Reminder {
 export default function RemindersScreen() {
   const { user } = useAuth();
   const { ui, scale, highContrast } = useAccessibilitySettings();
+  const swipeHandlers = useSwipeNavigation(1);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -304,7 +307,9 @@ export default function RemindersScreen() {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
+    <GestureDetector gesture={swipeHandlers}>
+    <View style={{ flex: 1, backgroundColor: ui.bg }}>
+    <ScrollView style={styles.container}>
       <LinearGradient
         colors={highContrast ? ["#000", "#000"] : ["#0F0C29", "#4F46E5"]}
         start={{ x: 0, y: 0 }}
@@ -475,6 +480,8 @@ export default function RemindersScreen() {
         </View>
       )}
     </ScrollView>
+    </View>
+    </GestureDetector>
   );
 }
 

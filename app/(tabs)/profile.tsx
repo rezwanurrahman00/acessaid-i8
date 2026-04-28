@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
+import { GestureDetector } from 'react-native-gesture-handler';
 import {
   View,
   Text,
@@ -24,6 +26,7 @@ export default function ProfileTab() {
   const { user, signOut, updateUser } = useAuth();
   const router = useRouter();
   const { ui, scale, highContrast } = useAccessibilitySettings();
+  const swipeHandlers = useSwipeNavigation(3);
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || "");
   const [editedAge, setEditedAge] = useState(user?.age || "");
@@ -142,7 +145,9 @@ export default function ProfileTab() {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: ui.bg }]}>
+    <GestureDetector gesture={swipeHandlers}>
+    <View style={{ flex: 1, backgroundColor: ui.bg }}>
+    <ScrollView style={styles.container}>
       <ThemedView style={styles.content}>
 
         {/* Header */}
@@ -258,6 +263,8 @@ export default function ProfileTab() {
 
       </ThemedView>
     </ScrollView>
+    </View>
+    </GestureDetector>
   );
 }
 

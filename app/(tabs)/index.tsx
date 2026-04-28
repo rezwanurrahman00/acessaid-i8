@@ -1,4 +1,6 @@
 import { useState, useCallback } from "react";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
+import { GestureDetector } from 'react-native-gesture-handler';
 import {
   Alert,
   ScrollView,
@@ -32,6 +34,7 @@ export default function HomeScreen() {
   const [customText, setCustomText] = useState("");
   const router = useRouter();
   const { user } = useAuth();
+  const swipeHandlers = useSwipeNavigation(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -137,6 +140,7 @@ export default function HomeScreen() {
   };
 
   return (
+    <GestureDetector gesture={swipeHandlers}>
     <View style={[styles.root, { backgroundColor: C.bg }]}>
       <StatusBar barStyle="light-content" />
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -444,6 +448,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
     </View>
+    </GestureDetector>
   );
 }
 
