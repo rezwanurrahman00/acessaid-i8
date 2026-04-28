@@ -263,7 +263,9 @@ const SOSButton: React.FC = () => {
                     }
                     triggerSOS();
                   }}
+                  accessibilityRole="button"                                            
                   accessibilityLabel="Call emergency services now"
+                  accessibilityHint="Immediately dials your emergency contact"          
                 >
                   <Text style={styles.callButtonText}>Call Now</Text>
                 </TouchableOpacity>
