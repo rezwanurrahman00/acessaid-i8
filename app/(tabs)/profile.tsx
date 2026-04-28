@@ -158,7 +158,7 @@ export default function ProfileTab() {
           style={styles.header}
         >
           <ThemedText style={[styles.title, { color: "#FFFFFF", fontSize: scale(32) }]}>Profile</ThemedText>
-          <ThemedText style={[styles.subtitle, { color: "rgba(255,255,255,0.7)", fontSize: scale(16) }]}>
+          <ThemedText style={[styles.subtitle, { color: "rgba(255,255,255,0.7)", fontSize: scale(16) }]} numberOfLines={1}>
             Manage your personal information
           </ThemedText>
         </LinearGradient>
