@@ -965,6 +965,7 @@ export default function AuthScreen() {
                     style={styles.toggleButton}
                     onPress={toggleMode}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
                   >
                     <Text style={styles.toggleText}>
                       {isSignUp 
