@@ -352,7 +352,7 @@ export default function RemindersScreen() {
         <ThemedView style={[styles.formContainer, { backgroundColor: ui.cardBg }]}>
           <TextInput
             style={[styles.input, { backgroundColor: ui.inputBg, borderColor: ui.inputBorder, color: ui.inputText }]}
-            placeholder="Title"
+            placeholder="Reminder title"
             placeholderTextColor={ui.subtext}
             accessibilityLabel="Reminder title"
             value={newReminder.title}
