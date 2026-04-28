@@ -449,7 +449,7 @@ export default function RemindersScreen() {
                     },
                   ]}
                 >
-                  <Text style={styles.priorityText}>{reminder.priority}</Text>
+                  <Text style={styles.priorityText} numberOfLines={1}>{reminder.priority}</Text>
                 </View>
               </View>
 
