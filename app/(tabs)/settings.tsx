@@ -381,6 +381,7 @@ export default function SettingsScreen() {
         <SectionCard title="Quick Actions" icon="⚡">
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: ui.accent }]}
+            accessibilityRole="button"
             onPress={() =>
               localSettings.voice_navigation
                 ? speakIfEnabled("Testing voice with current settings.")
