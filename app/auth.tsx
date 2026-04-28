@@ -866,6 +866,7 @@ export default function AuthScreen() {
                       placeholder="Enter your email address"
                       placeholderTextColor="rgba(255,255,255,0.6)"
                       keyboardType="email-address"
+                      returnKeyType="next"
                       autoCapitalize="none"
                       autoCorrect={false}
                       accessibilityLabel="Email input field"
