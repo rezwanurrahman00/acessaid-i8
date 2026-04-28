@@ -190,9 +190,13 @@ const SOSButton: React.FC = () => {
   return (
     <>
       <Animated.View
-        style={[styles.buttonContainer, { transform: pan.getTranslateTransform() }]}
-        {...panResponder.panHandlers}
-      >
+  style={[styles.buttonContainer, { transform: pan.getTranslateTransform() }]}
+  {...panResponder.panHandlers}
+  accessible                                                           
+  accessibilityRole="button"                                           
+  accessibilityLabel="SOS emergency button"                          
+  accessibilityHint="Press and hold to trigger emergency call. Drag to reposition."  
+>
         <View style={styles.button}>
           <Text style={styles.buttonLabel}>SOS</Text>
         </View>
@@ -243,7 +247,9 @@ const SOSButton: React.FC = () => {
                 <TouchableOpacity
                   style={styles.cancelButton}
                   onPress={cancelSOS}
+                  accessibilityRole="button"                                            
                   accessibilityLabel="Cancel emergency call"
+                  accessibilityHint="Dismisses the SOS dialog and stops the countdown"  
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
