@@ -168,7 +168,7 @@ export default function HomeScreen() {
           {/* ─── DAILY QUOTE ─── */}
           <View style={[styles.quoteCard, { backgroundColor: C.card }]}>
             <View style={styles.quoteTopRow}>
-              <Text style={styles.quoteDecor}>"</Text>
+              <Text style={styles.quoteDecor} importantForAccessibility="no-hide-descendants">"</Text>
               <View style={[styles.quoteBadge, { backgroundColor: highContrast ? "#333" : "#EEF2FF" }]}>
                 <Text style={[styles.quoteBadgeText, { color: C.accent }]}>Daily Quote</Text>
               </View>
