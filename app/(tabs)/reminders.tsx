@@ -454,7 +454,7 @@ export default function RemindersScreen() {
               </View>
 
               {reminder.description ? (
-                <ThemedText style={[styles.reminderDescription, { color: ui.subtext, fontSize: scale(14) }]}>
+                <ThemedText style={[styles.reminderDescription, { color: ui.subtext, fontSize: scale(14) }]} numberOfLines={2}>
                   {reminder.description}
                 </ThemedText>
               ) : null}
