@@ -1654,7 +1654,6 @@ const ReminderScreen: React.FC = () => {
         .from('reminders')
         .update({
           is_completed: newCompletedStatus,
-          is_active: !newCompletedStatus,
         })
         .eq('id', id);
 
