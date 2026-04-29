@@ -1423,7 +1423,7 @@ const ReminderScreen: React.FC = () => {
         const updated: Reminder = {
           ...existingReminder,
           title: title.trim(),
-          description: description.trim() || undefined,
+          description: description.trim() || null,
           datetime: date,
           category,
           priority,
@@ -1444,7 +1444,7 @@ const ReminderScreen: React.FC = () => {
       const idToUpdate = editingReminderId!;
       const updateData = {
         title: title.trim(),
-        description: description.trim() || undefined,
+        description: description.trim() || null,
         reminder_datetime: date.toISOString(),
         frequency: recurrence,
         priority: priority,
@@ -1470,7 +1470,7 @@ const ReminderScreen: React.FC = () => {
     const newReminder: Reminder = {
       id: reminderId,
       title: title.trim(),
-      description: description.trim() || undefined,
+      description: description.trim() || null,
       datetime: date,
       isCompleted: false,
       createdAt: new Date(),
@@ -1491,7 +1491,7 @@ const ReminderScreen: React.FC = () => {
     const createData = {
       id: reminderId, // Include the generated UUID
       title: title.trim(),
-      description: description.trim() || undefined,
+      description: description.trim() || null,
       reminder_datetime: date.toISOString(),
       frequency: recurrence,
       priority: priority,
