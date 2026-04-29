@@ -348,6 +348,7 @@ const MedicationTrackerScreen = ({ navigation }: { navigation: any }) => {
           ) : (
             meds.map((med) => {
               const taken   = isTaken(med.id);
+              const takenAt = logFor(med.id)?.taken_at ?? null;
               const saving  = savingId === med.id;
               return (
                 <View
@@ -382,11 +383,11 @@ const MedicationTrackerScreen = ({ navigation }: { navigation: any }) => {
                       </TouchableOpacity>
                     </View>
 
-                    {taken && (
+                    {takenAt && (
                       <View style={s.takenRow}>
                         <Ionicons name="checkmark-circle" size={14} color="#10b981" />
                         <Text style={[s.takenText, { color: '#10b981' }]}>
-                          Taken at {new Date(logFor(med.id)!.taken_at!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          Taken at {new Date(takenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </Text>
                       </View>
                     )}
