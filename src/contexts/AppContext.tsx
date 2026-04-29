@@ -272,7 +272,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             isCompleted: r.is_completed,
             isActive: !r.is_completed,
             createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-            updatedAt: new Date(),
+            updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
             category: 'personal',
             priority: r.priority?.toLowerCase() || 'medium',
             recurrence: r.frequency?.toLowerCase() || 'once',
