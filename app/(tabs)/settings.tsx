@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
@@ -68,19 +68,14 @@ export default function SettingsScreen() {
     reminder_sound: true,
   });
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiService.getUserSettings(currentUserId);
       setSettings(data);
       const map: Record<string, string> = {};
-      data.forEach((s) => (map[s.setting_name] = s.setting_value));
+      data.forEach((s: UserSetting) => (map[s.setting_name] = s.setting_value));
       const merged: LocalSettings = {
-        ...localSettings,
         voice_speed: parseFloat(map.voice_speed ?? "1") || 1.0,
         high_contrast: (map.high_contrast ?? "false") === "true",
         large_text: (map.large_text ?? "false") === "true",
@@ -99,7 +94,11 @@ export default function SettingsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   const updateSetting = async (settingName: keyof LocalSettings, value: any) => {
     if (typeof value === "boolean") {
@@ -110,7 +109,8 @@ export default function SettingsScreen() {
     setLocalSettings((prev) => ({ ...prev, [settingName]: value }));
     try {
       await apiService.updateUserSetting(currentUserId, settingName, String(value));
-    } catch {
+    } catch (e) {
+      console.warn("updateSetting: failed to persist", settingName, e);
     }
     if (settingName === "voice_navigation") {
       await setTalkingPreference(Boolean(value));
@@ -122,9 +122,9 @@ export default function SettingsScreen() {
     await speakIfEnabled(`Setting updated: ${String(settingName)} is now ${String(value)}`);
   };
 
-  const adjustVoiceSpeed = () => {
+  const adjustVoiceSpeed = async () => {
     const next = localSettings.voice_speed >= 2.0 ? 0.5 : Number((localSettings.voice_speed + 0.5).toFixed(1));
-    updateSetting("voice_speed", next);
+    await updateSetting("voice_speed", next);
   };
 
   const toggleSetting = (name: keyof LocalSettings, current: boolean) => updateSetting(name, !current);
@@ -147,10 +147,16 @@ export default function SettingsScreen() {
             preferred_voice: "default", push_notifications: true,
             email_notifications: true, reminder_sound: true,
           };
-          for (const [k, v] of Object.entries(defaults)) {
-            await updateSetting(k as keyof LocalSettings, v);
-          }
+          // Single state update — avoids 9 re-renders and 9 speech utterances
+          setLocalSettings(defaults);
           setFontSize(16);
+          // Persist each key to API in the background without triggering speech per-key
+          for (const [k, v] of Object.entries(defaults)) {
+            apiService.updateUserSetting(currentUserId, k, String(v)).catch((e: unknown) =>
+              console.warn("resetToDefaults: failed to persist", k, e)
+            );
+          }
+          await setTalkingPreference(defaults.voice_navigation);
           await speakIfEnabled("Settings reset to default values.");
         },
       },
