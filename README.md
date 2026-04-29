@@ -1,29 +1,29 @@
-# AccessAid ♿
+# AccessAid
 
 AccessAid is a React Native accessibility app built for persons with disabilities. It combines voice control, camera OCR, smart reminders, and an adaptive UI to make everyday tasks easier — all built to WCAG 2.2 AA standards.
 
 ---
 
-## ✨ Features
+## Features
 
 | Feature | Description |
 |---|---|
-| 🔐 **Auth** | Email + 4-digit PIN sign-up/sign-in via Supabase Auth |
-| ⏰ **Smart Reminders** | Full CRUD with categories, priorities, recurrence, real-time push notifications, and offline sync |
-| 📸 **Camera OCR** | Capture or upload images/PDFs and extract text using OCR.space API |
-| 🎤 **Voice Commands** | Keyword-based voice command system with NLP reminder creation |
-| 🎙️ **Voice Input** | Speak into any text field instead of typing (dev build only) |
-| 🔊 **TTS** | Full Text-to-Speech with adjustable speed and global toggle |
-| ♿ **Accessibility** | Dynamic text zoom, brightness control, improved dark mode, haptic feedback, screen reader support |
-| 🌐 **Community (Go Public)** | Opt-in public profile with disability tags, discover other users, send/receive connection requests, and real-time chat |
-| 👋 **Onboarding** | 5-slide animated walkthrough shown once after sign-up, introducing every key feature |
-| 🤖 **AI Health Assistant** | Groq/Llama-powered chat assistant for health, medication, and disability rights questions |
-| 💚 **Daily Check-Ins** | Log mood, pain, and energy daily; data stored in Supabase for health history |
-| 🗺️ **Accessible Places** | Find wheelchair-friendly restaurants, hospitals, pharmacies and more within 8 km — free, no API key |
+| **Auth** | Email + 4-digit PIN sign-up/sign-in via Supabase Auth |
+| **Smart Reminders** | Full CRUD with categories, priorities, recurrence, real-time push notifications, and offline sync |
+| **Camera OCR** | Capture or upload images/PDFs and extract text using OCR.space API |
+| **Voice Commands** | Keyword-based voice command system with NLP reminder creation |
+| **Voice Input** | Speak into any text field instead of typing (dev build only) |
+| **TTS** | Full Text-to-Speech with adjustable speed and global toggle |
+| **Accessibility** | Dynamic text zoom, brightness control, improved dark mode, haptic feedback, screen reader support |
+| **Community (Go Public)** | Opt-in public profile with disability tags, discover other users, send/receive connection requests, and real-time chat |
+| **Onboarding** | 5-slide animated walkthrough shown once after sign-up, introducing every key feature |
+| **AI Health Assistant** | Groq/Llama-powered chat assistant for health, medication, and disability rights questions |
+| **Daily Check-Ins** | Log mood, pain, and energy daily; data stored in Supabase for health history |
+| **Accessible Places** | Find wheelchair-friendly restaurants, hospitals, pharmacies and more within 8 km — free, no API key |
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -38,7 +38,7 @@ AccessAid is a React Native accessibility app built for persons with disabilitie
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Node.js v18+
@@ -90,16 +90,16 @@ npx expo run:ios
 
 | Feature | Expo Go | Dev Build |
 |---|---|---|
-| Auth, reminders, profile | ✅ | ✅ |
-| Push notifications | ✅ | ✅ |
-| TTS / voice announcements | ✅ | ✅ |
-| Voice commands | ✅ | ✅ |
-| **Voice input (mic → text)** | ❌ | ✅ |
-| **Camera OCR** | ❌ | ✅ |
+| Auth, reminders, profile | Yes | Yes |
+| Push notifications | Yes | Yes |
+| TTS / voice announcements | Yes | Yes |
+| Voice commands | Yes | Yes |
+| **Voice input (mic → text)** | No | Yes |
+| **Camera OCR** | No | Yes |
 
 ---
 
-## 🗄 Setting Up Your Own Supabase
+## Setting Up Your Own Supabase
 
 If you want a fully independent instance instead of using the shared project:
 
@@ -142,7 +142,7 @@ CREATE POLICY "Users manage own profile" ON profiles
 
 ---
 
-## 🔌 APIs
+## APIs
 
 ### OCR.space
 
@@ -168,7 +168,7 @@ CREATE POLICY "Users manage own profile" ON profiles
 
 ---
 
-## 🗂 Legacy Backend (Reference Only)
+## Legacy Backend (Reference Only)
 
 The `backend/` folder contains the original Python/FastAPI server built during Sprint 2. It is **no longer called by the app** — the frontend migrated fully to Supabase. The code is kept in the repo for reference and grading purposes.
 
@@ -221,7 +221,7 @@ API docs are available at `http://localhost:8000/docs` once running.
 
 ---
 
-## 👥 Project Info
+## Project Info
 
 **Project**: AccessAid – I-8
 **Team**: Code Innovators
@@ -242,50 +242,50 @@ API docs are available at `http://localhost:8000/docs` once running.
 
 ---
 
-## 📅 Sprint Overview
+## Sprint Overview
 
 ### Sprint 0: Planning & Setup
-- ✅ Define target disability group
-- ✅ Competitive scan (existing tools)
-- ✅ Select MVP features (2–3)
-- ✅ Wireframes & accessibility spec (WCAG 2.2)
-- ✅ Architecture diagram & tech stack decision
-- ✅ Repo + CI boilerplate
-- ✅ Trello board and working agreements
+- Define target disability group
+- Competitive scan (existing tools)
+- Select MVP features (2–3)
+- Wireframes & accessibility spec (WCAG 2.2)
+- Architecture diagram & tech stack decision
+- Repo + CI boilerplate
+- Trello board and working agreements
 
-### Sprint 1: Basic App Setup ✅
+### Sprint 1: Basic App Setup
 
 **Goal**: Establish the foundation and basic structure of the application.
 
 **Completed**:
-- ✅ Project initialization with Expo and React Native
-- ✅ TypeScript configuration and setup
-- ✅ Basic folder structure and file organization
-- ✅ Navigation setup (Expo Router with Stack and Tab navigation)
-- ✅ Basic UI components and styling foundation
-- ✅ Environment configuration
-- ✅ Development environment setup
+- Project initialization with Expo and React Native
+- TypeScript configuration and setup
+- Basic folder structure and file organization
+- Navigation setup (Expo Router with Stack and Tab navigation)
+- Basic UI components and styling foundation
+- Environment configuration
+- Development environment setup
 
-### Sprint 2: Core Features Implementation ✅
+### Sprint 2: Core Features Implementation
 
 **Goal**: Implement core functionality and accessibility features.
 
 **Completed**:
 
-#### 🔐 Authentication & User Management
+#### Authentication & User Management
 - Sign In/Sign Up with email and password authentication
 - User profiles with photo picker and editable preferences
 - Per-user data isolation with AsyncStorage persistence
 - Secure logout functionality
 
-#### 🎤 Voice Features
+#### Voice Features
 - Full voice command system with keyword recognition
 - Text-to-Speech (TTS) with adjustable speed (0.5x-2.0x)
 - Voice input for text entry
 - Voice feedback for all actions
 - Centralized voice command manager
 
-#### 📱 Core Features
+#### Core Features
 - Home screen with TTS input and camera OCR reader
 - Camera OCR integration for text extraction from images
 - **Advanced reminder system** with:
@@ -300,7 +300,7 @@ API docs are available at `http://localhost:8000/docs` once running.
 - Settings screen for app configuration
 - Profile screen for user information management
 
-#### ⚙️ Accessibility Features
+#### Accessibility Features
 - Live screen brightness control (0-100%)
 - Dynamic text zoom (80%-180%)
 - Adjustable voice speed for TTS
@@ -308,13 +308,13 @@ API docs are available at `http://localhost:8000/docs` once running.
 - Haptic feedback for interactions
 - Full screen reader support with accessibility labels
 
-#### 🎨 UI/UX Improvements
+#### UI/UX Improvements
 - Modern design with gradient backgrounds and animations
 - Reusable UI components (ModernButton, ModernCard, etc.)
 - Responsive layout for different screen sizes
 - High contrast styling for accessibility
 
-#### 🔧 Backend & API
+#### Backend & API
 - FastAPI backend with RESTful API endpoints
 - SQLite database with SQLAlchemy ORM
 - Complete database models (User, Reminder, Task, Notification, TTSHistory, UserSettings)
@@ -323,24 +323,24 @@ API docs are available at `http://localhost:8000/docs` once running.
 
 ---
 
-### Sprint 3: Major Feature Implementations ✅
+### Sprint 3: Major Feature Implementations
 
 **Goal**: Implement advanced accessibility features including enhanced camera OCR with safety checks, comprehensive speech-to-text capabilities, and global voice announcement controls for improved user experience.
 
 **Completed**:
 
-#### 📸 Camera Reader Module (OCR + TTS)
+#### Camera Reader Module (OCR + TTS)
 - Enhanced camera integration for capturing text from photos
 - OCR text extraction and display in large, readable font
 - Safety checks for low-light and blurry images with "Retake Photo" prompts
 - Seamless integration with Text-to-Speech system
 
-#### 🎙️ Speech-to-Text (Voice Input)
+#### Speech-to-Text (Voice Input)
 - Comprehensive voice input capabilities across the application
 - Users can speak instead of typing for reminders, form fields, and general input
 - Enhanced accessibility for users with motor challenges or keyboard difficulties
 
-#### 🔊 Voice Announcement Toggle (Global TTS Switch)
+#### Voice Announcement Toggle (Global TTS Switch)
 - Centralized control for all Text-to-Speech features
 - Toggle voice announcements for screen titles, button labels, and OCR-extracted text
 - Smart audio management to prevent conflicts between STT and TTS
@@ -348,29 +348,30 @@ API docs are available at `http://localhost:8000/docs` once running.
 
 ---
 
-### Sprint 4: Camera Reader & Reminder Integration ✅
+### Sprint 4: Camera Reader & Reminder Integration
 
 **Goal**: Polish the Camera Reader UI and enable seamless conversion of OCR-extracted text into reminders.
 
 **Completed**:
 
-#### 📸 Camera Reader UI Redesign
+#### Camera Reader UI Redesign
 - Redesigned Camera Reader layout with improved spacing, contrast, and button styling
 - Enhanced visual hierarchy for capture, upload, and file import actions
 - Cleaner extracted text display area with better readability
 
-#### 📝 Extracted Text to Reminder
+#### Extracted Text to Reminder
 - Added the ability to directly create a reminder from OCR-extracted text
 - Users can scan or upload a document and instantly convert the extracted text into a new reminder
 - Streamlined workflow from text extraction to reminder creation without manual copy-paste
 
 ---
 
-### Sprint 5: Community Feature & Dark Mode Polish ✅
+### Sprint 5: Community Feature & Dark Mode Polish
 
 **Goal**: Add an opt-in social layer so users can connect with others who share similar accessibility needs, allowing them to chat, share tips, advice, and personal experiences. This feature would help users learn from each other, offer support, and build a small community within the app.
 
 Additionally, polish dark mode across the full app so that every screen, button, and menu is visually comfortable and accessible, providing a consistent experience for users who prefer dark mode.
+
 **Completed**:
 
 #### Database Migration — Legacy to Supabase
@@ -380,7 +381,7 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - Three new tables were added to support the community feature: `social_profiles` (public profile and disability tags), `connections` (connection requests and accepted connections), and `messages` (chat history between connected users)
 - Supabase Realtime was enabled on the `messages` and `connections` tables so chat messages and connection updates are pushed to the app instantly without polling
 
-#### 🌐 Community — Go Public Profile
+#### Community — Go Public Profile
 - New **Community** section at the bottom of the Profile tab
 - **Go Public toggle** — users opt-in to make their profile visible in the community
 - **Disability tags** — users select tags (e.g. Visual, Hearing, Motor, Cognitive) to describe their needs
@@ -389,13 +390,13 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - **Real-time Chat** — message any accepted connection via Supabase Realtime subscriptions
 - All community data stored in `social_profiles`, `connections`, and `messages` Supabase tables with RLS
 
-#### 🌙 Dark Mode Improvements
+#### Dark Mode Improvements
 - Consistent dark theme applied across all tabs and modals
 - Color tokens in `constants/theme.ts` refined for better contrast in dark mode
 - All community components (Discover, Connections, Chat modals) fully support light and dark themes
 - Accessibility settings (brightness, text zoom) continue to work correctly alongside dark mode
 
-#### 🔴 SOS Button
+#### SOS Button
 - Floating SOS button rendered on top of all screens, always accessible regardless of current tab
 - Draggable — users can reposition the button anywhere on screen; position is saved via AsyncStorage and restored on next launch
 - Tapping the button opens a confirmation modal with a 3-second auto-countdown before placing the call
@@ -408,13 +409,14 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - Emergency contact details are pulled from the user profile (name, phone, relationship)
 
 ---
-### Sprint 6: Onboarding Experience & AI Assistant ✅
+
+### Sprint 6: Onboarding Experience & AI Assistant
 
 **Goal**: Introduce new users to the app with a polished onboarding walkthrough, add a dedicated AI health assistant powered by Groq/Llama, and improve daily check-in tracking.
 
 **Completed**:
 
-#### 👋 Onboarding Walkthrough
+#### Onboarding Walkthrough
 - Added 5-slide onboarding screen shown once after first sign-up
 - Each slide introduces a key feature: Welcome, Smart Reminders, AI Assistant, Daily Check-Ins, Community
 - Slide 1 includes a feature icon strip (Reminders, AI Chat, Check-ins, Community) for a quick overview
@@ -424,7 +426,7 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - Dispatches `COMPLETE_ONBOARDING` action on finish; state persisted in AsyncStorage so it only shows once
 - Navigation flow updated: Login → Onboarding → Accessibility Setup → Main App
 
-#### 🤖 AI Health Assistant Tab
+#### AI Health Assistant Tab
 - New dedicated **Assistant** tab powered by Groq REST API (`llama-3.3-70b-versatile`)
 - ChatGPT-style UI: user bubbles on the right, AI responses on the left with no background bubble
 - Animated 3-dot typing indicator while the AI is generating a response
@@ -432,25 +434,25 @@ Additionally, polish dark mode across the full app so that every screen, button,
 - Voice command support: say "clear chat" or "new chat" to reset the conversation
 - System prompt tailored specifically for health, medication, and disability rights questions
 
-#### 💚 Daily Check-In Screen
+#### Daily Check-In Screen
 - Standalone Check-In tab for logging daily mood, pain level, and energy
 - Data stored in Supabase `check_ins` table with full RLS
 - Voice command: say "save check in" to submit the form hands-free
 
-#### 🗺️ Accessible Places
+#### Accessible Places
 - New **Accessible Places** screen accessible from the Home tab via a feature card
 - Interactive map showing the user's current location with colour-coded pins:
-  - 🟢 Green = fully wheelchair accessible
-  - 🟡 Yellow = limited accessibility
-  - ⚫ Grey = accessibility status unknown
-- **5 category filters**: ♿ All, 🍽️ Food, 🏥 Hospitals, 💊 Pharmacy, 🚻 Toilets
-- Food category covers 12 amenity types: restaurant, café, fast food, bar, pub, food court, ice cream, canteen, juice bar, BBQ, beer garden
+  - Green = fully wheelchair accessible
+  - Yellow = limited accessibility
+  - Grey = accessibility status unknown
+- **5 category filters**: All, Food, Hospitals, Pharmacy, Toilets
+- Food category covers 12 amenity types: restaurant, cafe, fast food, bar, pub, food court, ice cream, canteen, juice bar, BBQ, beer garden
 - Results sorted by distance, each card shows name, type, address, wheelchair badge, and distance
 - **Navigate button** on every card — opens directions in Apple Maps (iOS) or Google Maps (Android)
 - **15-minute cache** so repeat visits and category switches load instantly
 - Search radius of **8 km** for wide coverage
 
-#### 🐛 Bug Fixes
+#### Bug Fixes
 
 | # | Issue | Fix |
 |---|-------|-----|
@@ -462,7 +464,28 @@ Additionally, polish dark mode across the full app so that every screen, button,
 
 ---
 
-## 📜 Scripts
+### Sprint 7: Bug Fixes & UI Polish
+
+**Goal**: Fix data integrity bugs across reminders and profiles, tighten voice input validation, and clean up UI labels.
+
+**Completed**:
+
+#### Bug Fixes
+- Fixed reminder descriptions never clearing in Supabase (`undefined` → `null`)
+- Fixed reminder `updatedAt` always being set to load time instead of actual DB value
+- Fixed voice email input accepting addresses with no `@`
+- Fixed profile "updated successfully" feedback firing even when the save failed
+- Fixed reminder toggle always failing Supabase sync due to a non-existent `is_active` column
+- Fixed redundant session call causing profile to load twice on startup
+- Fixed `updateUser` nulling existing profile fields by only sending defined values
+- Fixed reminder form clearing even when the save failed
+
+#### UI
+- Renamed "Generate Doctor Report" to "Generate Check In Report" in Health Dashboard
+
+---
+
+## Scripts
 
 ```bash
 npm start              # Start Expo dev server (Expo Go — limited features)
