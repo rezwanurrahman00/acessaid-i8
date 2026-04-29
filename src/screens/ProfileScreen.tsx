@@ -546,13 +546,14 @@ const ProfileScreen = () => {
         emergency_contact_relationship: profileData.emergencyContactRelationship.trim(),
         emergency_contact_phone: profileData.emergencyContactPhone.trim(),
       });
-    } catch {
-      console.warn('Failed to sync profile to Supabase');
-    } finally {
-      setIsSaving(false);
       setIsEditingPersonal(false);
       speakText('Profile updated successfully');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert('Save Failed', 'Could not save your profile. Please try again.');
+      speakText('Failed to save profile. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
