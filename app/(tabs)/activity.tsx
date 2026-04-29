@@ -31,7 +31,7 @@ function relativeTime(ts: number): string {
   if (mins < 1)   return 'Just now';
   if (mins < 60)  return `${mins} min ago`;
   if (hours < 24) return `${hours}h ago`;
-  if (days === 1) return 'Yesterday';
+  if (days < 2) return 'Yesterday';
   return `${days} days ago`;
 }
 
