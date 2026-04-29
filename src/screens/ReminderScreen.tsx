@@ -134,6 +134,7 @@ const ReminderScreen: React.FC = () => {
   const spokenCooldownRef = useRef<Record<string, number>>({});
   const [alertReminder, setAlertReminder] = useState<Reminder | null>(null);
   const speakIntervalRef = useRef<any>(null);
+  const voiceEditCleanupRef = useRef<(() => void) | null>(null);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [sendingTest, setSendingTest] = useState(false);
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
@@ -309,6 +310,10 @@ const ReminderScreen: React.FC = () => {
 
     if (!ExpoSpeechRecognitionModule) return;
 
+    // Kill any listeners from a previous call before registering new ones
+    voiceEditCleanupRef.current?.();
+    voiceEditCleanupRef.current = null;
+
     try {
       let cleaned = false;
       let resultListener: any;
@@ -319,8 +324,10 @@ const ReminderScreen: React.FC = () => {
           cleaned = true;
           resultListener?.remove();
           endListener?.remove();
+          voiceEditCleanupRef.current = null;
         }
       };
+      voiceEditCleanupRef.current = cleanup;
 
       resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
         if (event.isFinal) {
@@ -461,13 +468,20 @@ const ReminderScreen: React.FC = () => {
 
     try {
       // Set up listener for reminder selection
-      const resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
+      let ciCleaned = false;
+      let resultListener: any;
+      let endListener: any;
+      const ciCleanup = () => {
+        if (!ciCleaned) { ciCleaned = true; resultListener?.remove(); endListener?.remove(); }
+      };
+      resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
         if (event.isFinal) {
           const transcript = event.results?.[0]?.transcript || '';
-          resultListener.remove();
+          ciCleanup();
           handleVoiceEditReminderSelection(transcript);
         }
       });
+      endListener = ExpoSpeechRecognitionModule.addListener('end', () => { ciCleanup(); });
 
       // Add delay to ensure microphone is ready
       setTimeout(() => {
@@ -1197,7 +1211,13 @@ const ReminderScreen: React.FC = () => {
       speakText(`Speak ${field} now`);
 
       // Set up one-time listener for the result
-      const resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
+      let fCleaned = false;
+      let resultListener: any;
+      let endListener: any;
+      const fCleanup = () => {
+        if (!fCleaned) { fCleaned = true; resultListener?.remove(); endListener?.remove(); }
+      };
+      resultListener = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
         const transcript = event.results?.[0]?.transcript;
         const isFinal = event.isFinal;
 
@@ -1210,10 +1230,13 @@ const ReminderScreen: React.FC = () => {
           speakText(`${field} set to: ${transcript}`);
           setIsVoiceInputMode(false);
           setVoiceField(null);
-
-          // Remove the listener
-          resultListener.remove();
+          fCleanup();
         }
+      });
+      endListener = ExpoSpeechRecognitionModule.addListener('end', () => {
+        fCleanup();
+        setIsVoiceInputMode(false);
+        setVoiceField(null);
       });
 
       // Add a small delay to ensure microphone is ready before starting recognition
