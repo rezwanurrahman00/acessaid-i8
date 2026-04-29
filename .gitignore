@@ -42,3 +42,10 @@ backend/.env
 # generated native folders
 /ios
 /android
+__pycache__/
+*.py[cod]
+*.pyo
+*.db
+*.sqlite
+*.sqlite3
+.vscode/
