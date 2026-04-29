@@ -135,6 +135,7 @@ const ReminderScreen: React.FC = () => {
   const [alertReminder, setAlertReminder] = useState<Reminder | null>(null);
   const speakIntervalRef = useRef<any>(null);
   const voiceEditCleanupRef = useRef<(() => void) | null>(null);
+  const isMountedRef = useRef(true);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [sendingTest, setSendingTest] = useState(false);
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
@@ -253,7 +254,7 @@ const ReminderScreen: React.FC = () => {
           await supabase.from('reminders').delete().eq('id', rem.id);
         } catch {
           await addToQueue({ type: 'delete', reminderId: rem.id });
-          setPendingCount(prev => prev + 1);
+          if (isMountedRef.current) setPendingCount(prev => prev + 1);
         }
       })();
     } else if (voiceConfirmAction === 'snooze') {
@@ -268,7 +269,7 @@ const ReminderScreen: React.FC = () => {
           await supabase.from('reminders').update({ reminder_datetime: newDate.toISOString() }).eq('id', rem.id);
         } catch {
           await addToQueue({ type: 'update', reminderId: rem.id, data: { reminder_datetime: newDate.toISOString() } });
-          setPendingCount(prev => prev + 1);
+          if (isMountedRef.current) setPendingCount(prev => prev + 1);
         }
       })();
     } else if (voiceConfirmAction === 'edit') {
@@ -897,6 +898,8 @@ const ReminderScreen: React.FC = () => {
       Animated.timing(slideUp, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start();
   }, []);
+
+  useEffect(() => { return () => { isMountedRef.current = false; }; }, []);
 
   // Announce active reminder count every time the screen comes into focus
   useFocusEffect(
@@ -1527,7 +1530,7 @@ const ReminderScreen: React.FC = () => {
           } catch {
             // Offline — queue the create for later sync
             await addToQueue({ type: 'create', userId, data: createData });
-            setPendingCount(prev => prev + 1);
+            if (isMountedRef.current) setPendingCount(prev => prev + 1);
           }
         }
 
