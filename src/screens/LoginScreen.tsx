@@ -235,6 +235,10 @@ const LoginScreen = () => {
       normalized = normalized.replace(/\s+at\s+/gi, '@');
       normalized = normalized.replace(/\s+dot\s+/gi, '.');
       normalized = normalized.replace(/\s+/g, '');
+      if (!normalized.includes('@')) {
+        Alert.alert('Invalid Email', 'Please say "at" to separate the address and domain.');
+        return;
+      }
       setEmail(normalized);
       speakText(`Email set to ${normalized}`);
     } else {
