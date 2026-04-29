@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NavigationProp } from '@react-navigation/native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { MainTabParamList } from '../types';
 import { navigationRef } from '../navigation/AppNavigator';
 import Constants from 'expo-constants';
@@ -11,7 +11,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,6 +31,7 @@ import { BackgroundLogo } from '../components/BackgroundLogo';
 import { ModernButton } from '../components/ModernButton';
 import { ModernCard } from '../components/ModernCard';
 import { useApp } from '../contexts/AppContext';
+import { supabase } from '../../lib/supabase';
 import { voiceManager } from '../utils/voiceCommandManager';
 import { sendImageMessage } from '../services/geminiService';
 
@@ -53,6 +54,24 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isSmallScreen = screenWidth < 375;
 const isPhone = screenWidth < 768;
 
+function computeStreak(rows: { created_at: string }[]): number {
+  if (!rows.length) return 0;
+  const sorted = [...rows].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  let count = 0;
+  let expected = new Date();
+  expected.setHours(0, 0, 0, 0);
+  for (const row of sorted) {
+    const d = new Date(row.created_at);
+    d.setHours(0, 0, 0, 0);
+    const diff = (expected.getTime() - d.getTime()) / 86400000;
+    if (diff === 0 || diff === 1) { count++; expected = d; }
+    else break;
+  }
+  return count;
+}
+
 const HomeScreen = () => {
   const { state } = useApp();
   const navigation = useNavigation<NavigationProp<MainTabParamList>>();
@@ -65,6 +84,8 @@ const HomeScreen = () => {
   // AI Reader state
   const [aiReaderText, setAiReaderText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const [streakCount, setStreakCount] = useState(0);
 
   const theme = useMemo(() => getThemeConfig(state.accessibilitySettings.isDarkMode), [state.accessibilitySettings.isDarkMode]);
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -187,6 +208,23 @@ const HomeScreen = () => {
     voiceManager.announceScreenChange('home');
     speakText(`Welcome back, ${state.user?.name || 'User'}! You can use text-to-speech. Say "help" for voice commands.`);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!state.user?.id) return;
+      (async () => {
+        try {
+          const { data } = await supabase
+            .from('check_ins')
+            .select('created_at')
+            .eq('user_id', state.user!.id)
+            .order('created_at', { ascending: false })
+            .limit(90);
+          setStreakCount(computeStreak(data ?? []));
+        } catch { /* silent — streak badge is non-critical */ }
+      })();
+    }, [state.user?.id])
+  );
 
   const speakText = (text: string) => {
     if (!text.trim()) {
@@ -641,6 +679,11 @@ const HomeScreen = () => {
             <Text style={styles.subtitleText}>
               Choose an accessibility feature below
             </Text>
+            {streakCount > 0 && (
+              <View style={styles.streakBadge} accessibilityLabel={`${streakCount} day check-in streak`}>
+                <Text style={styles.streakBadgeText}>🔥 {streakCount}-day streak</Text>
+              </View>
+            )}
           </Animated.View>
 
           {/* Daily Quote */}
@@ -997,6 +1040,19 @@ const createStyles = (theme: AppTheme) =>
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 3,
       paddingHorizontal: isSmallScreen ? 10 : 0,
+    },
+    streakBadge: {
+      marginTop: 10,
+      alignSelf: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.22)',
+      borderRadius: 20,
+      paddingHorizontal: 14,
+      paddingVertical: 5,
+    },
+    streakBadgeText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '700',
     },
     ttsContainer: {
       padding: 20,

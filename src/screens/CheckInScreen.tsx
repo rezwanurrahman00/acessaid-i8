@@ -171,7 +171,7 @@ const selectorStyles = StyleSheet.create({
   label: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
 });
 
-//  Main Screen  
+//  Main Screen
 
 const CheckInScreen = () => {
   const { state } = useApp();
@@ -192,7 +192,7 @@ const CheckInScreen = () => {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  //  TTS helper  
+  //  TTS helper
   const speak = useCallback((text: string) => {
     if (!state.voiceAnnouncementsEnabled) return;
     try { Speech.stop(); } catch {}
@@ -575,6 +575,7 @@ const histStyles = StyleSheet.create({
   pillBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   pillText:  { fontSize: 11, fontWeight: '700' },
 });
+
 
  
 

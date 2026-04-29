@@ -1099,16 +1099,16 @@ const ReminderScreen: React.FC = () => {
     setAlertReminder(null);
   };
 
-  const handleAlertNo = async () => {
+  const handleSnooze = async (minutes: number) => {
     try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (_) { }
     try { Speech.stop(); } catch { }
     if (speakIntervalRef.current) clearInterval(speakIntervalRef.current);
     if (alertReminder) {
-      // Reschedule in +5 minutes
-      const newDate = new Date(Date.now() + 5 * 60 * 1000);
+      const newDate = new Date(Date.now() + minutes * 60 * 1000);
       const updated = { ...alertReminder, datetime: newDate, hasFired: false };
       setReminders(prev => prev.map(r => r.id === alertReminder.id ? updated : r));
       await scheduleForReminder(updated);
+      speakText(`Snoozed for ${minutes} minutes.`);
     }
     setAlertReminder(null);
   };
@@ -2345,14 +2345,23 @@ const ReminderScreen: React.FC = () => {
               <Text style={[styles.preview, { marginTop: 6 }]} numberOfLines={3}>{alertReminder?.description}</Text>
             )}
             <Text style={[styles.preview, { marginTop: 6 }]}>{formatPreview(alertReminder?.datetime || new Date())}</Text>
-            <View style={styles.actionsRow}>
-              <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={handleAlertNo} accessibilityLabel="Snooze reminder for 5 minutes" accessibilityRole="button">
-                <Text style={[styles.btnText, { color: theme.textSecondary }]}>No (Remind in 5m)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={handleAlertYes} accessibilityLabel="Mark reminder as done" accessibilityRole="button">
-                <Text style={[styles.btnText, { color: theme.textInverted }]}>Yes (Done)</Text>
-              </TouchableOpacity>
+            <Text style={[styles.preview, { marginTop: 16, marginBottom: 8, fontWeight: '600' }]}>Snooze for:</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {([5, 10, 30] as const).map(min => (
+                <TouchableOpacity
+                  key={min}
+                  style={[styles.btn, styles.btnCancel]}
+                  onPress={() => handleSnooze(min)}
+                  accessibilityLabel={`Snooze reminder for ${min} minutes`}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.btnText, { color: theme.textSecondary }]}>{min} min</Text>
+                </TouchableOpacity>
+              ))}
             </View>
+            <TouchableOpacity style={[styles.btn, styles.btnPrimary, { marginTop: 12 }]} onPress={handleAlertYes} accessibilityLabel="Mark reminder as done" accessibilityRole="button">
+              <Text style={[styles.btnText, { color: theme.textInverted }]}>✅ Mark Done</Text>
+            </TouchableOpacity>
           </Animated.View>
         </View>
       </Modal>

@@ -64,7 +64,7 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
-  Reminders: { prefillDescription?: string } | undefined;
+  Reminders: { prefillDescription?: string; pendingAlertReminderId?: string } | undefined;
   CheckIn: undefined;
   Assistant: undefined;
   Profile: undefined;
