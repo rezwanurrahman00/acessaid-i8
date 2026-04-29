@@ -60,7 +60,7 @@ try {
   ExpoSpeechRecognitionModule = require('expo-speech-recognition').ExpoSpeechRecognitionModule;
 } catch (e) {}
 
-type ReminderCategory = 'personal' | 'work' | 'health' | 'finance' | 'shopping' | 'other';
+type ReminderCategory = 'medication' | 'doctor' | 'therapy' | 'exercise' | 'personal' | 'emergency';
 type ReminderPriority = 'low' | 'medium' | 'high';
 type ReminderRecurrence = 'once' | 'daily' | 'weekly' | 'monthly';
 
@@ -1740,12 +1740,15 @@ const ReminderScreen: React.FC = () => {
   };
   const getCategoryIcon = (cat?: ReminderCategory) => {
     switch (cat) {
-      case 'work': return '💼';
-      case 'health': return '❤️';
-      case 'finance': return '💰';
-      case 'shopping': return '🛒';
-      case 'personal': return '👤';
-      default: return '📌';
+            case 'medication': return '💊';
+            case 'doctor':     return '🏥';
+            case 'therapy':    return '🧠';
+            case 'exercise':   return '💪';
+            case 'personal':   return '👤';
+            case 'emergency':  return '🚨';
+            default:           return '📌';
+      
+        
     }
   };
 
@@ -2187,7 +2190,7 @@ const ReminderScreen: React.FC = () => {
                 {/* Category Selector */}
                 <Text style={styles.sectionLabel}>Category</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                  {(['personal', 'work', 'health', 'finance', 'shopping', 'other'] as ReminderCategory[]).map(cat => (
+                  {(['medication', 'doctor', 'therapy', 'exercise', 'personal', 'emergency'] as ReminderCategory[]).map(cat => (
                     <TouchableOpacity
                       key={cat}
                       style={[
