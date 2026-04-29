@@ -384,7 +384,7 @@ export default function HealthDashboardScreen() {
           <TouchableOpacity style={styles.reportBtn} onPress={generateReport}>
             <LinearGradient colors={['#4C1D95', '#7C3AED']} style={styles.reportGrad}>
               <Ionicons name="document-text-outline" size={20} color="#fff" />
-              <Text style={styles.reportText}>Generate Doctor Report</Text>
+              <Text style={styles.reportText}>Generate Check In Report</Text>
               <Ionicons name="share-outline" size={18} color="rgba(255,255,255,0.7)" />
             </LinearGradient>
           </TouchableOpacity>
